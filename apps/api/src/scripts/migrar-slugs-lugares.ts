@@ -16,6 +16,8 @@
  * Es idempotente: una ficha que ya tiene slug no se toca nunca, porque cambiarlo
  * rompería los enlaces que ya circulan.
  */
+// Antes que 'shared': sus DTOs usan decoradores que leen metadatos al cargarse.
+import 'reflect-metadata';
 import mongoose from 'mongoose';
 import { prepararEntorno } from './entorno';
 import { slugDeLugar, slugLibre } from '../core/lugares/slug.util';

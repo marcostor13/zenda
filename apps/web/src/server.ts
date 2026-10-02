@@ -16,6 +16,7 @@ import { readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { environment } from './environments/environment';
+import { destinoDeSlug, esRutaPrivada, fichaPorId, urlFichaApi } from './app/core/seo/rutas-servidor';
 
 const raizServidor = dirname(fileURLToPath(import.meta.url));
 const raizNavegador = resolve(raizServidor, '../browser');
@@ -153,6 +154,49 @@ app.get('/sitemap.xml', async (peticion, respuesta, siguiente) => {
     // Si el API no responde, mejor un 404 del sitemap que una web caída.
     siguiente();
   }
+});
+
+/**
+ * Enlaces antiguos por id (`/alojamiento/6aa45f57…`, `/explora/6a8451c2…`) →
+ * 301 a la dirección legible (`/alojamiento/reino-canino-valencia`).
+ *
+ * Se hace aquí y no en Angular porque sólo un 301 de verdad le dice a Google que
+ * la URL se ha mudado y que traspase lo ganado a la nueva; una corrección en el
+ * navegador dejaría las dos direcciones indexadas. Si el API no contesta o la
+ * ficha aún no tiene slug, se sigue renderizando por id: nunca un enlace roto.
+ */
+app.get(/^\/[a-z]+\/[0-9a-f]{24}\/?$/i, async (peticion, respuesta, siguiente) => {
+  const ficha = fichaPorId(peticion.path);
+  if (!ficha) return siguiente();
+
+  try {
+    const respuestaApi = await fetch(urlFichaApi(environment.apiUrl, ficha), {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!respuestaApi.ok) return siguiente();
+
+    const { slug } = (await respuestaApi.json()) as { slug?: string };
+    if (!slug) return siguiente();
+
+    const consulta = peticion.originalUrl.includes('?')
+      ? peticion.originalUrl.slice(peticion.originalUrl.indexOf('?'))
+      : '';
+    respuesta.setHeader('Cache-Control', 'public, max-age=86400');
+    respuesta.redirect(301, destinoDeSlug(ficha, slug, consulta));
+  } catch {
+    siguiente();
+  }
+});
+
+/**
+ * Paneles, cuenta, pasos de pago y búsquedas libres: fuera de Google. La meta
+ * `robots` la pone la aplicación, pero estas rutas se pintan en el navegador y
+ * un rastreador que no ejecuta JavaScript sólo ve la cabecera.
+ */
+app.use((peticion, respuesta, siguiente) => {
+  if (esRutaPrivada(peticion.path)) respuesta.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  siguiente();
 });
 
 /**

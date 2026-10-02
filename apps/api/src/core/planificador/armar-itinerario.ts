@@ -18,6 +18,8 @@ export interface ParadaItinerario {
   /** Presente solo en paradas reservables: alimenta «Reservar» y «Añadir al viaje». */
   servicioId?: string;
   lugarId?: string;
+  /** Dirección legible de la ficha (servicio o lugar), para enlazarla sin id. */
+  slug?: string;
   vertical?: string;
   precioEstimado?: number;
 }
@@ -37,6 +39,7 @@ export interface OpcionItinerario {
 
 export interface LugarContexto {
   _id: unknown;
+  slug?: string;
   nombre: string;
   tipo: string;
   descripcion?: string;
@@ -45,6 +48,7 @@ export interface LugarContexto {
 
 export interface ServicioContexto {
   _id: unknown;
+  slug?: string;
   titulo: string;
   descripcion?: string;
   vertical: string;
@@ -99,6 +103,7 @@ export function paradaDeLugar(lugar: LugarContexto): ParadaItinerario {
     descripcion: lugar.descripcion || `${lugar.tipo} en ${lugar.ubicacion.ciudad}`,
     tipo: 'lugar',
     lugarId: String(lugar._id),
+    slug: lugar.slug || undefined,
   };
 }
 
@@ -108,6 +113,7 @@ export function paradaDeServicio(servicio: ServicioContexto): ParadaItinerario {
     descripcion: servicio.descripcion ?? '',
     tipo: 'servicio',
     servicioId: String(servicio._id),
+    slug: servicio.slug || undefined,
     vertical: servicio.vertical,
     precioEstimado: servicio.precioBase,
   };

@@ -3,6 +3,8 @@ import { VerticalKey } from '../../enums/vertical.enum';
 /** Resumen de un servicio favorito, listo para pintar la tarjeta en el front. */
 export interface FavoritoResumenDto {
   servicioId: string;
+  /** Dirección legible de la ficha, para enlazarla sin el id. */
+  servicioSlug?: string;
   titulo: string;
   imagen: string | null;
   ciudad: string;

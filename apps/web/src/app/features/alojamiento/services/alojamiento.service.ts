@@ -64,6 +64,8 @@ export interface AlojamientoCard {
   /** Km al centro de su población («a 2,3 km del centro»); ausente sin coordenadas. */
   distanciaCentroKm?: number;
   id: string;
+  /** Dirección legible (`reino-canino-valencia`); ausente en fichas aún sin migrar. */
+  slug?: string;
   nombre: string;
   ciudad: string;
   barrio: string;
@@ -183,8 +185,12 @@ export class AlojamientoService {
     return { ...res, items: (res.items ?? []).map((c) => this.normalizarCard(c)) };
   }
 
-  async obtener(id: string): Promise<AlojamientoDetalle> {
-    const data = await firstValueFrom(this.http.get<AlojamientoDetalle>(`${this.base}/${id}`));
+  /** Ficha por slug o por id; el API resuelve las dos formas. */
+  async obtener(idOSlug: string): Promise<AlojamientoDetalle> {
+    const data = await firstValueFrom(this.http.get<AlojamientoDetalle>(
+      `${this.base}/${encodeURIComponent(idOSlug)}`,
+      { params: { vertical: VerticalKey.ALOJAMIENTO } },
+    ));
     return this.normalizarDetalle(data);
   }
 

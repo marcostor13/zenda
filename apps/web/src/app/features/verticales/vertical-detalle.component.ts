@@ -22,6 +22,7 @@ import { EurosPipe, euros } from '../../shared/pipes/euros.pipe';
 import { PanelLateralDirective } from '../../shared/directives/panel-lateral.directive';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { SeoService } from '../../core/seo/seo.service';
+import { debeIrAlSlug, irAlSlug } from '../../core/seo/url-canonica';
 import { seoFichaServicio, seoPrivada } from '../../core/seo/plantillas-seo';
 import { migasDePan, negocioLocal } from '../../core/seo/json-ld';
 import { FechaPipe } from '../../shared/pipes/fecha.pipe';
@@ -592,7 +593,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       -->
       @if (esTransporte()) {
         <div class="side-col rs-sticky-panel" rsPanelLateral>
-          <app-cotizacion-ficha [servicioId]="s.id" [titulo]="s.nombre" />
+          <app-cotizacion-ficha [servicioId]="s.id" [servicioSlug]="s.slug" [titulo]="s.nombre" />
         </div>
       } @else {
       <div class="side-col rs-sticky-panel" rsPanelLateral>
@@ -1127,14 +1128,16 @@ export class VerticalDetalleComponent implements OnInit {
 
   private async cargar(id: string): Promise<void> {
     try {
-      const data = await this.browseService.obtener(id);
+      // `id` es lo que trae la URL: el slug o, en enlaces antiguos, el id.
+      const data = await this.browseService.obtener(id, this.cfg().vertical);
       this.servicio.set(data);
       this.imagenActiva.set(data.imagenes[0] ?? '');
       this.aplicarSeo(data);
+      if (debeIrAlSlug(id, data.slug)) irAlSlug(this.router, [this.ui.route, data.slug]);
       // Visita a ficha: el paso del embudo entre buscar y reservar (TCK-8031).
-      this.eventosService.registrarVistaServicio(id, this.cfg().vertical);
+      this.eventosService.registrarVistaServicio(data.id, this.cfg().vertical);
       // En paralelo: la ficha ya está pintada y la cita llega cuando llegue.
-      void this.cargarProximaCita(id);
+      void this.cargarProximaCita(data.id);
     } catch {
       // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado".
       this.servicio.set(null);
@@ -1154,7 +1157,8 @@ export class VerticalDetalleComponent implements OnInit {
    */
   private aplicarSeo(servicio: ServicioDetalle): void {
     const origen = this.seo.origenPublico();
-    const ruta = `${this.ui.route}/${servicio.id}`;
+    // La canónica es siempre la dirección legible, se haya entrado por donde se haya entrado.
+    const ruta = `${this.ui.route}/${servicio.slug || servicio.id}`;
 
     this.seo.aplicar(seoFichaServicio({
       titulo: servicio.nombre,
@@ -1171,6 +1175,7 @@ export class VerticalDetalleComponent implements OnInit {
 
     this.seo.datosEstructurados([
       negocioLocal({
+        vertical: this.cfg().vertical,
         nombre: servicio.nombre,
         descripcion: servicio.descripcion || this.ui.descripcion,
         url: `${origen}${ruta}`,

@@ -390,7 +390,7 @@ export class ComercioListadosComponent implements OnInit {
 
   iconVertical(v: string): string { return iconoVertical(v); }
   etiquetaVertical(v: string): string { return verticalUi(v).label; }
-  enlacePublico(s: MiServicio): unknown[] { return enlaceAServicio(s.vertical, s._id); }
+  enlacePublico(s: MiServicio): unknown[] { return enlaceAServicio(s.vertical, s); }
 
   estadoBadge(estado: string): string {
     if (estado === 'publicado') return 'rs-badge--success';

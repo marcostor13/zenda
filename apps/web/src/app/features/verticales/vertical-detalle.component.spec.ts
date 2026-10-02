@@ -87,9 +87,30 @@ describe('VerticalDetalleComponent', () => {
   it('debería crear el componente y cargar el servicio por id', async () => {
     await crearComponente('transporte');
 
-    expect(browseService.obtener).toHaveBeenCalledWith('s1');
+    expect(browseService.obtener).toHaveBeenCalledWith('s1', 'transporte');
     expect(component.servicio()?.nombre).toBe('DogVan Madrid');
     expect(component.cargando()).toBe(false);
+  });
+
+  it('debería pasar a la URL legible si se entró por un enlace antiguo', async () => {
+    const navegar = jest.spyOn(Router.prototype, 'navigate').mockResolvedValue(true);
+
+    await crearComponente('transporte', servicio({}, { slug: 'dogvan-madrid' }));
+
+    expect(navegar).toHaveBeenCalledWith(
+      ['/transporte', 'dogvan-madrid'],
+      { replaceUrl: true, queryParamsHandling: 'preserve' },
+    );
+    navegar.mockRestore();
+  });
+
+  it('no debería redirigir una ficha que aún no tiene slug', async () => {
+    const navegar = jest.spyOn(Router.prototype, 'navigate').mockResolvedValue(true);
+
+    await crearComponente('transporte');
+
+    expect(navegar).not.toHaveBeenCalledWith(['/transporte', expect.anything()], expect.anything());
+    navegar.mockRestore();
   });
 
   it('debería mostrar el estado "no encontrado" si la API falla, sin inventar datos', async () => {

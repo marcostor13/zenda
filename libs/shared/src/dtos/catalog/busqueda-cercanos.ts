@@ -9,6 +9,8 @@ export const RADIO_CERCANOS_KM = 60;
 
 export interface ServicioCercanoApi {
   id: string;
+  /** Dirección legible de la ficha, si ya la tiene. */
+  slug?: string;
   nombre: string;
   ciudad: string;
   distanciaKm: number;

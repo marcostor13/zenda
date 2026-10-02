@@ -327,9 +327,9 @@ const CONFIGS: Record<string, VerticalConfig> = {
           [amenities]="serviciosDe(c)"
           [destacados]="incluyeDe(c)"
           [favoritoServicioId]="c.id"
-          [routerLink]="enlaceAServicio(cfg().vertical, c.id)"
+          [routerLink]="enlaceAServicio(cfg().vertical, c)"
           [ctaLabel]="'Reservar' | t"
-          [accionSoloEscritorio]="!!enlaceAServicio(cfg().vertical, c.id)"
+          [accionSoloEscritorio]="!!enlaceAServicio(cfg().vertical, c)"
           [mensaje]="solicitadoId() === c.id ? cfg().confirmMsg : ''"
           (ctaClick)="solicitar(c)">
         </rs-card>
@@ -397,7 +397,7 @@ export class VerticalBrowseComponent implements OnInit {
   readonly cercanos = signal<BusquedaCercanosApi | null>(null);
   readonly enlaceMasCercano = computed(() => {
     const cercanos = this.cercanos();
-    return cercanos ? enlaceAServicio(this.cfg().vertical, cercanos.masCercano.id) : null;
+    return cercanos ? enlaceAServicio(this.cfg().vertical, cercanos.masCercano) : null;
   });
   /** Población y distancia de la tarjeta, traducida («a 2,3 km del centro»). */
   subtituloDe(ciudad: string, distanciaKm?: number, distanciaCentroKm?: number): string {

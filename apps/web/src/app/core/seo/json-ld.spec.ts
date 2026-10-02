@@ -1,4 +1,24 @@
-import { lugar, migasDePan, negocioLocal, organizacion, sitioWeb } from './json-ld';
+import { lugar, migasDePan, negocioLocal, organizacion, sitioWeb, tipoDeNegocio } from './json-ld';
+
+describe('tipoDeNegocio', () => {
+  it('debería usar el subtipo de schema.org de cada categoría', () => {
+    expect(tipoDeNegocio('veterinaria')).toBe('VeterinaryCare');
+    expect(tipoDeNegocio('hoteles')).toBe('LodgingBusiness');
+    expect(tipoDeNegocio('seguros')).toBe('InsuranceAgency');
+  });
+
+  it('debería caer en LocalBusiness para el resto o sin categoría', () => {
+    expect(tipoDeNegocio('peluqueria')).toBe('LocalBusiness');
+    expect(tipoDeNegocio()).toBe('LocalBusiness');
+  });
+
+  it('debería declarar el subtipo en la ficha', () => {
+    const doc = negocioLocal({
+      vertical: 'veterinaria', nombre: 'Clínica Luna', descripcion: 'd', url: 'https://x', imagenes: [],
+    }) as Record<string, unknown>;
+    expect(doc['@type']).toBe('VeterinaryCare');
+  });
+});
 
 describe('organizacion', () => {
   it('debería declarar la marca con su logo y sus redes', () => {

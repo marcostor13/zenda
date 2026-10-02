@@ -23,6 +23,7 @@ import { PuntoUbicacion } from '../../../shared/mapas/google-maps';
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { SeoService } from '../../../core/seo/seo.service';
+import { debeIrAlSlug, irAlSlug } from '../../../core/seo/url-canonica';
 import { seoFichaServicio, seoPrivada } from '../../../core/seo/plantillas-seo';
 import { migasDePan, negocioLocal } from '../../../core/seo/json-ld';
 import { verticalUi } from '../../../shared/verticales/verticales.config';
@@ -1176,8 +1177,10 @@ export class AlojamientoDetalleComponent implements OnInit {
       this.alojamiento.set(data);
       this.imagenActiva.set(data.imagenes[0] ?? PLACEHOLDER_IMG);
       this.aplicarSeo(data);
+      // Entrada por un enlace antiguo (id): la barra pasa a la URL legible.
+      if (debeIrAlSlug(id, data.slug)) irAlSlug(this.router, ['/alojamiento', data.slug]);
       // Visita a ficha: el paso del embudo entre buscar y reservar (TCK-8031).
-      this.eventosService.registrarVistaServicio(id, VerticalKey.ALOJAMIENTO);
+      this.eventosService.registrarVistaServicio(data.id, VerticalKey.ALOJAMIENTO);
     } catch {
       // Sin mock: si no se puede cargar el servicio, se muestra "no encontrado"
       // en vez de un detalle falso que llevaría a una reserva imposible.
@@ -1197,7 +1200,8 @@ export class AlojamientoDetalleComponent implements OnInit {
    */
   private aplicarSeo(data: AlojamientoDetalle): void {
     const origen = this.seo.origenPublico();
-    const ruta = `/alojamiento/${data.id}`;
+    // La canónica es siempre la dirección legible, se haya entrado por donde se haya entrado.
+    const ruta = `/alojamiento/${data.slug || data.id}`;
     const descripcion = data.descripcion || this.ui.descripcion;
 
     this.seo.aplicar(seoFichaServicio({

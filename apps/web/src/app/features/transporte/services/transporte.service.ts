@@ -6,6 +6,7 @@ import {
 
 export interface ServicioCard {
   id: string;
+  slug?: string;
   nombre: string;
   ciudad: string;
   comercioId?: string;
@@ -37,6 +38,8 @@ export interface TransporteCard {
   /** Km al centro de su población («a 2,3 km del centro»); ausente sin coordenadas. */
   distanciaCentroKm?: number;
   id: string;
+  /** Dirección legible de la ficha; ausente en fichas aún sin migrar. */
+  slug?: string;
   nombre: string;
   ciudad: string;
   imagen: string;
@@ -86,6 +89,7 @@ export class TransporteService {
     const e = s.extra ?? {};
     return {
       id: s.id,
+      slug: s.slug,
       nombre: s.nombre,
       ciudad: s.ciudad,
       imagen: s.imagenes?.[0] ?? '',

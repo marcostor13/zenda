@@ -140,3 +140,7 @@ export * from './transporte/transporte-precio';
 
 // DTOs — Presupuestos (precio a medida cuando ninguna tarifa puede cerrarlo)
 export * from './dtos/presupuestos/presupuesto.dto';
+
+// Direcciones legibles (slugs) de las fichas públicas: las genera el API y las
+// interpreta la web, con la misma regla en los dos lados.
+export * from './slugs/slug';

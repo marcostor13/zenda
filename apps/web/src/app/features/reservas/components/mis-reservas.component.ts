@@ -11,6 +11,7 @@ import { ReviewsService } from '../services/reviews.service';
 import { PagoEnCursoService } from '../services/pago-en-curso.service';
 import { AlojamientoService } from '../../alojamiento/services/alojamiento.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { enlaceAServicio, rutaDeVertical } from '../../../shared/verticales/verticales.config';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
@@ -21,6 +22,8 @@ interface ReservaCard {
   id: string;
   codigo: string;
   servicioId: string;
+  /** Dirección legible de la ficha, si el servicio ya la tiene. */
+  servicioSlug?: string;
   verticalKey: string;
   vertical: string;
   /** Nombre de icono de `rs-icon` (Lucide) del vertical. */
@@ -514,12 +517,14 @@ export class MisReservasComponent implements OnInit {
     let titulo = (r.detalle?.['titulo'] as string) ?? meta.label;
     let imagen = (r.detalle?.['imagen'] as string) ?? alojamientoImage(0, 400);
     let ciudad = (r.detalle?.['ciudad'] as string) ?? '';
+    let servicioSlug: string | undefined;
 
     try {
       const servicio = await this.alojamientoService.obtener(r.servicioId);
       titulo = servicio.nombre;
       imagen = servicio.imagenes?.[0] ?? imagen;
       ciudad = servicio.ciudad ?? ciudad;
+      servicioSlug = servicio.slug;
     } catch {
       // Si no se puede hidratar, se usa el título/imagen de respaldo.
     }
@@ -529,6 +534,7 @@ export class MisReservasComponent implements OnInit {
       id,
       codigo: r.codigo,
       servicioId: r.servicioId,
+      servicioSlug,
       verticalKey: r.vertical,
       vertical: meta.label,
       icono: meta.icono,
@@ -584,17 +590,13 @@ export class MisReservasComponent implements OnInit {
     }
   }
 
-  /** Verticales con ficha de detalle propia (Fase 4); las demás solo tienen listado. */
-  private readonly VERTICALES_CON_FICHA = new Set<string>([
-    VerticalKey.ALOJAMIENTO, VerticalKey.TRANSPORTE, VerticalKey.ADIESTRAMIENTO, VerticalKey.HOTELES,
-  ]);
-
-  /** Ruta para "Reservar de nuevo" (HU-9.6): a la ficha si existe, si no al listado del vertical. */
-  rutaReservarDeNuevo(r: ReservaCard): string[] {
-    if (this.VERTICALES_CON_FICHA.has(r.verticalKey) && r.servicioId) {
-      return [`/${r.verticalKey}`, r.servicioId];
-    }
-    return [`/${r.verticalKey}`];
+  /**
+   * Ruta para "Reservar de nuevo" (HU-9.6): a la ficha si el vertical la tiene,
+   * si no al listado. Con la dirección legible cuando el servicio ya la tiene.
+   */
+  rutaReservarDeNuevo(r: ReservaCard): unknown[] {
+    if (!r.servicioId) return [rutaDeVertical(r.verticalKey)];
+    return enlaceAServicio(r.verticalKey, { id: r.servicioId, slug: r.servicioSlug });
   }
 
   /**

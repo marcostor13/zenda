@@ -179,6 +179,7 @@ export class TransporteCotizadorService {
   ): ResultadoTransporte {
     return {
       servicioId: empresa._id.toString(),
+      servicioSlug: empresa.slug || undefined,
       comercioId: empresa.comercioId.toString(),
       titulo: empresa.titulo,
       imagen: empresa.imagenes?.[0],

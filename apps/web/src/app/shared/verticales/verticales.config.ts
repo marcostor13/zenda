@@ -1,4 +1,4 @@
-import { VerticalKey, VERTICAL_LABELS } from 'shared';
+import { VerticalKey, VERTICAL_LABELS, claveDeFicha } from 'shared';
 import { CATEGORIA_ICONOS } from '../media/images';
 
 /**
@@ -332,13 +332,36 @@ const VERTICALES_CON_FICHA = new Set<string>([
   VerticalKey.FUNERARIOS,
 ]);
 
+/** Lo mínimo para enlazar una ficha: su id y, si ya la tiene, su dirección legible. */
+export interface FichaEnlazable {
+  readonly id?: string;
+  readonly _id?: string;
+  readonly slug?: string | null;
+}
+
 /**
  * Enlace al servicio: su ficha si el vertical tiene una, y si no el listado de
  * la categoría — nunca una ruta que no exista.
+ *
+ * Con slug sale la dirección legible (`/alojamiento/reino-canino-valencia`);
+ * con un id suelto, la antigua, que la ficha corrige sola. Pasar el objeto y no
+ * el id es lo que evita que un enlace nuevo vuelva a escribir el id a mano.
  */
-export function enlaceAServicio(vertical: string | null | undefined, servicioId: string): unknown[] {
+export function enlaceAServicio(
+  vertical: string | null | undefined,
+  servicio: string | FichaEnlazable,
+): unknown[] {
   const ruta = rutaDeVertical(vertical);
-  return vertical && VERTICALES_CON_FICHA.has(vertical) ? [ruta, servicioId] : [ruta];
+  const clave = typeof servicio === 'string' ? servicio : claveDeFicha(servicio);
+  return vertical && clave && VERTICALES_CON_FICHA.has(vertical) ? [ruta, clave] : [ruta];
+}
+
+/** Igual que {@link enlaceAServicio}, pero como texto (`/alojamiento/reino-canino`). */
+export function urlDeServicio(
+  vertical: string | null | undefined,
+  servicio: string | FichaEnlazable,
+): string {
+  return enlaceAServicio(vertical, servicio).map(String).join('/');
 }
 
 /** Titular de cabecera del vertical; cae a la etiqueta si no hay copy propio. */

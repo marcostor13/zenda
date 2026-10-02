@@ -14,8 +14,16 @@ Disallow: /perfil
 Disallow: /perros
 Disallow: /reservas
 Disallow: /favoritos
+Disallow: /presupuestos
 Disallow: /auth
 Disallow: /carrito
+
+# Pasos del viaje de transporte (datos de la mascota, pago, confirmación). La
+# página de entrada /transporte y las fichas de empresa sí se indexan.
+Disallow: /transporte/viaje/
+
+# Pantalla de espera previa al lanzamiento.
+Disallow: /proximamente
 
 # Enlaces de un solo uso que llegan por correo.
 Disallow: /valorar

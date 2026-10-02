@@ -7,6 +7,8 @@ import { environment } from '../../../environments/environment';
 /** Tarjeta genérica de servicio devuelta por el catálogo (cualquier vertical). */
 export interface ServicioCard {
   id: string;
+  /** Dirección legible (`clinica-luna-valencia`); ausente en fichas aún sin migrar. */
+  slug?: string;
   nombre: string;
   ciudad: string;
   comercioId?: string;
@@ -184,8 +186,15 @@ export class CatalogBrowseService {
     return firstValueFrom(this.http.get<FacetasCatalogo>(`${this.base}/facetas`, { params }));
   }
 
-  async obtener(id: string): Promise<ServicioDetalle> {
-    const s = await firstValueFrom(this.http.get<ServicioDetalle>(`${this.base}/${id}`));
+  /**
+   * Ficha por slug o por id. El slug es único dentro de su categoría, así que
+   * con slug hace falta decir de qué vertical es; con id basta el id.
+   */
+  async obtener(idOSlug: string, vertical?: string): Promise<ServicioDetalle> {
+    const opciones = vertical ? { params: { vertical } } : {};
+    const s = await firstValueFrom(this.http.get<ServicioDetalle>(
+      `${this.base}/${encodeURIComponent(idOSlug)}`, opciones,
+    ));
     return { ...s, extra: s.extra ?? {} };
   }
 }

@@ -241,7 +241,7 @@ export class PlanificadorService {
       .find(filtro)
       .sort({ ratingPromedio: -1 })
       .limit(MAX_LUGARES_CONTEXTO)
-      .select('nombre tipo descripcion ubicacion ratingPromedio')
+      .select('slug nombre tipo descripcion ubicacion ratingPromedio')
       .lean()
       .exec() as unknown as Promise<LugarDocument[]>;
   }
@@ -292,7 +292,7 @@ export class PlanificadorService {
     if (ordenar) consulta.sort({ destacado: -1, ratingPromedio: -1 });
     return consulta
       .limit(MAX_SERVICIOS_CONTEXTO)
-      .select('titulo descripcion vertical precioBase ubicacion')
+      .select('slug titulo descripcion vertical precioBase ubicacion')
       .lean()
       .exec() as unknown as Promise<ServicioDocument[]>;
   }
@@ -418,7 +418,7 @@ export class PlanificadorService {
         const lugar = parada.lugarId ? lugaresPorId.get(parada.lugarId) : undefined;
         if (lugar) return { ...parada, ...paradaDeLugar(lugar) };
         // Sin id reconocible se conserva como texto, sin botón de reservar.
-        return { ...parada, tipo: 'lugar', servicioId: undefined, lugarId: undefined };
+        return { ...parada, tipo: 'lugar', servicioId: undefined, lugarId: undefined, slug: undefined };
       }),
     }));
 

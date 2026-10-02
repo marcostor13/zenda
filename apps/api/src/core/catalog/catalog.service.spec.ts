@@ -10,6 +10,9 @@ import { Comercio } from '../comercios/comercio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { ServicioClinicoTipo } from 'shared';
 
+/** Un id con forma de ObjectId: lo que no la tiene se busca como slug. */
+const ID_FICHA = '6aa45f57779263b987ae2409';
+
 describe('CatalogService', () => {
   let service: CatalogService;
   let repo: jest.Mocked<CatalogRepository>;
@@ -77,6 +80,9 @@ describe('CatalogService', () => {
             actualizarCampos: jest.fn(), crear: jest.fn(), puntos: jest.fn(),
             centroDePoblacion: jest.fn().mockResolvedValue(null), buscarCercanos: jest.fn(),
             hayServiciosUbicados: jest.fn().mockResolvedValue(true),
+            obtenerPorSlug: jest.fn(), existeSlug: jest.fn().mockResolvedValue(false),
+            fijarSlug: jest.fn().mockResolvedValue(undefined),
+            obtenerPorIdYComercio: jest.fn(), actualizar: jest.fn(),
           },
         },
         {
@@ -387,14 +393,14 @@ describe('CatalogService', () => {
     });
 
     it('deberia rellenar los textos vacios en vez de dejar undefined', async () => {
-      const detalle = await service.obtenerServicio('servicio-1');
+      const detalle = await service.obtenerServicio(ID_FICHA);
 
       expect(detalle.descripcion).toBe('');
       expect(detalle.politicaCancelacion).toContain('cancelación');
     });
 
     it('deberia dar horarios de ingreso y salida por defecto', async () => {
-      const detalle = await service.obtenerServicio('servicio-1');
+      const detalle = await service.obtenerServicio(ID_FICHA);
 
       expect(detalle.checkIn).toBe('12:00');
       expect(detalle.checkOut).toBe('11:00');
@@ -402,7 +408,7 @@ describe('CatalogService', () => {
 
     it('deberia exigir vacunas por defecto y no dar por hecha ninguna otra facilidad', async () => {
       // Fallar del lado seguro: mejor pedir la cartilla de mas que de menos.
-      const detalle = await service.obtenerServicio('servicio-1');
+      const detalle = await service.obtenerServicio(ID_FICHA);
 
       expect(detalle.requisitoVacunas).toBe(true);
       expect(detalle.camaras24h).toBe(false);
@@ -413,7 +419,7 @@ describe('CatalogService', () => {
     });
 
     it('deberia devolver listas vacias, nunca undefined', async () => {
-      const detalle = await service.obtenerServicio('servicio-1');
+      const detalle = await service.obtenerServicio(ID_FICHA);
 
       expect(detalle.espacios).toEqual([]);
       expect(detalle.habitaciones).toEqual([]);
@@ -424,7 +430,7 @@ describe('CatalogService', () => {
     it('deberia devolver comercioId vacio si el listado quedo huerfano', async () => {
       repo.obtenerPorId.mockResolvedValue({ ...fichaMinima, comercioId: undefined } as never);
 
-      const detalle = await service.obtenerServicio('servicio-1');
+      const detalle = await service.obtenerServicio(ID_FICHA);
 
       expect(detalle.comercioId).toBe('');
     });
@@ -442,7 +448,7 @@ describe('CatalogService', () => {
         espacios: [{}],
       } as never);
 
-      const [espacio] = (await service.obtenerServicio('servicio-1')).espacios as Record<string, unknown>[];
+      const [espacio] = (await service.obtenerServicio(ID_FICHA)).espacios as Record<string, unknown>[];
 
       expect(espacio['id']).toBe('esp-0');
       expect(espacio['tipo']).toBe('estandar');
@@ -460,7 +466,7 @@ describe('CatalogService', () => {
         _id: 'servicio-1', titulo: 'x', vertical: 'alojamiento', comercioId: 'c1', espacios: [{}],
       } as never);
 
-      const [espacio] = (await service.obtenerServicio('servicio-1')).espacios as Record<string, unknown>[];
+      const [espacio] = (await service.obtenerServicio(ID_FICHA)).espacios as Record<string, unknown>[];
 
       expect(espacio['precioNoche']).toBe(0);
     });
@@ -471,7 +477,7 @@ describe('CatalogService', () => {
         espacios: [{ _id: 'mongo-id' }, { id: 'id-propio' }],
       } as never);
 
-      const espacios = (await service.obtenerServicio('servicio-1')).espacios as Record<string, unknown>[];
+      const espacios = (await service.obtenerServicio(ID_FICHA)).espacios as Record<string, unknown>[];
 
       expect(espacios[0]['id']).toBe('mongo-id');
       expect(espacios[1]['id']).toBe('id-propio');
@@ -484,7 +490,7 @@ describe('CatalogService', () => {
         espacios: [{}],
       } as never);
 
-      const [habitacion] = (await service.obtenerServicio('servicio-1')).habitaciones;
+      const [habitacion] = (await service.obtenerServicio(ID_FICHA)).habitaciones;
 
       expect(habitacion.tipo).toBe('estandar');
       expect(habitacion.capacidad).toBe(1);
@@ -499,7 +505,7 @@ describe('CatalogService', () => {
         habitaciones: [{ tipo: 'Suite', capacidad: 2, precio: 120 }],
       } as never);
 
-      const [habitacion] = (await service.obtenerServicio('servicio-1')).habitaciones;
+      const [habitacion] = (await service.obtenerServicio(ID_FICHA)).habitaciones;
 
       expect(habitacion.id).toBe('hab-0');
       expect(habitacion.descripcion).toBe('');
@@ -514,7 +520,7 @@ describe('CatalogService', () => {
     it('debería devolver el detalle mapeado con sus habitaciones', async () => {
       repo.obtenerPorId.mockResolvedValue(hotelDoc as never);
 
-      const result = await service.obtenerServicio('hotel-1');
+      const result = await service.obtenerServicio(ID_FICHA);
 
       expect(result.descripcion).toBe('Un gran hotel');
       expect(result.habitaciones).toHaveLength(1);
@@ -544,7 +550,7 @@ describe('CatalogService', () => {
         espacios: [{ tipo: 'estandar', precioNoche: 30, cantidad: 1 }],
       } as never);
 
-      const result = await service.obtenerServicio('hotel-1');
+      const result = await service.obtenerServicio(ID_FICHA);
       const esp = result.espacios[0] as Record<string, unknown>;
 
       expect(esp['id']).toBeTruthy();
@@ -556,7 +562,7 @@ describe('CatalogService', () => {
     it('debería lanzar DomainException 404 si el hotel no existe', async () => {
       repo.obtenerPorId.mockResolvedValue(null);
 
-      await expect(service.obtenerServicio('no-existe')).rejects.toThrow(DomainException);
+      await expect(service.obtenerServicio(ID_FICHA)).rejects.toThrow(DomainException);
     });
 
     it('debería incluir las reseñas reales del servicio (no un array vacío hardcodeado)', async () => {
@@ -572,7 +578,7 @@ describe('CatalogService', () => {
         },
       ] as never);
 
-      const result = await service.obtenerServicio('hotel-1');
+      const result = await service.obtenerServicio(ID_FICHA);
 
       expect(reviewsService.listarPorServicio).toHaveBeenCalledWith('hotel-1');
       expect(result.resenas).toEqual([
@@ -925,6 +931,111 @@ describe('CatalogService', () => {
         );
 
         expect(repo.crear).toHaveBeenCalled();
+      });
+    });
+  });
+  describe('direcciones legibles (slug)', () => {
+    const base = { titulo: 'Reino Canino', descripcion: 'desc', ciudad: 'Valencia', precioBase: 20 };
+
+    it('debería generar el slug al crear desde título y ciudad', async () => {
+      repo.crear.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, slug: undefined } as never);
+
+      const tarjeta = await service.crearServicio({ ...base, vertical: 'alojamiento' as never, extra: { espacios: [{ tipo: 'suite', precioNoche: 30, cantidad: 1 }] } }, 'comercio-1');
+
+      expect(repo.existeSlug).toHaveBeenCalledWith('alojamiento', 'reino-canino-valencia', ID_FICHA);
+      expect(repo.fijarSlug).toHaveBeenCalledWith(ID_FICHA, 'reino-canino-valencia');
+      expect(tarjeta.slug).toBe('reino-canino-valencia');
+    });
+
+    it('debería añadir sufijo si el slug ya existe en el vertical', async () => {
+      repo.crear.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, slug: undefined } as never);
+      repo.existeSlug.mockImplementation(async (_v, candidato) => candidato === 'reino-canino-valencia');
+
+      const tarjeta = await service.crearServicio({ ...base, vertical: 'peluqueria' as never, extra: {} }, 'comercio-1');
+
+      expect(tarjeta.slug).toBe('reino-canino-valencia-2');
+    });
+
+    it('debería reintentar si otro alta se queda el slug a la vez (E11000)', async () => {
+      repo.crear.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, slug: undefined } as never);
+      repo.fijarSlug
+        .mockRejectedValueOnce(Object.assign(new Error('dup'), { code: 11000 }))
+        .mockResolvedValueOnce(undefined);
+
+      const tarjeta = await service.crearServicio({ ...base, vertical: 'peluqueria' as never, extra: {} }, 'comercio-1');
+
+      expect(repo.fijarSlug).toHaveBeenCalledTimes(2);
+      expect(tarjeta.slug).toBe('reino-canino-valencia');
+    });
+
+    it('no debería romper el alta si falla el slug', async () => {
+      repo.crear.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, slug: undefined } as never);
+      repo.fijarSlug.mockRejectedValue(new Error('sin conexión'));
+
+      const tarjeta = await service.crearServicio({ ...base, vertical: 'peluqueria' as never, extra: {} }, 'comercio-1');
+
+      expect(tarjeta.id).toBe(ID_FICHA);
+      expect(tarjeta.slug).toBeUndefined();
+    });
+
+    it('debería resolver la ficha por slug dentro de su vertical', async () => {
+      repo.obtenerPorSlug.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, slug: 'reino-canino-valencia' } as never);
+
+      const ficha = await service.obtenerServicio('Reino-Canino-Valencia', 'alojamiento');
+
+      expect(repo.obtenerPorSlug).toHaveBeenCalledWith('reino-canino-valencia', 'alojamiento');
+      expect(repo.obtenerPorId).not.toHaveBeenCalled();
+      expect(reviewsService.listarPorServicio).toHaveBeenCalledWith(ID_FICHA);
+      expect(ficha.slug).toBe('reino-canino-valencia');
+    });
+
+    it('debería seguir aceptando el id antiguo y devolver el slug para redirigir', async () => {
+      repo.obtenerPorId.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, slug: 'reino-canino-valencia' } as never);
+
+      const ficha = await service.obtenerServicio(ID_FICHA, 'alojamiento');
+
+      expect(repo.obtenerPorId).toHaveBeenCalledWith(ID_FICHA);
+      expect(repo.obtenerPorSlug).not.toHaveBeenCalled();
+      expect(ficha.id).toBe(ID_FICHA);
+      expect(ficha.slug).toBe('reino-canino-valencia');
+    });
+
+    it('debería dar 404 si el slug no existe', async () => {
+      repo.obtenerPorSlug.mockResolvedValue(null);
+
+      await expect(service.obtenerServicio('no-existe', 'veterinaria')).rejects.toThrow(DomainException);
+    });
+
+    describe('al editar', () => {
+      const dto = { titulo: 'Reino Canino Premium' };
+
+      it('no debería cambiar el slug de una ficha ya publicada', async () => {
+        repo.obtenerPorIdYComercio.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, estado: 'publicado', slug: 'reino-canino-valencia' } as never);
+        repo.actualizar.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, titulo: 'Reino Canino Premium', slug: 'reino-canino-valencia' } as never);
+
+        const tarjeta = await service.actualizarServicio(ID_FICHA, 'comercio-1', dto as never);
+
+        expect(repo.fijarSlug).not.toHaveBeenCalled();
+        expect(tarjeta.slug).toBe('reino-canino-valencia');
+      });
+
+      it('debería recalcularlo mientras la ficha sigue en borrador', async () => {
+        repo.obtenerPorIdYComercio.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, estado: 'borrador', slug: 'reino-canino-valencia' } as never);
+        repo.actualizar.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, titulo: 'Reino Canino Premium', ubicacion: { ciudad: 'Valencia' } } as never);
+
+        const tarjeta = await service.actualizarServicio(ID_FICHA, 'comercio-1', dto as never);
+
+        expect(repo.fijarSlug).toHaveBeenCalledWith(ID_FICHA, 'reino-canino-premium-valencia');
+        expect(tarjeta.slug).toBe('reino-canino-premium-valencia');
+      });
+
+      it('debería asignarlo a una ficha antigua que aún no lo tiene', async () => {
+        repo.obtenerPorIdYComercio.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, estado: 'publicado', slug: undefined } as never);
+        repo.actualizar.mockResolvedValue({ ...hotelDoc, _id: ID_FICHA, titulo: 'Gran Hotel', ubicacion: { ciudad: 'Madrid' } } as never);
+
+        await service.actualizarServicio(ID_FICHA, 'comercio-1', { precioBase: 50 } as never);
+
+        expect(repo.fijarSlug).toHaveBeenCalledWith(ID_FICHA, 'gran-hotel-madrid');
       });
     });
   });

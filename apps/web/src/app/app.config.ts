@@ -5,8 +5,10 @@ import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { conexionInterceptor } from './core/interceptors/conexion.interceptor';
 import { idiomaInterceptor } from './core/interceptors/idioma.interceptor';
+import { transferenciaInterceptor } from './core/interceptors/transferencia.interceptor';
 import { sesionInterceptor } from './core/interceptors/sesion.interceptor';
 import { I18nService } from './core/i18n/i18n.service';
+import { SeoRutasService } from './core/seo/seo-rutas';
 import { proveerLocaleAngular } from './core/i18n/locale-angular';
 import { RecuperacionChunkService } from './core/version/recuperacion-chunk.service';
 
@@ -21,6 +23,12 @@ export const appConfig: ApplicationConfig = {
      * arranque de la aplicación.
      */
     provideAppInitializer(() => inject(I18nService).iniciar()),
+    /*
+     * Título, descripción y `noindex` de las rutas sin datos propios (legales,
+     * paneles, cuenta). Se crea antes de la primera navegación para no perder
+     * la primera página, que en el servidor es la única.
+     */
+    provideAppInitializer(() => { inject(SeoRutasService); }),
     /*
      * Fechas en el idioma del usuario. Sin esto Angular usa `en-US` y los
      * `| date` escribían el mes en inglés dentro de una pantalla en español.
@@ -58,7 +66,7 @@ export const appConfig: ApplicationConfig = {
      * no son una sesión caducada.
      */
     provideHttpClient(withInterceptors([
-      authInterceptor, idiomaInterceptor, conexionInterceptor, sesionInterceptor,
+      authInterceptor, idiomaInterceptor, transferenciaInterceptor, conexionInterceptor, sesionInterceptor,
     ])),
   ],
 };

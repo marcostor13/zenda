@@ -209,6 +209,8 @@ export interface EspacioDisponibilidad {
 
 export interface MiServicio {
   _id: string;
+  /** Dirección legible de la ficha pública. */
+  slug?: string;
   titulo: string;
   vertical: string;
   precioBase: number;
