@@ -14,7 +14,7 @@ export const environment = {
   // Clave publicable de Stripe (de test; segura para exponer en el frontend).
   stripePublicKey: variable(
     'WEB_STRIPE_PUBLIC_KEY',
-    'pk_test_51TmN6IA68yWZtvLm0XfmtZLLxqSmfTUshpLVz1mEyFcLAhv64LFPgn6d3jxKufHjFClHyCqcMU4lWZrQCVxKTjFM00x6Uf0Pnm',
+    'pk_test_51U7y4eL9gDXoXRd8n3X8E5IpK6W9HWbFkD7p4DWG5AdHD5RTv68U5W4N1XQgYqmHbRRKGO4csX17A9aonPQljdWE00LMs9BxEx',
   ),
   // Login social: rellenar con las credenciales públicas (client_id / app_id).
   // Si quedan vacías, los botones sociales no se muestran (la app sigue funcionando).

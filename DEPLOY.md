@@ -72,6 +72,20 @@ NODE_ENV=production
 
 > Nunca pongas estos valores en el repositorio. Solo en Coolify.
 
+**Stripe: tres cosas que tienen que cuadrar entre sí**, y ninguna da un error visible si falla:
+
+1. El endpoint del webhook en Stripe apunta al **API**
+   (`https://apizenda.marcostorresalarcon.com/api/v1/payments/webhook`), no a la web:
+   `doogking.com` responde 200 a cualquier ruta, Stripe da los avisos por entregados y las
+   reservas pagadas se quedan sin confirmar.
+2. Ese endpoint está suscrito a los eventos de `EVENTOS_DE_WEBHOOK`
+   (`apps/api/src/core/payments/stripe.gateway.ts`), y su `whsec_…` es el `STRIPE_WEBHOOK_SECRET`.
+3. `WEB_STRIPE_PUBLIC_KEY` (§3.3) es la clave publicable de la **misma cuenta** que
+   `STRIPE_SECRET_KEY`.
+
+Se comprueban las tres con `bun run --cwd apps/api diagnostico:stripe` (y los puntos 1 y 2 se
+corrigen con `-- --reparar --url <URL del punto 1>`).
+
 Añade también `API_URL` con el dominio público del API
 (`API_URL=https://apizenda.marcostorresalarcon.com`): es la base de los enlaces de
 los callbacks de calendario **y de las URLs de las imágenes subidas** (§2.3.1).

@@ -486,12 +486,12 @@ describe('MisReservasComponent', () => {
   describe('vuelta del pago', () => {
     const montarConPagoPendiente = async (
       pendiente: string | null,
-      cerrado: boolean,
+      resultado: 'aprobado' | 'procesando' | 'no_cobrado' | 'desconocido' | null,
       queryParams: Record<string, string> = {},
-    ): Promise<{ cerrarPendiente: jest.Mock }> => {
+    ): Promise<{ resolverPendiente: jest.Mock }> => {
       const pagoEnCurso = {
         pendiente: jest.fn().mockReturnValue(pendiente),
-        cerrarPendiente: jest.fn().mockResolvedValue(cerrado),
+        resolverPendiente: jest.fn().mockResolvedValue(resultado),
         anotar: jest.fn(),
         olvidar: jest.fn(),
         sincronizar: jest.fn(),
@@ -522,31 +522,60 @@ describe('MisReservasComponent', () => {
     };
 
     it('debería cerrar contra el servidor el pago que quedó a medias', async () => {
-      const pagoEnCurso = await montarConPagoPendiente('pago-1', true);
+      const pagoEnCurso = await montarConPagoPendiente('pago-1', 'aprobado');
 
-      expect(pagoEnCurso.cerrarPendiente).toHaveBeenCalled();
+      expect(pagoEnCurso.resolverPendiente).toHaveBeenCalled();
       expect(component.confirmacionPendiente()).toBe(false);
+      expect(component.pagoNoCompletado()).toBe(false);
     });
 
     it('debería avisar de que la confirmación va con retraso si el servidor no la cierra', async () => {
-      await montarConPagoPendiente('pago-1', false);
+      await montarConPagoPendiente('pago-1', 'procesando');
 
       expect(component.confirmacionPendiente()).toBe(true);
       expect((fixture.nativeElement as HTMLElement).textContent)
         .toContain('Estamos terminando de confirmar la reserva');
     });
 
+    it('debería avisar igual si no se ha podido preguntar al servidor', async () => {
+      await montarConPagoPendiente('pago-1', 'desconocido');
+
+      expect(component.confirmacionPendiente()).toBe(true);
+      expect(component.pagoNoCompletado()).toBe(false);
+    });
+
+    /*
+     * Volver de Bancontact, Klarna o la app del banco no es haber pagado: el
+     * cliente puede haber cancelado allí. Decirle «tu pago se ha realizado» era
+     * mentirle, y callarse le dejaba sin saber si se le había cobrado.
+     */
+    it('debería decir que no se ha cobrado nada si se volvió de la pasarela sin pagar', async () => {
+      await montarConPagoPendiente('pago-1', 'no_cobrado');
+
+      expect(component.pagoNoCompletado()).toBe(true);
+      expect(component.confirmacionPendiente()).toBe(false);
+      expect((fixture.nativeElement as HTMLElement).textContent)
+        .toContain('no se te ha cobrado nada');
+    });
+
+    it('debería decirlo también cuando lo trae quien nos ha mandado aquí', async () => {
+      await montarConPagoPendiente(null, null, { pagoNoCompletado: '1' });
+
+      expect(component.pagoNoCompletado()).toBe(true);
+      expect(component.confirmacionPendiente()).toBe(false);
+    });
+
     it('debería avisar también cuando lo dice quien nos ha traído aquí', async () => {
       // El pago del viaje ya consultó al servidor y navega con la marca puesta.
-      await montarConPagoPendiente(null, false, { confirmacionPendiente: '1' });
+      await montarConPagoPendiente(null, null, { confirmacionPendiente: '1' });
 
       expect(component.confirmacionPendiente()).toBe(true);
     });
 
     it('no debería llamar al servidor cuando no se viene de pagar', async () => {
-      const pagoEnCurso = await montarConPagoPendiente(null, false);
+      const pagoEnCurso = await montarConPagoPendiente(null, null);
 
-      expect(pagoEnCurso.cerrarPendiente).not.toHaveBeenCalled();
+      expect(pagoEnCurso.resolverPendiente).not.toHaveBeenCalled();
       expect(component.confirmacionPendiente()).toBe(false);
     });
   });

@@ -22,6 +22,8 @@ describe('ViajePagoComponent', () => {
   };
 
   let pagoEnCurso: Record<string, jest.Mock>;
+  /** Lo que contesta el servidor al cerrar el pago; cada prueba puede cambiarlo antes de montar. */
+  let pagoEnCursoAlVolver: 'aprobado' | 'procesando' | 'no_cobrado' = 'aprobado';
 
   const crear = async (
     estado: Record<string, unknown> | null = { clientSecret: 'cs_1', montoTotal: 242, pagoId: 'pago-1' },
@@ -34,7 +36,7 @@ describe('ViajePagoComponent', () => {
       olvidar: jest.fn(),
       pendiente: jest.fn().mockReturnValue(null),
       sincronizar: jest.fn().mockResolvedValue(true),
-      cerrarPendiente: jest.fn().mockResolvedValue(true),
+      resolverPendiente: jest.fn().mockResolvedValue(pagoEnCursoAlVolver),
     };
 
     await TestBed.configureTestingModule({
@@ -63,6 +65,7 @@ describe('ViajePagoComponent', () => {
   };
 
   afterEach(() => {
+    pagoEnCursoAlVolver = 'aprobado';
     fixture?.destroy();
     jest.restoreAllMocks();
     jest.clearAllMocks();
@@ -122,7 +125,7 @@ describe('ViajePagoComponent', () => {
 
       await componente.pagar();
 
-      expect(pagoEnCurso['cerrarPendiente']).toHaveBeenCalled();
+      expect(pagoEnCurso['resolverPendiente']).toHaveBeenCalled();
     });
 
     it('debería anotar el pago antes de confirmar, para sobrevivir al 3-D Secure', async () => {
@@ -137,7 +140,7 @@ describe('ViajePagoComponent', () => {
 
     it('debería avisar de que la confirmación va con retraso si el servidor no la cierra', async () => {
       await crear();
-      pagoEnCurso['cerrarPendiente'].mockResolvedValue(false);
+      pagoEnCurso['resolverPendiente'].mockResolvedValue('procesando');
 
       await componente.pagar();
 
@@ -215,8 +218,19 @@ describe('ViajePagoComponent', () => {
     it('debería cerrar el pago contra el servidor y llevar al listado', async () => {
       await conRetorno();
 
-      expect(pagoEnCurso['cerrarPendiente']).toHaveBeenCalled();
+      expect(pagoEnCurso['resolverPendiente']).toHaveBeenCalled();
       expect(router.navigate).toHaveBeenCalledWith(['/reservas'], { queryParams: {} });
+    });
+
+    it('debería avisar en el listado si se volvió de la pasarela sin pagar', async () => {
+      // El cliente canceló en la web de su banco: ni «pagado» ni «confirmando».
+      pagoEnCursoAlVolver = 'no_cobrado';
+
+      await conRetorno();
+
+      expect(router.navigate).toHaveBeenCalledWith(
+        ['/reservas'], { queryParams: { pagoNoCompletado: 1 } },
+      );
     });
 
     it('no debería volver a montar el formulario de una tarjeta ya cobrada', async () => {
@@ -257,7 +271,7 @@ describe('ViajePagoComponent', () => {
       await componente.pagar();
 
       expect(pagoEnCurso['anotar']).toHaveBeenCalledWith('pago-1');
-      expect(pagoEnCurso['cerrarPendiente']).toHaveBeenCalled();
+      expect(pagoEnCurso['resolverPendiente']).toHaveBeenCalled();
     });
   });
 });

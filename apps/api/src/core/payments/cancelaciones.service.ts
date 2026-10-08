@@ -137,7 +137,17 @@ export class CancelacionesService {
     if (devolver <= 0) return 0;
 
     if (pago.stripePaymentIntentId && !pago.esPrueba) {
-      await this.gateway.reembolsar(pago.stripePaymentIntentId, devolver);
+      /*
+       * La clave lleva lo ya devuelto: dos clics sobre «cancelar» parten del
+       * mismo punto y comparten clave, así que Stripe devuelve una sola vez;
+       * una segunda devolución legítima parte de otro y tiene la suya.
+       */
+      const yaDevuelto = Math.round((pago.importeReembolsado ?? 0) * 100);
+      await this.gateway.reembolsar(
+        pago.stripePaymentIntentId,
+        devolver,
+        `reembolso-${pago.id}-${yaDevuelto}-${Math.round(devolver * 100)}`,
+      );
     }
     pago.importeReembolsado = redondear((pago.importeReembolsado ?? 0) + devolver);
     if (pago.importeReembolsado >= pago.montoTotal) pago.estado = PagoEstado.REEMBOLSADO;

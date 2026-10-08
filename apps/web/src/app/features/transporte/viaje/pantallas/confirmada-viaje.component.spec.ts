@@ -30,7 +30,7 @@ describe('ConfirmadaViajeComponent', () => {
   let fixture: ComponentFixture<ConfirmadaViajeComponent>;
   let componente: ConfirmadaViajeComponent;
   let reservas: jest.Mocked<Pick<ReservasService, 'obtenerPorCodigo'>>;
-  let pagoEnCurso: jest.Mocked<Pick<PagoEnCursoService, 'cerrarPendiente'>>;
+  let pagoEnCurso: jest.Mocked<Pick<PagoEnCursoService, 'resolverPendiente'>>;
 
   const crear = async (): Promise<void> => {
     await TestBed.configureTestingModule({
@@ -49,7 +49,7 @@ describe('ConfirmadaViajeComponent', () => {
 
   beforeEach(() => {
     reservas = { obtenerPorCodigo: jest.fn().mockResolvedValue(reserva()) };
-    pagoEnCurso = { cerrarPendiente: jest.fn().mockResolvedValue(undefined) };
+    pagoEnCurso = { resolverPendiente: jest.fn().mockResolvedValue(null) };
   });
 
   afterEach(() => {
@@ -63,13 +63,29 @@ describe('ConfirmadaViajeComponent', () => {
     await componente.ngOnInit();
     fixture.detectChanges();
 
-    expect(pagoEnCurso.cerrarPendiente).toHaveBeenCalled();
+    expect(pagoEnCurso.resolverPendiente).toHaveBeenCalled();
     expect(reservas.obtenerPorCodigo).toHaveBeenCalledTimes(1);
     expect(componente.pendiente()).toBe(false);
     expect(componente.titulo()).toBe('¡Tu reserva está confirmada!');
     expect(componente.ruta()).toBe('Calle Mayor 1 → Plaza Zocodover');
     expect(fixture.nativeElement.querySelector('.cv__codigo').textContent).toContain('RES-T1');
     expect(fixture.nativeElement.querySelector('app-seguimiento-viaje')).not.toBeNull();
+  });
+
+  it('debería decir que no se ha cobrado nada si se volvió del banco sin pagar', async () => {
+    // Sin esto la pantalla decía «¡Reserva recibida!» y «Total pagado» de un
+    // viaje que el cliente había cancelado en la web de su banco.
+    pagoEnCurso.resolverPendiente.mockResolvedValue('no_cobrado');
+    await crear();
+    await componente.ngOnInit();
+    fixture.detectChanges();
+
+    expect(componente.pagoNoCompletado()).toBe(true);
+    expect(componente.titulo()).toBe('No se ha completado el pago');
+    expect(componente.subtitulo()).toBe('');
+    expect(reservas.obtenerPorCodigo).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).toContain('no se te ha cobrado nada');
+    expect(fixture.nativeElement.querySelector('.cv__codigo')).toBeNull();
   });
 
   it('debería reintentar mientras la reserva siga pendiente del webhook', async () => {

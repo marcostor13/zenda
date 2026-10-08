@@ -37,6 +37,7 @@ describe('PaymentsService', () => {
     comisionMonto: 75,
     moneda: 'EUR',
     reservaId: 'reserva-1',
+    codigo: 'RES-TEST',
   };
 
   const comisionConfigMock: any = {
@@ -76,6 +77,8 @@ describe('PaymentsService', () => {
             crearIntent: jest.fn().mockResolvedValue({ intentId: 'pi_test', clientSecret: 'pi_test_secret' }),
             construirEvento: jest.fn(),
             extraerIntentDeEvento: jest.fn(),
+            // Por defecto el evento no es una devolución ni una disputa.
+            extraerIncidenciaDeEvento: jest.fn().mockReturnValue(null),
             consultarIntent: jest.fn().mockResolvedValue({ estado: 'other' }),
             reembolsar: jest.fn().mockResolvedValue(undefined),
           },
@@ -276,15 +279,18 @@ describe('PaymentsService', () => {
   describe('rechazarAjuste', () => {
     it('debería reembolsar el pago original aprobado y cancelar la reserva', async () => {
       bookingsService.validarAjustePendiente.mockResolvedValue(reservaMock);
-      const pagoAprobado = { ...pagoMock, estado: PagoEstado.APROBADO, save: jest.fn() };
+      const pagoAprobado = { ...pagoMock, estado: PagoEstado.APROBADO, importeReembolsado: 0, save: jest.fn() };
       pagoModel.findOne.mockReturnValue({
         sort: () => ({ exec: jest.fn().mockResolvedValue(pagoAprobado) }),
       });
 
       await service.rechazarAjuste('reserva-1', 'user-1');
 
-      expect(paymentGateway.reembolsar).toHaveBeenCalledWith('pi_test');
+      // Con clave de idempotencia: dos clics no devuelven el dinero dos veces.
+      expect(paymentGateway.reembolsar)
+        .toHaveBeenCalledWith('pi_test', undefined, 'reembolso-pago-1-ajuste-rechazado');
       expect(pagoAprobado.estado).toBe(PagoEstado.REEMBOLSADO);
+      expect(pagoAprobado.importeReembolsado).toBe(605);
       expect(bookingsService.rechazarAjuste).toHaveBeenCalledWith('reserva-1', 'user-1');
     });
 
@@ -384,7 +390,7 @@ describe('PaymentsService', () => {
     });
 
     it('debería ignorar si el pago ya fue procesado (idempotencia)', async () => {
-      const pagoAprobado = { ...pagoMock, estado: PagoEstado.APROBADO, save: jest.fn() };
+      const pagoAprobado = { ...pagoMock, estado: PagoEstado.APROBADO, importeReembolsado: 0, save: jest.fn() };
       pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(pagoAprobado) });
       paymentGateway.construirEvento.mockReturnValue({});
       paymentGateway.extraerIntentDeEvento.mockReturnValue({ intentId: 'pi_test', estado: 'succeeded' });
@@ -688,6 +694,168 @@ describe('PaymentsService', () => {
    * nunca, porque Stripe no alcanza `localhost`. Sin esta consulta la reserva
    * se quedaba "pendiente de pago" con el dinero ya cobrado.
    */
+  describe('procesarWebhook — pago en proceso', () => {
+    it('no debería confirmar ni rechazar nada mientras el banco procesa el pago', async () => {
+      const pago = { ...pagoMock, save: jest.fn() };
+      pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(pago) });
+      paymentGateway.construirEvento.mockReturnValue({ type: 'payment_intent.processing' });
+      paymentGateway.extraerIntentDeEvento.mockReturnValue({ intentId: 'pi_test', estado: 'processing' });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+      expect(pago.estado).toBe(PagoEstado.INICIADO);
+      expect(pago.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('procesarWebhook — devoluciones y disputas', () => {
+    const conPagoAprobado = (extra: Record<string, unknown> = {}) => {
+      const pago: any = {
+        ...pagoMock,
+        estado: PagoEstado.APROBADO,
+        importeReembolsado: 0,
+        incidencias: [],
+        ...extra,
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+      pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(pago) });
+      paymentGateway.construirEvento.mockReturnValue({});
+      return pago;
+    };
+
+    it('debería anotar una devolución parcial hecha desde el panel de Stripe', async () => {
+      // Soporte devuelve a mano: sin esto el reporte seguiría contando ese
+      // dinero como liquidable al comercio.
+      const pago = conPagoAprobado();
+      paymentGateway.extraerIncidenciaDeEvento.mockReturnValue({
+        tipo: 'reembolso', intentId: 'pi_test', importeReembolsadoEur: 100, esTotal: false,
+      });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(pago.importeReembolsado).toBe(100);
+      expect(pago.estado).toBe(PagoEstado.APROBADO);
+      expect(pago.save).toHaveBeenCalled();
+    });
+
+    it('debería dar el pago por devuelto cuando la devolución es total', async () => {
+      const pago = conPagoAprobado();
+      paymentGateway.extraerIncidenciaDeEvento.mockReturnValue({
+        tipo: 'reembolso', intentId: 'pi_test', importeReembolsadoEur: 605, esTotal: true,
+      });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(pago.importeReembolsado).toBe(605);
+      expect(pago.estado).toBe(PagoEstado.REEMBOLSADO);
+    });
+
+    it('no debería sumar dos veces una devolución que ya estaba anotada', async () => {
+      // Stripe manda el acumulado: el aviso de la devolución de una cancelación
+      // que ya apuntamos nosotros no puede contarla otra vez.
+      const pago = conPagoAprobado({ importeReembolsado: 100 });
+      paymentGateway.extraerIncidenciaDeEvento.mockReturnValue({
+        tipo: 'reembolso', intentId: 'pi_test', importeReembolsadoEur: 100, esTotal: false,
+      });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(pago.importeReembolsado).toBe(100);
+    });
+
+    it('no debería tocar la reserva ni pasar por el camino de los cobros', async () => {
+      conPagoAprobado();
+      paymentGateway.extraerIncidenciaDeEvento.mockReturnValue({
+        tipo: 'reembolso', intentId: 'pi_test', importeReembolsadoEur: 605, esTotal: true,
+      });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(paymentGateway.extraerIntentDeEvento).not.toHaveBeenCalled();
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    it('debería deshacer el apunte cuando el banco rechaza la devolución', async () => {
+      // El cliente no ha recibido el dinero: el pago no puede seguir diciendo
+      // que está devuelto.
+      const pago = conPagoAprobado({ estado: PagoEstado.REEMBOLSADO, importeReembolsado: 605 });
+      paymentGateway.extraerIncidenciaDeEvento.mockReturnValue({
+        tipo: 'reembolso_fallido', intentId: 'pi_test', importeEur: 605, motivo: 'expired_or_canceled_card',
+      });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(pago.importeReembolsado).toBe(0);
+      expect(pago.estado).toBe(PagoEstado.APROBADO);
+      expect(pago.incidencias).toHaveLength(1);
+      expect(pago.incidencias[0]).toMatchObject({ tipo: 'reembolso_fallido' });
+    });
+
+    it('debería dejar la parte que sí se devolvió si falla sólo una devolución parcial', async () => {
+      const pago = conPagoAprobado({ importeReembolsado: 150 });
+      paymentGateway.extraerIncidenciaDeEvento.mockReturnValue({
+        tipo: 'reembolso_fallido', intentId: 'pi_test', importeEur: 50,
+      });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(pago.importeReembolsado).toBe(100);
+      expect(pago.estado).toBe(PagoEstado.APROBADO);
+      expect(pago.incidencias[0].detalle).toContain('sin motivo');
+    });
+
+    it('debería dejar constancia de una disputa en el pago', async () => {
+      const pago = conPagoAprobado();
+      paymentGateway.extraerIncidenciaDeEvento.mockReturnValue({
+        tipo: 'disputa', intentId: 'pi_test', importeEur: 605, motivo: 'fraudulent', referencia: 'dp_1',
+      });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(pago.incidencias).toEqual([
+        expect.objectContaining({ tipo: 'disputa', referencia: 'dp_1' }),
+      ]);
+      expect(pago.estado).toBe(PagoEstado.APROBADO);
+      expect(pago.save).toHaveBeenCalled();
+    });
+
+    it('no debería apuntar la misma disputa dos veces si el aviso se repite', async () => {
+      const pago = conPagoAprobado({
+        incidencias: [{ tipo: 'disputa', detalle: '605 € · fraudulent', referencia: 'dp_1', fecha: new Date() }],
+      });
+      paymentGateway.extraerIncidenciaDeEvento.mockReturnValue({
+        tipo: 'disputa', intentId: 'pi_test', importeEur: 605, referencia: 'dp_1',
+      });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(pago.incidencias).toHaveLength(1);
+      expect(pago.save).not.toHaveBeenCalled();
+    });
+
+    it('debería apuntar una disputa aunque el pago sea anterior al registro de incidencias', async () => {
+      const pago = conPagoAprobado({ incidencias: undefined, importeReembolsado: undefined });
+      paymentGateway.extraerIncidenciaDeEvento.mockReturnValue({
+        tipo: 'disputa', intentId: 'pi_test', importeEur: 605, referencia: 'dp_2',
+      });
+
+      await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+      expect(pago.incidencias).toHaveLength(1);
+    });
+
+    it('debería ignorar la incidencia de un cobro que no es de la plataforma', async () => {
+      pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      paymentGateway.construirEvento.mockReturnValue({});
+      paymentGateway.extraerIncidenciaDeEvento.mockReturnValue({
+        tipo: 'reembolso', intentId: 'pi_ajeno', importeReembolsadoEur: 10, esTotal: false,
+      });
+
+      await expect(service.procesarWebhook(Buffer.from('{}'), 'sig_test')).resolves.toBeUndefined();
+    });
+  });
+
   describe('sincronizarConPasarela', () => {
     const conPago = (extra: Record<string, unknown> = {}) => {
       const pago = { ...pagoMock, ...extra, save: jest.fn().mockResolvedValue(undefined) };
@@ -712,6 +880,18 @@ describe('PaymentsService', () => {
       const resultado = await service.sincronizarConPasarela('pago-1', 'user-1');
 
       expect(resultado).toEqual({ estado: 'pendiente' });
+      expect(bookingsService.confirmar).not.toHaveBeenCalled();
+    });
+
+    it('debería distinguir el pago que el banco aún está procesando del que no se ha hecho', async () => {
+      // En el primero el cliente ya ha pagado; decirle «pendiente» le invita a
+      // pagar otra vez.
+      conPago();
+      paymentGateway.consultarIntent.mockResolvedValue({ estado: 'processing' });
+
+      const resultado = await service.sincronizarConPasarela('pago-1', 'user-1');
+
+      expect(resultado).toEqual({ estado: 'procesando' });
       expect(bookingsService.confirmar).not.toHaveBeenCalled();
     });
 

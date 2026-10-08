@@ -5,7 +5,7 @@ import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.c
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { CarritoService } from '../../carrito/carrito.service';
-import { PagoEnCursoService } from '../services/pago-en-curso.service';
+import { PagoEnCursoService, vaConRetraso } from '../services/pago-en-curso.service';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import { EurosFijosPipe, EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { MonedaService } from '../../../core/moneda/moneda.service';
@@ -230,12 +230,16 @@ export class ViajePagoComponent implements OnInit {
    * aunque el dinero ya estuviera cobrado.
    */
   private async terminar(): Promise<void> {
-    const confirmado = await this.pagoEnCurso.cerrarPendiente();
+    const resultado = await this.pagoEnCurso.resolverPendiente();
     await this.carritoService.cargar();
     await this.router.navigate(['/reservas'], {
-      // El listado avisa de que la confirmación va con retraso en vez de
-      // enseñar «pendiente» sin explicación.
-      queryParams: confirmado ? {} : { confirmacionPendiente: 1 },
+      // El listado avisa de lo que haya pasado en vez de enseñar «pendiente»
+      // sin explicación: que la confirmación va con retraso, o que se volvió
+      // de la pasarela sin pagar.
+      queryParams: {
+        ...(vaConRetraso(resultado) ? { confirmacionPendiente: 1 } : {}),
+        ...(resultado === 'no_cobrado' ? { pagoNoCompletado: 1 } : {}),
+      },
     });
   }
 }

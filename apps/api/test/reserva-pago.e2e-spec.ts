@@ -25,6 +25,7 @@ describe('Reserva y pago (e2e)', () => {
     crearIntent: jest.fn(),
     construirEvento: jest.fn(),
     extraerIntentDeEvento: jest.fn(),
+    extraerIncidenciaDeEvento: jest.fn().mockReturnValue(null),
     reembolsar: jest.fn().mockResolvedValue(undefined),
   };
 

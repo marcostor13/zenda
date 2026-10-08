@@ -3,7 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { Pago, PagoDocument } from './pago.schema';
-import { PaymentGateway, PAYMENT_GATEWAY } from './payment-gateway.interface';
+import { IncidenciaPasarela, PaymentGateway, PAYMENT_GATEWAY } from './payment-gateway.interface';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -20,9 +20,16 @@ export interface DesglosePago {
   montoLiquidacion: number;
 }
 
-/** Cómo quedó el cobro tras preguntar a la pasarela. */
+/**
+ * Cómo quedó el cobro tras preguntar a la pasarela.
+ *
+ * `procesando` y `pendiente` no son lo mismo y la pantalla no puede contarlos
+ * igual: en el primero el cliente **ya ha pagado** y falta que el banco lo
+ * confirme; en el segundo no se le ha cobrado nada (canceló en la web de su
+ * banco, la autenticación falló…) y lo que toca es volver a intentarlo.
+ */
 export interface EstadoSincronizacion {
-  estado: 'aprobado' | 'pendiente' | 'rechazado';
+  estado: 'aprobado' | 'procesando' | 'pendiente' | 'rechazado';
 }
 
 /**
@@ -165,7 +172,11 @@ export class PaymentsService {
       return { estado: 'rechazado' };
     }
 
-    // Aún en curso: el webhook lo terminará cuando Stripe lo resuelva.
+    // Pagado pero sin confirmar por el banco: el webhook lo terminará cuando
+    // Stripe lo resuelva, para bien o para mal.
+    if (consulta.estado === 'processing') return { estado: 'procesando' };
+
+    // Sigue abierto y sin cobrar.
     return { estado: 'pendiente' };
   }
 
@@ -213,6 +224,7 @@ export class PaymentsService {
       moneda: reserva.moneda,
       reservaId,
       usuarioId,
+      descripcion: `Reserva ${reserva.codigo} · Doogking`,
     });
 
     const pago = await new this.pagoModel({
@@ -394,7 +406,12 @@ export class PaymentsService {
       .exec();
 
     if (pagoOriginal?.stripePaymentIntentId) {
-      await this.paymentGateway.reembolsar(pagoOriginal.stripePaymentIntentId);
+      await this.paymentGateway.reembolsar(
+        pagoOriginal.stripePaymentIntentId,
+        undefined,
+        `reembolso-${pagoOriginal.id}-ajuste-rechazado`,
+      );
+      pagoOriginal.importeReembolsado = pagoOriginal.montoTotal;
       pagoOriginal.estado = PagoEstado.REEMBOLSADO;
       await pagoOriginal.save();
     }
@@ -410,6 +427,14 @@ export class PaymentsService {
       evento = this.paymentGateway.construirEvento(payload, signature);
     } catch {
       throw new DomainException('Firma de webhook inválida', 400);
+    }
+
+    // Devoluciones y disputas van aparte y **antes** del guard de idempotencia
+    // de abajo: le pasan precisamente a los pagos ya aprobados.
+    const incidencia = this.paymentGateway.extraerIncidenciaDeEvento(evento);
+    if (incidencia) {
+      await this.aplicarIncidencia(incidencia);
+      return;
     }
 
     const resultado = this.paymentGateway.extraerIntentDeEvento(evento);
@@ -452,6 +477,85 @@ export class PaymentsService {
       await pago.save();
       this.logger.log(`Pago ${pago.id} fallido. SlotHold se liberará por TTL.`);
     }
+
+    if (resultado.estado === 'processing') {
+      // Nada que confirmar todavía: llegará un `succeeded` o un `payment_failed`.
+      this.logger.log(`Pago ${pago.id} en proceso: a la espera de la confirmación del banco.`);
+    }
+  }
+
+  /**
+   * Pone el pago al día con lo que Stripe dice que ha pasado con el dinero
+   * después de cobrarlo.
+   *
+   * Hace falta porque no todas las devoluciones salen de aquí: soporte puede
+   * devolver un cobro a mano desde el panel de Stripe, y sin esto el reporte
+   * financiero seguiría contando ese dinero como ingresado y liquidable al
+   * comercio. No toca la reserva: cancelarla o no es una decisión de negocio
+   * que este aviso no trae.
+   */
+  private async aplicarIncidencia(incidencia: IncidenciaPasarela): Promise<void> {
+    const pago = await this.pagoModel
+      .findOne({ stripePaymentIntentId: incidencia.intentId })
+      .exec();
+
+    if (!pago) {
+      this.logger.warn(`Incidencia «${incidencia.tipo}» sin pago para el intent ${incidencia.intentId}`);
+      return;
+    }
+
+    if (incidencia.tipo === 'reembolso') {
+      this.anotarReembolso(pago, incidencia.importeReembolsadoEur, incidencia.esTotal);
+    }
+
+    if (incidencia.tipo === 'reembolso_fallido') {
+      // El dinero no ha llegado al cliente: se deshace el apunte para que el
+      // pago vuelva a contar la verdad y alguien lo devuelva por otra vía.
+      pago.importeReembolsado = redondear(Math.max(0, (pago.importeReembolsado ?? 0) - incidencia.importeEur));
+      if (pago.estado === PagoEstado.REEMBOLSADO) pago.estado = PagoEstado.APROBADO;
+      this.registrarIncidencia(pago, incidencia.tipo, `${incidencia.importeEur} € · ${incidencia.motivo ?? 'sin motivo'}`);
+      this.logger.error(
+        `DEVOLUCIÓN FALLIDA en el pago ${pago.id} (reserva ${pago.reservaId}): `
+        + `${incidencia.importeEur} € no han llegado al cliente (${incidencia.motivo ?? 'sin motivo'}).`,
+      );
+    }
+
+    if (incidencia.tipo === 'disputa') {
+      if (this.yaRegistrada(pago, incidencia.referencia)) return;
+      this.registrarIncidencia(pago, incidencia.tipo, `${incidencia.importeEur} € · ${incidencia.motivo ?? 'sin motivo'}`, incidencia.referencia);
+      this.logger.error(
+        `DISPUTA ${incidencia.referencia} en el pago ${pago.id} (reserva ${pago.reservaId}): `
+        + `el cliente reclama ${incidencia.importeEur} € a su banco (${incidencia.motivo ?? 'sin motivo'}).`,
+      );
+    }
+
+    await pago.save();
+  }
+
+  /**
+   * Stripe manda el **acumulado** devuelto sobre el cobro, no el importe de
+   * esta devolución: por eso se asigna y no se suma. Así el aviso de una
+   * devolución que ya habíamos anotado nosotros (la de una cancelación) no la
+   * cuenta dos veces, y los avisos pueden llegar repetidos o desordenados.
+   */
+  private anotarReembolso(pago: PagoDocument, acumulado: number, esTotal: boolean): void {
+    const anotado = pago.importeReembolsado ?? 0;
+    if (acumulado > anotado) {
+      this.logger.warn(
+        `Devolución que no constaba en el pago ${pago.id} (hecha desde el panel de Stripe, o aún sin anotar): `
+        + `constaban ${anotado} € y Stripe dice ${acumulado} €.`,
+      );
+      pago.importeReembolsado = redondear(acumulado);
+    }
+    if (esTotal) pago.estado = PagoEstado.REEMBOLSADO;
+  }
+
+  private yaRegistrada(pago: PagoDocument, referencia: string): boolean {
+    return (pago.incidencias ?? []).some((incidencia) => incidencia.referencia === referencia);
+  }
+
+  private registrarIncidencia(pago: PagoDocument, tipo: string, detalle: string, referencia?: string): void {
+    pago.incidencias = [...(pago.incidencias ?? []), { tipo, detalle, referencia, fecha: new Date() }];
   }
 
   /**

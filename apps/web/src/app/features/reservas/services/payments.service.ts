@@ -16,8 +16,12 @@ export interface PaymentIntentResponse {
   moneda: string;
 }
 
+/**
+ * `procesando`: el cliente ya ha pagado y falta que el banco lo confirme.
+ * `pendiente`: no se le ha cobrado nada todavía.
+ */
 export interface EstadoPago {
-  estado: 'aprobado' | 'pendiente' | 'rechazado';
+  estado: 'aprobado' | 'procesando' | 'pendiente' | 'rechazado';
 }
 
 @Injectable({ providedIn: 'root' })

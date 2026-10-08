@@ -3,6 +3,8 @@ export interface CrearIntentParams {
   moneda: string;
   reservaId: string;
   usuarioId: string;
+  /** Lo que el cliente lee en el extracto y en el recibo de la pasarela. */
+  descripcion?: string;
   metadata?: Record<string, string>;
 }
 
@@ -11,13 +13,30 @@ export interface PaymentIntentResult {
   clientSecret: string;
 }
 
-/** Estado de un cobro, ya traducido del vocabulario de la pasarela. */
-export type EstadoIntent = 'succeeded' | 'failed' | 'other';
+/**
+ * Estado de un cobro, ya traducido del vocabulario de la pasarela.
+ *
+ * - `succeeded`: cobrado.
+ * - `processing`: el cliente ya ha pagado pero el dinero aún no está confirmado
+ *   (métodos de confirmación diferida). No se confirma nada todavía.
+ * - `failed`: el intento se ha cerrado sin cobrar.
+ * - `other`: sigue abierto y sin pagar (falta método, falta autenticación…).
+ */
+export type EstadoIntent = 'succeeded' | 'processing' | 'failed' | 'other';
 
 export interface ConsultaIntent {
   estado: EstadoIntent;
   chargeId?: string;
 }
+
+/** Lo que le pasa al dinero **después** de cobrado, contado por la pasarela. */
+export type IncidenciaPasarela =
+  /** Total devuelto hasta ahora sobre el cobro; incluye lo devuelto a mano desde el panel de la pasarela. */
+  | { tipo: 'reembolso'; intentId: string; importeReembolsadoEur: number; esTotal: boolean }
+  /** Una devolución que se dio por hecha y el banco ha rechazado: el cliente no ha recibido ese dinero. */
+  | { tipo: 'reembolso_fallido'; intentId: string; importeEur: number; motivo?: string }
+  /** El cliente ha reclamado el cargo a su banco. */
+  | { tipo: 'disputa'; intentId: string; importeEur: number; motivo?: string; referencia: string };
 
 export interface PaymentGateway {
   crearIntent(params: CrearIntentParams): Promise<PaymentIntentResult>;
@@ -32,9 +51,16 @@ export interface PaymentGateway {
    */
   consultarIntent(intentId: string): Promise<ConsultaIntent>;
   construirEvento(payload: Buffer, signature: string): unknown;
-  extraerIntentDeEvento(evento: unknown): { intentId: string; estado: 'succeeded' | 'failed' | 'other'; chargeId?: string } | null;
-  /** Sin importe, devuelve todo; con importe (en euros), sólo esa parte. */
-  reembolsar(paymentIntentId: string, importeEur?: number): Promise<void>;
+  extraerIntentDeEvento(evento: unknown): { intentId: string; estado: EstadoIntent; chargeId?: string } | null;
+  /** Devoluciones y disputas que avisa la pasarela; `null` si el evento no va de eso. */
+  extraerIncidenciaDeEvento(evento: unknown): IncidenciaPasarela | null;
+  /**
+   * Sin importe, devuelve todo; con importe (en euros), sólo esa parte.
+   *
+   * `claveIdempotencia` identifica **esta** devolución: repetir la llamada con
+   * la misma clave no devuelve el dinero dos veces.
+   */
+  reembolsar(paymentIntentId: string, importeEur?: number, claveIdempotencia?: string): Promise<void>;
 }
 
 export const PAYMENT_GATEWAY = Symbol('PAYMENT_GATEWAY');

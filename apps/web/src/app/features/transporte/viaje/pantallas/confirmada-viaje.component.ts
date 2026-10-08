@@ -30,6 +30,17 @@ const MS_ENTRE_REINTENTOS = 2500;
 <app-marco-viaje [titulo]="titulo()" [subtitulo]="subtitulo()">
   @if (cargando()) {
     <div class="rs-skeleton cv__cargando"></div>
+  } @else if (pagoNoCompletado()) {
+    <!-- Se volvió del banco sin pagar: ni «recibida» ni «total pagado». -->
+    <section class="cv__tarjeta">
+      <span class="cv__check cv__check--espera" aria-hidden="true">
+        <rs-icon name="alert-circle" [size]="34" [stroke]="2.6"></rs-icon>
+      </span>
+      <p class="cv__aviso" role="alert">{{ 'El pago no se ha completado y no se te ha cobrado nada. La reserva no está confirmada: vuelve a hacerla para intentarlo de nuevo.' | t }}</p>
+      <div class="cv__acciones">
+        <a class="rs-btn rs-btn--primary rs-btn--block" routerLink="/transporte">{{ 'Volver a intentarlo' | t }}</a>
+      </div>
+    </section>
   } @else if (reserva(); as r) {
     <section class="cv__tarjeta">
       <span class="cv__check" [class.cv__check--espera]="pendiente()" aria-hidden="true">
@@ -97,15 +108,23 @@ export class ConfirmadaViajeComponent implements OnInit {
 
   readonly reserva = signal<ReservaApi | null>(null);
   readonly cargando = signal(true);
+  /** Se volvió de la pasarela sin pagar (se canceló en el banco, falló la autenticación…). */
+  readonly pagoNoCompletado = signal(false);
 
   readonly pendiente = computed(() => {
     const r = this.reserva();
     return !r || r.estado === 'pendiente' || r.aceptacion?.estado === 'pendiente';
   });
-  readonly titulo = computed(() => (this.pendiente() ? '¡Reserva recibida!' : '¡Tu reserva está confirmada!'));
-  readonly subtitulo = computed(() => (this.pendiente()
-    ? 'El transportista tiene que confirmar el viaje. Te avisamos en cuanto lo haga.'
-    : 'Y sigue el viaje en tiempo real.'));
+  readonly titulo = computed(() => {
+    if (this.pagoNoCompletado()) return 'No se ha completado el pago';
+    return this.pendiente() ? '¡Reserva recibida!' : '¡Tu reserva está confirmada!';
+  });
+  readonly subtitulo = computed(() => {
+    if (this.pagoNoCompletado()) return '';
+    return this.pendiente()
+      ? 'El transportista tiene que confirmar el viaje. Te avisamos en cuanto lo haga.'
+      : 'Y sigue el viaje en tiempo real.';
+  });
   readonly ruta = computed(() => {
     const solicitud = this.reserva()?.detalle?.['solicitud'] as SolicitudViaje | undefined;
     return solicitud ? `${lugarCorto(solicitud.origen.texto)} → ${lugarCorto(solicitud.destino.texto)}` : '';
@@ -114,7 +133,11 @@ export class ConfirmadaViajeComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     const codigo = this.rutaActiva.snapshot.paramMap.get('codigo') ?? '';
     // Si se vuelve del banco, el pago quedó anotado: se cierra contra el servidor.
-    await this.pagoEnCurso.cerrarPendiente();
+    if ((await this.pagoEnCurso.resolverPendiente()) === 'no_cobrado') {
+      this.pagoNoCompletado.set(true);
+      this.cargando.set(false);
+      return;
+    }
     for (let intento = 0; intento < REINTENTOS; intento++) {
       const reserva = await this.reservas.obtenerPorCodigo(codigo).catch(() => null);
       this.reserva.set(reserva);

@@ -5,7 +5,7 @@ import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.c
 import { StripeService } from '../../../core/stripe/stripe.service';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
-import { PagoEnCursoService } from '../services/pago-en-curso.service';
+import { PagoEnCursoService, vaConRetraso } from '../services/pago-en-curso.service';
 import type { Stripe, StripeElements } from '@stripe/stripe-js';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
@@ -139,10 +139,16 @@ export class AjustePagoComponent implements OnInit {
     // único que queda del cobro es el apunte de sesión.
     if (new URLSearchParams(window.location.search).has('payment_intent')
         && this.pagoEnCurso.pendiente()) {
-      this.confirmacionPendiente.set(!await this.pagoEnCurso.cerrarPendiente());
-      this.pagado.set(true);
-      this.cargando.set(false);
-      return;
+      const resultado = await this.pagoEnCurso.resolverPendiente();
+      if (resultado !== 'no_cobrado') {
+        this.confirmacionPendiente.set(vaConRetraso(resultado));
+        this.pagado.set(true);
+        this.cargando.set(false);
+        return;
+      }
+      // Canceló en su banco o falló la autenticación: no hay nada pagado, así
+      // que se le vuelve a enseñar el formulario en vez de darlo por hecho.
+      this.errorPago.set('El pago no se ha completado y no se te ha cobrado nada. Puedes intentarlo de nuevo.');
     }
 
     const codigo = this.route.snapshot.paramMap.get('codigo');

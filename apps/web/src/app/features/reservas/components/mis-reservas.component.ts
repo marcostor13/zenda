@@ -8,7 +8,7 @@ import { ImgFallbackDirective } from '../../../shared/directives/img-fallback.di
 import { alojamientoImage } from '../../../shared/media/images';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { ReviewsService } from '../services/reviews.service';
-import { PagoEnCursoService } from '../services/pago-en-curso.service';
+import { PagoEnCursoService, vaConRetraso } from '../services/pago-en-curso.service';
 import { AlojamientoService } from '../../alojamiento/services/alojamiento.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { enlaceAServicio, rutaDeVertical } from '../../../shared/verticales/verticales.config';
@@ -70,6 +70,17 @@ interface ReservaCard {
       <div class="rs-alert rs-alert--info" role="status" style="margin-bottom:var(--sp-6)">
         <rs-icon name="alert-circle" [size]="16" [stroke]="2" />
         <span>{{ 'Tu pago se ha realizado correctamente. Estamos terminando de confirmar la reserva con el establecimiento: puede tardar un momento en aparecer como confirmada.' | t }}</span>
+      </div>
+    }
+
+    <!--
+      Se vuelve de la pasarela sin haber pagado. Sin este aviso la reserva
+      aparece «pendiente» sin más y el cliente no sabe si se le ha cobrado.
+    -->
+    @if (pagoNoCompletado()) {
+      <div class="rs-alert rs-alert--warning" role="alert" style="margin-bottom:var(--sp-6)">
+        <rs-icon name="alert-circle" [size]="16" [stroke]="2" />
+        <span>{{ 'El pago no se ha completado y no se te ha cobrado nada. La reserva no está confirmada: vuelve a hacerla para intentarlo de nuevo.' | t }}</span>
       </div>
     }
 
@@ -338,6 +349,8 @@ export class MisReservasComponent implements OnInit {
 
   /** El cobro entró pero el servidor aún no ha dado la reserva por confirmada. */
   readonly confirmacionPendiente = signal(false);
+  /** Se volvió de la pasarela sin pagar (se canceló en el banco, falló la autenticación…). */
+  readonly pagoNoCompletado = signal(false);
 
   private readonly alojamientoService = inject(AlojamientoService);
   private readonly reviewsService = inject(ReviewsService);
@@ -482,11 +495,15 @@ export class MisReservasComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     if (this.useMock) return;
 
+    const parametros = this.route.snapshot.queryParamMap;
     if (this.pagoEnCurso.pendiente()) {
-      this.confirmacionPendiente.set(!await this.pagoEnCurso.cerrarPendiente());
-    } else if (this.route.snapshot.queryParamMap.has('confirmacionPendiente')) {
+      const resultado = await this.pagoEnCurso.resolverPendiente();
+      this.confirmacionPendiente.set(vaConRetraso(resultado));
+      this.pagoNoCompletado.set(resultado === 'no_cobrado');
+    } else {
       // Lo dice quien nos ha traído aquí (el pago del viaje), que ya consultó.
-      this.confirmacionPendiente.set(true);
+      this.confirmacionPendiente.set(parametros.has('confirmacionPendiente'));
+      this.pagoNoCompletado.set(parametros.has('pagoNoCompletado'));
     }
 
     try {

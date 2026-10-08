@@ -36,7 +36,12 @@ describe('AjustePagoComponent', () => {
 
   const crear = async (
     datos: ReservaApi | Error = reserva(),
-    ajustes: { payments?: Record<string, jest.Mock>; stripe?: Record<string, jest.Mock> } = {},
+    ajustes: {
+      payments?: Record<string, jest.Mock>;
+      stripe?: Record<string, jest.Mock>;
+      /** Se vuelve de la pasarela con un pago anotado, y así quedó. */
+      vuelta?: 'aprobado' | 'procesando' | 'no_cobrado';
+    } = {},
     codigo: string | null = 'RES-AAAA1111',
   ): Promise<void> => {
     reservasService = {
@@ -54,9 +59,9 @@ describe('AjustePagoComponent', () => {
     pagoEnCurso = {
       anotar: jest.fn(),
       olvidar: jest.fn(),
-      pendiente: jest.fn().mockReturnValue(null),
+      pendiente: jest.fn().mockReturnValue(ajustes.vuelta ? 'pago-1' : null),
       sincronizar: jest.fn().mockResolvedValue(true),
-      cerrarPendiente: jest.fn().mockResolvedValue(true),
+      resolverPendiente: jest.fn().mockResolvedValue(ajustes.vuelta ?? null),
     };
 
     await TestBed.configureTestingModule({
@@ -88,6 +93,52 @@ describe('AjustePagoComponent', () => {
     fixture?.destroy();
     jest.clearAllMocks();
     stripeFake.confirmPayment.mockResolvedValue({});
+  });
+
+  /**
+   * Stripe devuelve aquí al cliente con la página recargada y el resultado en
+   * la barra de direcciones. Volver no es haber pagado.
+   */
+  describe('vuelta de la pasarela', () => {
+    const conRetorno = async (vuelta: 'aprobado' | 'procesando' | 'no_cobrado'): Promise<void> => {
+      const original = window.location.search;
+      Object.defineProperty(window, 'location', {
+        value: { ...window.location, search: '?payment_intent=pi_1' },
+        writable: true,
+      });
+      try {
+        await crear(undefined, { vuelta });
+      } finally {
+        Object.defineProperty(window, 'location', {
+          value: { ...window.location, search: original },
+          writable: true,
+        });
+      }
+    };
+
+    it('debería dar el suplemento por pagado sin volver a montar el formulario', async () => {
+      await conRetorno('aprobado');
+
+      expect(componente.pagado()).toBe(true);
+      expect(componente.confirmacionPendiente()).toBe(false);
+      expect(paymentsService['aceptarAjuste']).not.toHaveBeenCalled();
+    });
+
+    it('debería avisar de que el ajuste va con retraso si el banco aún procesa el pago', async () => {
+      await conRetorno('procesando');
+
+      expect(componente.pagado()).toBe(true);
+      expect(componente.confirmacionPendiente()).toBe(true);
+    });
+
+    it('debería volver a enseñar el formulario si el cliente no llegó a pagar', async () => {
+      await conRetorno('no_cobrado');
+
+      expect(componente.pagado()).toBe(false);
+      expect(componente.errorPago()).toContain('no se te ha cobrado nada');
+      expect(paymentsService['aceptarAjuste']).toHaveBeenCalledWith('r1');
+      expect(componente.stripeListo()).toBe(true);
+    });
   });
 
   describe('carga', () => {

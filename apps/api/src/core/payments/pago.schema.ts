@@ -75,6 +75,25 @@ export class Pago {
   /** Lo devuelto hasta ahora; una cancelación tardía puede devolver sólo una parte. */
   @Prop({ type: Number, default: 0 })
   importeReembolsado!: number;
+
+  /**
+   * Lo que la pasarela ha avisado sobre este cobro después de aprobarlo y que
+   * alguien tiene que mirar: una devolución que el banco rechazó, una disputa.
+   * `referencia` es el id del objeto en Stripe y sirve para no apuntarlo dos
+   * veces si el aviso se repite.
+   */
+  @Prop({
+    type: [{ _id: false, tipo: String, detalle: String, referencia: String, fecha: Date }],
+    default: [],
+  })
+  incidencias!: IncidenciaPago[];
+}
+
+export interface IncidenciaPago {
+  tipo: string;
+  detalle: string;
+  referencia?: string;
+  fecha: Date;
 }
 
 export const PagoSchema = SchemaFactory.createForClass(Pago);

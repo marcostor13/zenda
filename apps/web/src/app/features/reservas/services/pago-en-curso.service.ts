@@ -4,6 +4,13 @@ import { almacenSesion } from '../../../core/plataforma/almacen';
 
 const CLAVE = 'doogking_pago_en_curso';
 
+/** Cómo quedó un cobro, en los términos que necesita la pantalla. */
+export type ResultadoPago = 'aprobado' | 'procesando' | 'no_cobrado' | 'desconocido';
+
+/** El cobro se hizo —o no sabemos que no— pero la reserva aún no consta confirmada. */
+export const vaConRetraso = (resultado: ResultadoPago | null): boolean =>
+  resultado === 'procesando' || resultado === 'desconocido';
+
 /**
  * El pago que el navegador dejó a medias al irse a la pasarela.
  *
@@ -58,23 +65,38 @@ export class PagoEnCursoService {
    * listado enseña como pendiente.
    */
   async sincronizar(pagoId: string): Promise<boolean> {
+    return (await this.consultar(pagoId)) === 'aprobado';
+  }
+
+  /**
+   * Lo mismo que `sincronizar`, pero contando **por qué** no está aprobado.
+   *
+   * Hace falta al volver de una pasarela con redirección (Bancontact, Klarna,
+   * la app del banco…): el cliente puede haber cancelado allí, y entonces
+   * decirle «tu pago se está confirmando» es mentirle. `no_cobrado` es ese
+   * caso; `desconocido` es que no se ha podido preguntar, y ahí manda la
+   * prudencia: no se afirma ni que pagó ni que no.
+   */
+  async consultar(pagoId: string): Promise<ResultadoPago> {
     try {
       const { estado } = await this.paymentsService.sincronizar(pagoId);
-      return estado === 'aprobado';
+      if (estado === 'aprobado' || estado === 'procesando') return estado;
+      return 'no_cobrado';
     } catch {
-      return false;
+      return 'desconocido';
     }
   }
 
   /**
-   * Cierra el pago que quedó a medias, si lo hay. Se llama al aterrizar en las
-   * pantallas a las que Stripe devuelve al usuario.
+   * Cierra el pago que quedó a medias, si lo hay, y cuenta cómo quedó. Se llama
+   * al aterrizar en las pantallas a las que Stripe devuelve al usuario. `null`
+   * si no había ninguno.
    */
-  async cerrarPendiente(): Promise<boolean> {
+  async resolverPendiente(): Promise<ResultadoPago | null> {
     const pagoId = this.pendiente();
-    if (!pagoId) return false;
+    if (!pagoId) return null;
 
     this.olvidar();
-    return this.sincronizar(pagoId);
+    return this.consultar(pagoId);
   }
 }

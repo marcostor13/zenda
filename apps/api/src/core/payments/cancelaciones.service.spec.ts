@@ -114,7 +114,7 @@ describe('CancelacionesService', () => {
       expect(pagoModel.findOne).toHaveBeenCalledWith({
         $or: [{ reservaId }, { reservaIds: reservaId }], estado: PagoEstado.APROBADO, esSuplemento: false,
       });
-      expect(gateway.reembolsar).toHaveBeenCalledWith('pi_1', 50);
+      expect(gateway.reembolsar).toHaveBeenCalledWith('pi_1', 50, expect.stringMatching(/^reembolso-/));
       expect(doc.importeReembolsado).toBe(50);
       expect(doc.estado).toBe(PagoEstado.APROBADO);
       expect(doc.save).toHaveBeenCalled();
@@ -131,7 +131,7 @@ describe('CancelacionesService', () => {
 
       await service.cancelarPorCliente('r1', 'u1');
 
-      expect(gateway.reembolsar).toHaveBeenCalledWith('pi_1', 100);
+      expect(gateway.reembolsar).toHaveBeenCalledWith('pi_1', 100, expect.stringMatching(/^reembolso-/));
       expect(doc.estado).toBe(PagoEstado.REEMBOLSADO);
     });
 
@@ -142,8 +142,19 @@ describe('CancelacionesService', () => {
 
       await service.cancelarPorCliente('r1', 'u1');
 
-      expect(gateway.reembolsar).toHaveBeenCalledWith('pi_1', 20);
+      expect(gateway.reembolsar).toHaveBeenCalledWith('pi_1', 20, expect.stringMatching(/^reembolso-/));
       expect(doc.importeReembolsado).toBe(100);
+    });
+
+    it('debería identificar la devolución por lo ya devuelto y lo que se devuelve ahora', async () => {
+      // Dos clics parten del mismo punto y comparten clave: Stripe devuelve una
+      // sola vez. Una segunda devolución legítima parte de otro y tiene la suya.
+      conPago(pago({ importeReembolsado: 80 }));
+      bookings.cancelablePorCliente.mockResolvedValue(reserva());
+
+      await service.cancelarPorCliente('r1', 'u1');
+
+      expect(gateway.reembolsar.mock.calls[0][2]).toMatch(/-8000-2000$/);
     });
 
     it('no debería llamar a la pasarela si ya se devolvió todo', async () => {
@@ -212,7 +223,7 @@ describe('CancelacionesService', () => {
       await service.rechazarViaje('r1', 'c1', 'Sin conductor');
 
       expect(bookings.pendienteDeAceptar).toHaveBeenCalledWith('r1', 'c1');
-      expect(gateway.reembolsar).toHaveBeenCalledWith('pi_1', 100);
+      expect(gateway.reembolsar).toHaveBeenCalledWith('pi_1', 100, expect.stringMatching(/^reembolso-/));
       expect(bookings.marcarCancelada).toHaveBeenCalledWith(expect.anything(), {
         por: 'comercio:c1', motivo: 'Sin conductor', aceptacion: 'rechazada', reembolso: { porcentaje: 100, importe: 100 },
       });
