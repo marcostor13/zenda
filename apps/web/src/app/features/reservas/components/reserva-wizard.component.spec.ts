@@ -486,7 +486,11 @@ describe('ReservaWizardComponent', () => {
       componente.cuponInput = '  verano ';
       await componente.aplicarCupon();
 
-      expect(dobles.cupones.validar).toHaveBeenCalledWith('VERANO', VerticalKey.ALOJAMIENTO, 50);
+      expect(dobles.cupones.validar).toHaveBeenCalledWith(expect.objectContaining({
+        codigo: 'VERANO', vertical: VerticalKey.ALOJAMIENTO, montoSubtotal: 50,
+      }));
+      // El servicio viaja para que el API compruebe comercio y ciudad del cupón.
+      expect(dobles.cupones.validar.mock.calls[0][0].servicioId).toEqual(expect.any(String));
       expect(componente.descuento()).toBe(20);
     });
 
@@ -510,6 +514,24 @@ describe('ReservaWizardComponent', () => {
       expect(componente.cuponError()).toContain('no válido');
       expect(componente.descuento()).toBe(0);
       expect(componente.aplicandoCupon()).toBe(false);
+    });
+
+    it('debería enseñar el motivo que da el API cuando el cupón no vale', async () => {
+      // «No válido» no le dice al cliente si lo ha escrito mal, si ya lo gastó
+      // o si es de otro comercio.
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, {
+        cupones: {
+          validar: jest.fn().mockRejectedValue(new HttpErrorResponse({
+            status: 422, error: { message: 'Este cupón es sólo para tu primera reserva' },
+          })),
+        },
+      });
+      componente.cuponInput = 'BIENVENIDA';
+      await componente.aplicarCupon();
+
+      expect(componente.cuponError()).toBe('Este cupón es sólo para tu primera reserva');
+      expect(componente.descuento()).toBe(0);
     });
 
     it('debería revertir el descuento al quitar el cupón', async () => {

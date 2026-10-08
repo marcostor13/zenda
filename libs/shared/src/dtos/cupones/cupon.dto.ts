@@ -11,6 +11,15 @@ export class ValidarCuponDto {
   @IsNumber()
   @Min(0)
   montoSubtotal!: number;
+
+  /**
+   * El servicio que se está reservando. Con él la vista previa puede decir ya
+   * si el cupón es de otro comercio o de otra ciudad, en vez de dejar que el
+   * cliente lo descubra al confirmar. Opcional: la reserva lo comprueba siempre.
+   */
+  @IsOptional()
+  @IsMongoId()
+  servicioId?: string;
 }
 
 export class CrearCuponDto {

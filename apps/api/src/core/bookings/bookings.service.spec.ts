@@ -502,7 +502,41 @@ describe('BookingsService', () => {
     it('debería validar el cupón con el subtotal cuando se indica cuponCodigo', async () => {
       cuponesService.validar.mockResolvedValue({ codigo: 'VERANO', tipo: 'porcentaje', descuento: 50 });
       await service.crear({ ...parametrosBase, cuponCodigo: 'VERANO' });
-      expect(cuponesService.validar).toHaveBeenCalledWith('VERANO', VerticalKey.ALOJAMIENTO, 500);
+      expect(cuponesService.validar).toHaveBeenCalledWith(
+        'VERANO', VerticalKey.ALOJAMIENTO, 500, expect.anything(),
+      );
+    });
+
+    it('debería decirle al cupón quién reserva y en qué comercio', async () => {
+      // Sin esto «sólo primera reserva», «usos por persona» y el alcance por
+      // comercio o ciudad se guardaban en el cupón y no los comprobaba nadie.
+      cuponesService.validar.mockResolvedValue({ codigo: 'VERANO', tipo: 'porcentaje', descuento: 50 });
+
+      await service.crear({ ...parametrosBase, cuponCodigo: 'VERANO' });
+
+      expect(cuponesService.validar.mock.calls[0][3]).toEqual({
+        usuarioId: 'user-1', comercioId: 'comercio-1', ciudad: expect.any(String),
+      });
+    });
+
+    it('debería guardar el código tal como lo tiene el cupón, no como se tecleó', async () => {
+      // De este campo sale la cuenta de usos por persona.
+      cuponesService.validar.mockResolvedValue({ codigo: 'VERANO', tipo: 'porcentaje', descuento: 50 });
+
+      await service.crear({ ...parametrosBase, cuponCodigo: ' verano ' });
+
+      expect((reservaModel as unknown as jest.Mock).mock.calls[0][0].cuponCodigo).toBe('VERANO');
+    });
+
+    it('debería soltar la plaza retenida si el cupón no vale', async () => {
+      // La plaza ya estaba bloqueada: sin liberarla se quedaba así hasta
+      // caducar, por un cupón mal escrito.
+      cuponesService.validar.mockRejectedValue(new Error('El cupón no aplica a este comercio'));
+
+      await expect(service.crear({ ...parametrosBase, cuponCodigo: 'AJENO' }))
+        .rejects.toThrow('El cupón no aplica a este comercio');
+      expect(estrategiaMock.releaseSlot).toHaveBeenCalled();
+      expect(reservaModel as unknown as jest.Mock).not.toHaveBeenCalled();
     });
 
     it('no debería validar cupón si no se indica código', async () => {

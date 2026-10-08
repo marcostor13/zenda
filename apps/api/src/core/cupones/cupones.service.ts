@@ -1,9 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { CrearCuponDto, esFechaSinHora, fechaYHoraEnZona } from 'shared';
+import { CrearCuponDto, ValidarCuponDto, esFechaSinHora, fechaYHoraEnZona, normalizarUbicacion } from 'shared';
 import { CuponesRepository } from './cupones.repository';
 import { Cupon, CuponDocument } from './cupon.schema';
+import { AlphaService } from '../alpha/alpha.service';
+import { CatalogRepository } from '../catalog/catalog.repository';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+
+/**
+ * Quién quiere usar el cupón y dónde.
+ *
+ * Lo que falte no se comprueba: la vista previa de un cliente antiguo no sabe
+ * qué servicio se reserva. Quien no puede saltárselo es la reserva, que pasa
+ * siempre el contexto entero.
+ */
+export interface ContextoCupon {
+  usuarioId?: string;
+  comercioId?: string;
+  /** Ciudad del servicio; cadena vacía si el servicio no la tiene. */
+  ciudad?: string;
+}
 
 /** Lo que el panel puede cambiar de un cupón; `validoHasta: null` le quita la caducidad. */
 export type CambiosCupon = Omit<Partial<Cupon>, 'validoHasta'> & { validoHasta?: string | Date | null };
@@ -37,14 +53,38 @@ export interface DescuentoAplicado {
 
 @Injectable()
 export class CuponesService {
-  constructor(private readonly repo: CuponesRepository) {}
+  constructor(
+    private readonly repo: CuponesRepository,
+    private readonly alpha: AlphaService,
+    private readonly catalogo: CatalogRepository,
+  ) {}
+
+  /**
+   * La vista previa del asistente de reserva. El comercio y la ciudad salen
+   * del servicio, no de lo que diga el cliente: si los mandara él, bastaría con
+   * declarar el comercio del cupón para llevárselo a cualquier otro.
+   */
+  async validarParaCliente(dto: ValidarCuponDto, usuarioId: string): Promise<DescuentoAplicado> {
+    const servicio = dto.servicioId ? await this.catalogo.obtenerPorId(dto.servicioId) : null;
+
+    return this.validar(dto.codigo, dto.vertical, dto.montoSubtotal, {
+      usuarioId,
+      comercioId: servicio?.comercioId.toString(),
+      ciudad: servicio ? servicio.ubicacion?.ciudad ?? '' : undefined,
+    });
+  }
 
   /**
    * Valida un cupón para un vertical y un importe, y devuelve el descuento en €.
    * Lanza DomainException si el cupón no es aplicable. No incrementa el uso
    * (eso ocurre al confirmar la reserva, vía aplicar()).
    */
-  async validar(codigo: string, vertical: string, montoSubtotal: number): Promise<DescuentoAplicado> {
+  async validar(
+    codigo: string,
+    vertical: string,
+    montoSubtotal: number,
+    contexto: ContextoCupon = {},
+  ): Promise<DescuentoAplicado> {
     const cupon = await this.repo.findByCodigo(codigo);
 
     if (!cupon || !cupon.activo) {
@@ -62,6 +102,8 @@ export class CuponesService {
     if (montoSubtotal < cupon.montoMinimo) {
       throw new DomainException(`El cupón requiere un importe mínimo de €${cupon.montoMinimo}`, 422);
     }
+    this.comprobarAlcance(cupon, contexto);
+    await this.comprobarCliente(cupon, contexto.usuarioId);
 
     return {
       codigo: cupon.codigo,
@@ -108,6 +150,41 @@ export class CuponesService {
 
   async aplicar(codigo: string): Promise<void> {
     await this.repo.incrementarUso(codigo);
+  }
+
+  /** El cupón puede ser de un solo comercio o de una sola ciudad (TCK-8037 §5). */
+  private comprobarAlcance(cupon: CuponDocument, contexto: ContextoCupon): void {
+    const { comercioId, ciudad } = contexto;
+
+    if (cupon.comercioId && comercioId !== undefined && cupon.comercioId.toString() !== comercioId) {
+      throw new DomainException('El cupón no aplica a este comercio', 422);
+    }
+    if (cupon.ciudad && ciudad !== undefined
+        && normalizarUbicacion(cupon.ciudad) !== normalizarUbicacion(ciudad)) {
+      throw new DomainException(`El cupón sólo aplica en ${cupon.ciudad}`, 422);
+    }
+  }
+
+  /**
+   * Lo que depende de quién lo usa (TCK-8037 §4 y §6). Los cupones antiguos no
+   * traen estos campos y se leen como «sin restricción».
+   */
+  private async comprobarCliente(cupon: CuponDocument, usuarioId?: string): Promise<void> {
+    if (!usuarioId) return;
+
+    if (cupon.soloPrimeraReserva && (await this.repo.contarReservasPagadas(usuarioId)) > 0) {
+      throw new DomainException('Este cupón es sólo para tu primera reserva', 422);
+    }
+    if (cupon.usosPorUsuario > 0
+        && (await this.repo.contarUsosDe(cupon.codigo, usuarioId)) >= cupon.usosPorUsuario) {
+      throw new DomainException('Ya has usado este cupón el máximo de veces permitido', 409);
+    }
+    if (cupon.nivelAlphaMinimo > 0) {
+      const { nivelActual } = await this.alpha.obtenerEstado(usuarioId);
+      if (nivelActual < cupon.nivelAlphaMinimo) {
+        throw new DomainException(`Este cupón requiere el nivel Alpha ${cupon.nivelAlphaMinimo}`, 422);
+      }
+    }
   }
 
   private calcularDescuento(cupon: CuponDocument, montoSubtotal: number): number {

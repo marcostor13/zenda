@@ -55,16 +55,21 @@ describe('PaymentsService', () => {
   it('debería validar el cupón con importe y vertical, no solo con el código', async () => {
     // El descuento depende del vertical y del importe: mandar solo el código
     // daría una previsualización que luego no coincide al cobrar.
-    const promesa = cupones.validar('VERANO', 'alojamiento', 200);
+    const promesa = cupones.validar({
+      codigo: 'VERANO', vertical: 'alojamiento', montoSubtotal: 200, servicioId: 'servicio-1',
+    });
 
     const req = resolver('/cupones/validar', { descuento: 20 });
-    expect(req.body).toEqual({ codigo: 'VERANO', vertical: 'alojamiento', montoSubtotal: 200 });
+    // Con el servicio, el API puede decir ya si el cupón es de otro comercio.
+    expect(req.body).toEqual({
+      codigo: 'VERANO', vertical: 'alojamiento', montoSubtotal: 200, servicioId: 'servicio-1',
+    });
 
     await expect(promesa).resolves.toMatchObject({ descuento: 20 });
   });
 
   it('debería propagar el rechazo de un cupón inválido', async () => {
-    const promesa = cupones.validar('CADUCADO', 'alojamiento', 200);
+    const promesa = cupones.validar({ codigo: 'CADUCADO', vertical: 'alojamiento', montoSubtotal: 200 });
     httpMock.expectOne((r) => r.url.includes('/cupones/validar'))
       .flush({ message: 'Cupón caducado' }, { status: 400, statusText: 'Bad Request' });
 

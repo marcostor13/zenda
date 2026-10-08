@@ -15,10 +15,18 @@ export class CuponesService {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiUrl}/cupones`;
 
-  /** Valida un cupón y devuelve el descuento; lanza si no es aplicable. */
-  validar(codigo: string, vertical: string, montoSubtotal: number): Promise<DescuentoAplicado> {
-    return firstValueFrom(
-      this.http.post<DescuentoAplicado>(`${this.base}/validar`, { codigo, vertical, montoSubtotal }),
-    );
+  /**
+   * Valida un cupón y devuelve el descuento; lanza si no es aplicable.
+   *
+   * Con `servicioId` el API puede decir ya si el cupón es de otro comercio o de
+   * otra ciudad, en lugar de rechazarlo al confirmar la reserva.
+   */
+  validar(datos: {
+    codigo: string;
+    vertical: string;
+    montoSubtotal: number;
+    servicioId?: string;
+  }): Promise<DescuentoAplicado> {
+    return firstValueFrom(this.http.post<DescuentoAplicado>(`${this.base}/validar`, datos));
   }
 }

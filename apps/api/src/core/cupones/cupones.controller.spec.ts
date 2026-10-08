@@ -12,7 +12,7 @@ describe('CuponesController', () => {
     const mod = await Test.createTestingModule({
       controllers: [CuponesController],
       providers: [
-        { provide: CuponesService, useValue: { validar: jest.fn(), crear: jest.fn(), actualizar: jest.fn() } },
+        { provide: CuponesService, useValue: { validarParaCliente: jest.fn(), crear: jest.fn(), actualizar: jest.fn() } },
         { provide: CuponesRepository, useValue: { listar: jest.fn(), eliminar: jest.fn() } },
       ],
     }).compile();
@@ -21,10 +21,13 @@ describe('CuponesController', () => {
     repo = mod.get(CuponesRepository);
   });
 
-  it('valida delegando en el service', async () => {
-    service.validar.mockResolvedValue({ codigo: 'X', tipo: 'fijo', descuento: 10 });
-    await controller.validar({ codigo: 'X', vertical: 'alojamiento', montoSubtotal: 100 });
-    expect(service.validar).toHaveBeenCalledWith('X', 'alojamiento', 100);
+  it('debería validar para el cliente de la sesión, no para quien diga el cuerpo', async () => {
+    const dto = { codigo: 'X', vertical: 'alojamiento', montoSubtotal: 100, servicioId: '64b000000000000000000001' };
+    service.validarParaCliente.mockResolvedValue({ codigo: 'X', tipo: 'fijo', descuento: 10 });
+
+    await controller.validar(dto, { user: { sub: 'user-1' } });
+
+    expect(service.validarParaCliente).toHaveBeenCalledWith(dto, 'user-1');
   });
 
   it('debería crear delegando en el service', async () => {

@@ -1,11 +1,15 @@
 import { Test } from '@nestjs/testing';
 import { CuponesService } from './cupones.service';
 import { CuponesRepository } from './cupones.repository';
+import { AlphaService } from '../alpha/alpha.service';
+import { CatalogRepository } from '../catalog/catalog.repository';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 
 describe('CuponesService', () => {
   let service: CuponesService;
   let repo: jest.Mocked<CuponesRepository>;
+  let alpha: jest.Mocked<Pick<AlphaService, 'obtenerEstado'>>;
+  let catalogo: jest.Mocked<Pick<CatalogRepository, 'obtenerPorId'>>;
 
   const base = {
     codigo: 'VERANO', tipo: 'porcentaje', valor: 0.2, vertical: 'global',
@@ -18,12 +22,177 @@ describe('CuponesService', () => {
         CuponesService,
         {
           provide: CuponesRepository,
-          useValue: { findByCodigo: jest.fn(), incrementarUso: jest.fn(), crear: jest.fn(), actualizar: jest.fn() },
+          useValue: {
+            findByCodigo: jest.fn(),
+            incrementarUso: jest.fn(),
+            crear: jest.fn(),
+            actualizar: jest.fn(),
+            contarReservasPagadas: jest.fn().mockResolvedValue(0),
+            contarUsosDe: jest.fn().mockResolvedValue(0),
+          },
         },
+        { provide: AlphaService, useValue: { obtenerEstado: jest.fn().mockResolvedValue({ nivelActual: 1 }) } },
+        { provide: CatalogRepository, useValue: { obtenerPorId: jest.fn().mockResolvedValue(null) } },
       ],
     }).compile();
     service = mod.get(CuponesService);
     repo = mod.get(CuponesRepository);
+    alpha = mod.get(AlphaService);
+    catalogo = mod.get(CatalogRepository);
+  });
+
+  /**
+   * Restricciones que el panel deja configurar (TCK-8037). Se guardaban en el
+   * cupón y nadie las comprobaba: un cupón «uno por persona, sólo en este
+   * comercio» lo usaba cualquiera, las veces que quisiera y en cualquier sitio.
+   */
+  describe('alcance del cupón', () => {
+    const COMERCIO = '64b000000000000000000001';
+    const OTRO = '64b000000000000000000002';
+    const conCupon = (extra: Record<string, unknown>) =>
+      repo.findByCodigo.mockResolvedValue({ ...base, ...extra } as never);
+
+    it('debería rechazarlo en un comercio que no es el suyo', async () => {
+      conCupon({ comercioId: { toString: () => COMERCIO } });
+
+      await expect(service.validar('VERANO', 'alojamiento', 100, { comercioId: OTRO }))
+        .rejects.toThrow('El cupón no aplica a este comercio');
+    });
+
+    it('debería aceptarlo en su comercio', async () => {
+      conCupon({ comercioId: { toString: () => COMERCIO } });
+
+      await expect(service.validar('VERANO', 'alojamiento', 100, { comercioId: COMERCIO }))
+        .resolves.toMatchObject({ descuento: 20 });
+    });
+
+    it('debería rechazarlo fuera de su ciudad', async () => {
+      conCupon({ ciudad: 'Valencia' });
+
+      await expect(service.validar('VERANO', 'alojamiento', 100, { ciudad: 'Madrid' }))
+        .rejects.toThrow('El cupón sólo aplica en Valencia');
+    });
+
+    it('debería reconocer la ciudad aunque cambien mayúsculas y tildes', async () => {
+      conCupon({ ciudad: 'Málaga' });
+
+      await expect(service.validar('VERANO', 'alojamiento', 100, { ciudad: ' malaga ' }))
+        .resolves.toMatchObject({ descuento: 20 });
+    });
+
+    it('debería rechazar un cupón de ciudad en un servicio que no la tiene', async () => {
+      conCupon({ ciudad: 'Valencia' });
+
+      await expect(service.validar('VERANO', 'alojamiento', 100, { ciudad: '' }))
+        .rejects.toBeInstanceOf(DomainException);
+    });
+
+    it('no debería comprobar el alcance si no se sabe dónde se reserva', async () => {
+      // La vista previa de un cliente antiguo no manda el servicio; quien no
+      // puede saltárselo es la reserva, que pasa siempre el contexto entero.
+      conCupon({ comercioId: { toString: () => COMERCIO }, ciudad: 'Valencia' });
+
+      await expect(service.validar('VERANO', 'alojamiento', 100)).resolves.toMatchObject({ descuento: 20 });
+    });
+  });
+
+  describe('restricciones por cliente', () => {
+    const conCupon = (extra: Record<string, unknown>) =>
+      repo.findByCodigo.mockResolvedValue({ ...base, ...extra } as never);
+    const paraElCliente = () => service.validar('VERANO', 'alojamiento', 100, { usuarioId: 'user-1' });
+
+    it('debería rechazar un cupón de primera reserva a quien ya ha reservado', async () => {
+      conCupon({ soloPrimeraReserva: true });
+      repo.contarReservasPagadas.mockResolvedValue(1);
+
+      await expect(paraElCliente()).rejects.toThrow('Este cupón es sólo para tu primera reserva');
+    });
+
+    it('debería aceptarlo a quien aún no ha pagado ninguna reserva', async () => {
+      conCupon({ soloPrimeraReserva: true });
+
+      await expect(paraElCliente()).resolves.toMatchObject({ descuento: 20 });
+      expect(repo.contarReservasPagadas).toHaveBeenCalledWith('user-1');
+    });
+
+    it('debería rechazarlo cuando el cliente ya lo ha gastado las veces permitidas', async () => {
+      conCupon({ usosPorUsuario: 1 });
+      repo.contarUsosDe.mockResolvedValue(1);
+
+      await expect(paraElCliente()).rejects.toThrow('Ya has usado este cupón');
+      expect(repo.contarUsosDe).toHaveBeenCalledWith('VERANO', 'user-1');
+    });
+
+    it('debería dejarlo usar mientras le queden usos', async () => {
+      conCupon({ usosPorUsuario: 2 });
+      repo.contarUsosDe.mockResolvedValue(1);
+
+      await expect(paraElCliente()).resolves.toMatchObject({ descuento: 20 });
+    });
+
+    it('debería exigir el nivel Alpha mínimo', async () => {
+      conCupon({ nivelAlphaMinimo: 3 });
+      alpha.obtenerEstado.mockResolvedValue({ nivelActual: 2 } as never);
+
+      await expect(paraElCliente()).rejects.toThrow('Este cupón requiere el nivel Alpha 3');
+    });
+
+    it('debería aceptarlo a quien ya tiene ese nivel', async () => {
+      conCupon({ nivelAlphaMinimo: 3 });
+      alpha.obtenerEstado.mockResolvedValue({ nivelActual: 3 } as never);
+
+      await expect(paraElCliente()).resolves.toMatchObject({ descuento: 20 });
+    });
+
+    it('no debería consultar nada del cliente en un cupón sin restricciones', async () => {
+      // Los cupones antiguos no traen estos campos: se leen como «sin límite».
+      conCupon({});
+
+      await paraElCliente();
+
+      expect(repo.contarReservasPagadas).not.toHaveBeenCalled();
+      expect(repo.contarUsosDe).not.toHaveBeenCalled();
+      expect(alpha.obtenerEstado).not.toHaveBeenCalled();
+    });
+
+    it('no debería comprobar al cliente si no se sabe quién es', async () => {
+      conCupon({ soloPrimeraReserva: true, usosPorUsuario: 1, nivelAlphaMinimo: 3 });
+
+      await expect(service.validar('VERANO', 'alojamiento', 100)).resolves.toMatchObject({ descuento: 20 });
+      expect(repo.contarReservasPagadas).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('validarParaCliente', () => {
+    const dto = { codigo: 'VERANO', vertical: 'alojamiento', montoSubtotal: 100 };
+
+    it('debería sacar el comercio y la ciudad del servicio, no del cliente', async () => {
+      repo.findByCodigo.mockResolvedValue({ ...base, ciudad: 'Valencia' } as never);
+      catalogo.obtenerPorId.mockResolvedValue({
+        comercioId: { toString: () => 'comercio-1' }, ubicacion: { ciudad: 'Madrid' },
+      } as never);
+
+      await expect(service.validarParaCliente({ ...dto, servicioId: 'servicio-1' }, 'user-1'))
+        .rejects.toThrow('El cupón sólo aplica en Valencia');
+      expect(catalogo.obtenerPorId).toHaveBeenCalledWith('servicio-1');
+    });
+
+    it('debería tratar como sin ciudad un servicio que no la tiene', async () => {
+      repo.findByCodigo.mockResolvedValue({ ...base, ciudad: 'Valencia' } as never);
+      catalogo.obtenerPorId.mockResolvedValue({ comercioId: { toString: () => 'comercio-1' } } as never);
+
+      await expect(service.validarParaCliente({ ...dto, servicioId: 'servicio-1' }, 'user-1'))
+        .rejects.toBeInstanceOf(DomainException);
+    });
+
+    it('debería comprobar al cliente aunque no llegue el servicio', async () => {
+      repo.findByCodigo.mockResolvedValue({ ...base, soloPrimeraReserva: true, ciudad: 'Valencia' } as never);
+      repo.contarReservasPagadas.mockResolvedValue(3);
+
+      await expect(service.validarParaCliente(dto, 'user-1'))
+        .rejects.toThrow('Este cupón es sólo para tu primera reserva');
+      expect(catalogo.obtenerPorId).not.toHaveBeenCalled();
+    });
   });
 
   describe('crear', () => {

@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Delete, Body, Param, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CambiosCupon, CuponesService, DescuentoAplicado } from './cupones.service';
 import { CuponesRepository } from './cupones.repository';
@@ -20,8 +20,11 @@ export class CuponesController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Validar un cupón y previsualizar el descuento' })
-  validar(@Body() dto: ValidarCuponDto): Promise<DescuentoAplicado> {
-    return this.cuponesService.validar(dto.codigo, dto.vertical, dto.montoSubtotal);
+  validar(
+    @Body() dto: ValidarCuponDto,
+    @Req() req: { user: { sub: string } },
+  ): Promise<DescuentoAplicado> {
+    return this.cuponesService.validarParaCliente(dto, req.user.sub);
   }
 
   @Post()

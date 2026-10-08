@@ -4143,11 +4143,18 @@ export class ReservaWizardComponent implements OnInit {
     this.aplicandoCupon.set(true);
     this.cuponError.set(null);
     try {
-      const res = await this.cuponesService.validar(codigo, this.vertical(), this.subtotal());
+      const res = await this.cuponesService.validar({
+        codigo,
+        vertical: this.vertical(),
+        montoSubtotal: this.subtotal(),
+        servicioId: this.servicioId ?? undefined,
+      });
       this.descuento.set(res.descuento);
       this.cuponCodigo.set(res.codigo);
-    } catch {
-      this.cuponError.set('Cupón no válido o no aplicable a esta reserva.');
+    } catch (error) {
+      // El API dice por qué no vale (caducado, de otro comercio, ya usado…):
+      // con eso el cliente sabe qué hacer; el genérico sólo si no llega nada.
+      this.cuponError.set(this.mensajeDelApi(error) ?? 'Cupón no válido o no aplicable a esta reserva.');
     } finally {
       this.aplicandoCupon.set(false);
     }

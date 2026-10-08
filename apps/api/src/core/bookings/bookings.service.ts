@@ -147,6 +147,8 @@ export interface CalendarioDisponibilidadRespuesta {
 interface ServicioResuelto {
   comercioId: string;
   vertical: VerticalKey;
+  /** Vacía si el servicio no la tiene; hace falta para los cupones de una ciudad. */
+  ciudad: string;
   horario?: HorarioDiaDto[];
   excepcionesHorario?: ExcepcionHorarioDto[];
 }
@@ -469,9 +471,25 @@ export class BookingsService {
     let montoTotal = precioBase;
     let descuentoMonto = 0;
 
+    let cuponCodigo: string | undefined;
+
     if (params.cuponCodigo) {
-      const descuento = await this.cuponesService.validar(params.cuponCodigo, vertical, montoTotal);
+      const descuento = await this.cuponesService
+        .validar(params.cuponCodigo, vertical, montoTotal, {
+          usuarioId: params.usuarioId,
+          comercioId,
+          ciudad: servicio.ciudad,
+        })
+        .catch(async (error: unknown) => {
+          // La plaza ya está retenida: si el cupón no vale, se suelta en vez de
+          // dejarla bloqueada hasta que caduque sola.
+          await estrategia.releaseSlot(hold.holdId);
+          throw error;
+        });
       descuentoMonto = descuento.descuento;
+      // Como lo guarda el cupón, no como lo tecleó el cliente: de este campo
+      // sale la cuenta de «usos por persona».
+      cuponCodigo = descuento.codigo;
       montoTotal = redondearEuros(montoTotal - descuentoMonto);
     }
 
@@ -517,7 +535,7 @@ export class BookingsService {
       comisionOrigen: comision.origen,
       montoTotal,
       descuentoMonto,
-      cuponCodigo: params.cuponCodigo,
+      cuponCodigo,
       estado: ReservaEstado.PENDIENTE,
       holdId: hold.holdId,
       aceptacion: this.aceptacionRequerida(disponibilidad.metadata),
@@ -1399,7 +1417,13 @@ export class BookingsService {
     }
 
     const conHorario = servicio as unknown as { horario?: HorarioDiaDto[]; excepcionesHorario?: ExcepcionHorarioDto[] };
-    return { comercioId, vertical, horario: conHorario.horario, excepcionesHorario: conHorario.excepcionesHorario };
+    return {
+      comercioId,
+      vertical,
+      ciudad: servicio.ubicacion?.ciudad ?? '',
+      horario: conHorario.horario,
+      excepcionesHorario: conHorario.excepcionesHorario,
+    };
   }
 
   private construirParametrosExtra(
