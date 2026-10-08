@@ -1,9 +1,8 @@
 import { Controller, Post, Get, Patch, Delete, Body, Param, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
-import { Types } from 'mongoose';
-import { CuponesService, DescuentoAplicado } from './cupones.service';
+import { CambiosCupon, CuponesService, DescuentoAplicado } from './cupones.service';
 import { CuponesRepository } from './cupones.repository';
-import { Cupon, CuponDocument } from './cupon.schema';
+import { CuponDocument } from './cupon.schema';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { ValidarCuponDto, CrearCuponDto, Rol } from 'shared';
@@ -31,15 +30,7 @@ export class CuponesController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Crear un cupón (admin)' })
   crear(@Body() dto: CrearCuponDto): Promise<CuponDocument> {
-    const { comercioId, campanaId, ...resto } = dto;
-    return this.cuponesRepo.crear({
-      ...resto,
-      vertical: dto.vertical ?? 'global',
-      validoHasta: dto.validoHasta ? new Date(dto.validoHasta) : undefined,
-      // El DTO viaja con el id en texto; el documento lo guarda como ObjectId.
-      comercioId: comercioId ? new Types.ObjectId(comercioId) : undefined,
-      campanaId: campanaId ? new Types.ObjectId(campanaId) : undefined,
-    });
+    return this.cuponesService.crear(dto);
   }
 
   @Get()
@@ -58,9 +49,9 @@ export class CuponesController {
   @ApiOperation({ summary: 'Actualizar un cupón (admin)' })
   actualizar(
     @Param('id') id: string,
-    @Body() datos: Partial<Cupon>,
+    @Body() datos: CambiosCupon,
   ): Promise<CuponDocument | null> {
-    return this.cuponesRepo.actualizar(id, datos);
+    return this.cuponesService.actualizar(id, datos);
   }
 
   @Delete(':id')

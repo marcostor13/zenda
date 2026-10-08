@@ -12,8 +12,8 @@ describe('CuponesController', () => {
     const mod = await Test.createTestingModule({
       controllers: [CuponesController],
       providers: [
-        { provide: CuponesService, useValue: { validar: jest.fn() } },
-        { provide: CuponesRepository, useValue: { crear: jest.fn(), listar: jest.fn() } },
+        { provide: CuponesService, useValue: { validar: jest.fn(), crear: jest.fn(), actualizar: jest.fn() } },
+        { provide: CuponesRepository, useValue: { listar: jest.fn(), eliminar: jest.fn() } },
       ],
     }).compile();
     controller = mod.get(CuponesController);
@@ -27,12 +27,27 @@ describe('CuponesController', () => {
     expect(service.validar).toHaveBeenCalledWith('X', 'alojamiento', 100);
   });
 
-  it('crea un cupón con vertical global por defecto y convierte la fecha', async () => {
-    repo.crear.mockResolvedValue({ id: 'c1' } as never);
-    await controller.crear({ codigo: 'NEW', tipo: 'porcentaje', valor: 0.1, validoHasta: '2030-01-01' });
-    const arg = repo.crear.mock.calls[0][0];
-    expect(arg.vertical).toBe('global');
-    expect(arg.validoHasta).toBeInstanceOf(Date);
+  it('debería crear delegando en el service', async () => {
+    const dto = { codigo: 'NEW', tipo: 'porcentaje' as const, valor: 0.1 };
+    service.crear.mockResolvedValue({ id: 'c1' } as never);
+
+    await controller.crear(dto);
+
+    expect(service.crear).toHaveBeenCalledWith(dto);
+  });
+
+  it('debería actualizar delegando en el service', async () => {
+    service.actualizar.mockResolvedValue(null);
+
+    await controller.actualizar('c1', { activo: false });
+
+    expect(service.actualizar).toHaveBeenCalledWith('c1', { activo: false });
+  });
+
+  it('debería eliminar el cupón indicado', async () => {
+    await controller.eliminar('c1');
+
+    expect(repo.eliminar).toHaveBeenCalledWith('c1');
   });
 
   it('lista cupones', async () => {

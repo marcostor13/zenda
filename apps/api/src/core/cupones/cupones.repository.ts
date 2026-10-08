@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, UpdateQuery } from 'mongoose';
 import { Cupon, CuponDocument } from './cupon.schema';
 
 @Injectable()
@@ -22,7 +22,7 @@ export class CuponesRepository {
     await this.cuponModel.updateOne({ codigo: codigo.toUpperCase().trim() }, { $inc: { usados: 1 } }).exec();
   }
 
-  async actualizar(id: string, datos: Partial<Cupon>): Promise<CuponDocument | null> {
+  async actualizar(id: string, datos: UpdateQuery<CuponDocument>): Promise<CuponDocument | null> {
     return this.cuponModel.findByIdAndUpdate(id, datos, { new: true }).exec();
   }
 

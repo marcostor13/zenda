@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { RouterLink } from '@angular/router';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -461,7 +461,9 @@ export class CuponesAdminComponent implements OnInit {
           montoMinimo: Number(v.montoMinimo) || 0,
           topeDescuento: this.sinTope() ? 0 : Number(v.topeDescuento) || 0,
           usoMaximo: this.usosIlimitados() ? 0 : Number(v.usoMaximo) || 0,
-          validoHasta: this.sinCaducidad() || !v.validoHasta ? undefined : v.validoHasta,
+          // `null` y no `undefined`: sin enviarlo, un cupón con fecha no podía
+          // volver a «sin caducidad» desde el panel.
+          validoHasta: this.sinCaducidad() || !v.validoHasta ? null : v.validoHasta,
           asumeDescuento: v.asumeDescuento ?? 'plataforma',
           soloPrimeraReserva: !!v.soloPrimeraReserva,
           ...this.alcanceDelFormulario(),
@@ -482,18 +484,28 @@ export class CuponesAdminComponent implements OnInit {
           asumeDescuento: v.asumeDescuento ?? 'plataforma',
           soloPrimeraReserva: !!v.soloPrimeraReserva,
           ...this.alcanceDelFormulario(),
+          descripcion: v.descripcion || undefined,
         });
         this.formOk.set('Cupón creado correctamente.');
-        this.form.patchValue({ codigo: '' });
+        this.form.patchValue({ codigo: '', descripcion: '' });
       }
       await this.cargar();
-    } catch {
-      this.formError.set(this.editandoId()
+    } catch (error) {
+      // El API dice por qué (código repetido, dato inválido): se enseña eso, y
+      // el texto genérico sólo cuando no llega nada aprovechable.
+      this.formError.set(this.motivoDelApi(error) ?? (this.editandoId()
         ? 'No se pudo actualizar el cupón.'
-        : 'No se pudo crear el cupón (¿código duplicado o sin permisos?).');
+        : 'No se pudo crear el cupón. Revisa los datos e inténtalo de nuevo.'));
     } finally {
       this.guardando.set(false);
     }
+  }
+
+  private motivoDelApi(error: unknown): string | null {
+    if (!(error instanceof HttpErrorResponse)) return null;
+    const mensaje = (error.error as { message?: unknown } | null)?.message;
+    if (typeof mensaje === 'string') return mensaje;
+    return Array.isArray(mensaje) && typeof mensaje[0] === 'string' ? mensaje[0] : null;
   }
 
   iniciarEdicion(c: Cupon): void {

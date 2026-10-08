@@ -76,7 +76,7 @@ export class CrearCuponDto {
 
   /** Alcance: un comercio concreto o una ciudad (TCK-8037 §5). */
   @IsOptional()
-  @IsString()
+  @IsMongoId()
   comercioId?: string;
 
   @IsOptional()

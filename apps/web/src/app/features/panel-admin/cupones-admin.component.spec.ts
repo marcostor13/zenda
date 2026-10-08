@@ -6,6 +6,7 @@ import { of } from 'rxjs';
 import { CuponesAdminComponent } from './cupones-admin.component';
 import { Cupon, CuponesAdminService } from './services/cupones-admin.service';
 import { AdminApiService } from './admin-api.service';
+import { HttpErrorResponse } from '@angular/common/http';
 
 const cupon = (extra: Partial<Cupon> = {}): Cupon => ({
   _id: 'cup1', codigo: 'VERANO', tipo: 'porcentaje', valor: 0.1,
@@ -108,15 +109,61 @@ describe('CuponesAdminComponent', () => {
       expect(componente.form.value.vertical).toBe('alojamiento');
     });
 
-    it('debería avisar de un código duplicado', async () => {
+    it('debería enseñar el motivo que da el API cuando el código ya existe', async () => {
       await crear();
-      service['crear'].mockRejectedValue(new Error('409'));
+      service['crear'].mockRejectedValue(new HttpErrorResponse({
+        status: 409, error: { message: 'Ya existe un cupón con el código OTOÑO' },
+      }));
       rellenar();
 
       await componente.guardar();
 
-      expect(componente.formError()).toContain('duplicado');
+      expect(componente.formError()).toBe('Ya existe un cupón con el código OTOÑO');
       expect(componente.guardando()).toBe(false);
+    });
+
+    it('debería enseñar el primer fallo de validación que devuelve el API', async () => {
+      await crear();
+      service['crear'].mockRejectedValue(new HttpErrorResponse({
+        status: 400, error: { message: ['valor must not be less than 0', 'otro'] },
+      }));
+      rellenar();
+
+      await componente.guardar();
+
+      expect(componente.formError()).toBe('valor must not be less than 0');
+    });
+
+    it('debería caer al aviso genérico si el fallo no trae motivo', async () => {
+      await crear();
+      service['crear'].mockRejectedValue(new Error('sin red'));
+      rellenar();
+
+      await componente.guardar();
+
+      expect(componente.formError()).toContain('No se pudo crear el cupón');
+    });
+
+    it('debería caer al aviso genérico si el API responde sin mensaje', async () => {
+      await crear();
+      service['crear'].mockRejectedValue(new HttpErrorResponse({ status: 500, error: null }));
+      rellenar();
+
+      await componente.guardar();
+
+      expect(componente.formError()).toContain('No se pudo crear el cupón');
+    });
+
+    it('debería mandar la descripción al crear, no sólo al editar', async () => {
+      // El formulario la pedía y el alta la tiraba: sólo llegaba al editar.
+      await crear();
+      rellenar();
+      componente.form.patchValue({ descripcion: 'Campaña de otoño' });
+
+      await componente.guardar();
+
+      expect(service['crear']).toHaveBeenCalledWith(expect.objectContaining({ descripcion: 'Campaña de otoño' }));
+      expect(componente.form.value.descripcion).toBe('');
     });
 
     it('debería recargar la lista tras crear', async () => {
@@ -154,6 +201,29 @@ describe('CuponesAdminComponent', () => {
       expect(dto.valor).toBe(0.25);
       // Cambiar el código rompería los enlaces ya repartidos a los clientes.
       expect(dto).not.toHaveProperty('codigo');
+    });
+
+    it('debería poder quitarle la caducidad a un cupón que la tenía', async () => {
+      // Con `undefined` el campo no viajaba y la fecha vieja se quedaba puesta.
+      await crear();
+      jest.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+      componente.iniciarEdicion(cupon({ validoHasta: '2030-06-30T21:59:59.999Z' }));
+      expect(componente.form.value.validoHasta).toBe('2030-06-30');
+      componente.alternarSinCaducidad();
+
+      await componente.guardar();
+
+      expect(adminApi['actualizarCupon'].mock.calls[0][1].validoHasta).toBeNull();
+    });
+
+    it('debería mandar el día de caducidad cuando el cupón la tiene', async () => {
+      await crear();
+      jest.spyOn(window, 'scrollTo').mockImplementation(() => undefined);
+      componente.iniciarEdicion(cupon({ validoHasta: '2030-06-30T21:59:59.999Z' }));
+
+      await componente.guardar();
+
+      expect(adminApi['actualizarCupon'].mock.calls[0][1].validoHasta).toBe('2030-06-30');
     });
 
     it('debería salir del modo edición tras guardar', async () => {
