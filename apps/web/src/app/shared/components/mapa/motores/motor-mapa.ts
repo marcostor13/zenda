@@ -16,6 +16,11 @@ export interface PuntoMapa {
   readonly imagen?: string;
   /** Nota media, para la tarjeta emergente. 0 = todavía sin reseñas. */
   readonly rating?: number;
+  /** Fotos del carrusel de la ficha del buscador por mapa. */
+  readonly imagenes?: readonly string[];
+  readonly totalResenas?: number;
+  /** Ruta de la ficha completa (`routerLink`); sin ella la ficha no enlaza. */
+  readonly enlace?: readonly unknown[];
 }
 
 /**
@@ -84,6 +89,18 @@ export interface OpcionesMotor {
    * trozo de mapa al que se está apuntando.
    */
   readonly permitePulsar?: boolean;
+  /**
+   * Pinta el precio (`etiqueta`) dentro del pin, junto al icono. Sólo lo pide el
+   * buscador por mapa: en los demás mapas la etiqueta no es un precio —el número
+   * de una parada, el tipo de un lugar— y no pinta nada en una pastilla.
+   */
+  readonly pinesConPrecio?: boolean;
+  /**
+   * El hospedador enseña su propia ficha al elegir un pin, así que el motor no
+   * abre la tarjeta emergente del proveedor: saldrían dos, una encima de otra.
+   * A cambio avisa de las pulsaciones sobre el fondo, que es como se cierra.
+   */
+  readonly fichaExterna?: boolean;
 }
 
 /** Avisos que el motor devuelve al componente que lo hospeda. */
@@ -98,6 +115,8 @@ export interface EscuchasMotor {
    * "el sitio es este".
    */
   readonly alPulsarMapa?: (lat: number, lng: number) => void;
+  /** Pulsación fuera de cualquier pin; sólo con `fichaExterna`. */
+  readonly alPulsarFondo?: () => void;
 }
 
 /**

@@ -71,7 +71,20 @@ export interface PuntoServicio {
   lng: number;
   rating: number;
   imagen?: string;
+  /** Fotos del carrusel de la ficha que se abre al pulsar el pin. */
+  imagenes: string[];
+  totalResenas: number;
+  ciudad?: string;
+  /** Con él la ficha del mapa enlaza a la dirección legible del servicio. */
+  slug?: string;
 }
+
+/**
+ * Fotos por pin. La ficha del mapa es un vistazo, no la galería: con trescientos
+ * pines por consulta, mandar todas las fotos de cada uno multiplicaría la
+ * respuesta sin que nadie llegue a pasarlas.
+ */
+const FOTOS_POR_PUNTO = 5;
 
 /**
  * Tope de pines por consulta. El mapa no puede dibujar miles de marcadores sin
@@ -793,15 +806,16 @@ export class CatalogRepository {
 
     const docs = await this.servicioModel
       .find(filtro)
-      .select('titulo precioBase ubicacion.geo ratingPromedio imagenes')
+      .select('titulo slug precioBase ubicacion.geo ubicacion.ciudad ratingPromedio totalReseñas imagenes')
       .limit(LIMITE_PUNTOS_MAPA)
       .lean()
       .exec();
 
     return docs.flatMap((doc) => {
-      const coordenadas = (doc as unknown as {
-        ubicacion?: { geo?: { coordinates?: number[] } };
-      }).ubicacion?.geo?.coordinates;
+      const ubicacion = (doc as unknown as {
+        ubicacion?: { ciudad?: string; geo?: { coordinates?: number[] } };
+      }).ubicacion;
+      const coordenadas = ubicacion?.geo?.coordinates;
       // GeoJSON guarda [lng, lat]; el mapa espera el orden inverso.
       const [lng, lat] = coordenadas ?? [];
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
@@ -809,7 +823,9 @@ export class CatalogRepository {
       const lean = doc as unknown as {
         _id: unknown; titulo: string; precioBase: number;
         ratingPromedio?: number; imagenes?: string[];
+        slug?: string; totalReseñas?: number;
       };
+      const imagenes = (lean.imagenes ?? []).slice(0, FOTOS_POR_PUNTO);
       return [{
         id: String(lean._id),
         titulo: lean.titulo,
@@ -817,7 +833,11 @@ export class CatalogRepository {
         lat: lat as number,
         lng: lng as number,
         rating: Math.round((lean.ratingPromedio ?? 0) * 10) / 10,
-        imagen: lean.imagenes?.[0],
+        imagen: imagenes[0],
+        imagenes,
+        totalResenas: lean.totalReseñas ?? 0,
+        ciudad: ubicacion?.ciudad,
+        slug: lean.slug,
       }];
     });
   }

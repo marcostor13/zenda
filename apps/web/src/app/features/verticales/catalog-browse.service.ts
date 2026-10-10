@@ -97,6 +97,11 @@ export interface PuntoServicio {
   lng: number;
   rating: number;
   imagen?: string;
+  /** Fotos del carrusel de la ficha del mapa. */
+  imagenes?: string[];
+  totalResenas?: number;
+  ciudad?: string;
+  slug?: string;
 }
 
 /** Facetas del panel de filtros: histograma de precios y contadores. */

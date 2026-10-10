@@ -214,3 +214,52 @@ describe('crearMotorGoogle', () => {
     expect(sdk.panel.querySelectorAll('.rs-pin')).toHaveLength(0);
   });
 });
+
+describe('crearMotorGoogle con ficha externa (buscador por mapa)', () => {
+  let sdk: ReturnType<typeof crearSdkFalso>;
+  let escuchasMotor: jest.Mocked<EscuchasMotor>;
+  let opciones: OpcionesMotor;
+
+  beforeEach(() => {
+    sdk = crearSdkFalso();
+    cargar.mockResolvedValue(sdk.maps);
+    escuchasMotor = { alMoverse: jest.fn(), alElegirPunto: jest.fn(), alPulsarFondo: jest.fn() };
+    opciones = {
+      lienzo: document.createElement('div'),
+      centro: [40.4168, -3.7038],
+      zoom: 11,
+      zoomConRueda: true,
+      pinesConPrecio: true,
+      fichaExterna: true,
+    };
+  });
+
+  it('debería avisar del pin pulsado sin abrir la tarjeta del proveedor', async () => {
+    const motor = await crearMotorGoogle('clave', opciones, escuchasMotor);
+    motor.pintar(PUNTOS, null);
+
+    const capa = sdk.panel.querySelector('.rs-pin-capa') as HTMLElement;
+    capa.click();
+    capa.dispatchEvent(new Event('mouseenter'));
+
+    expect(escuchasMotor.alElegirPunto).toHaveBeenCalledWith('a1');
+    expect(sdk.tarjeta.open).not.toHaveBeenCalled();
+  });
+
+  it('debería avisar de las pulsaciones sobre el fondo, que cierran la ficha', async () => {
+    await crearMotorGoogle('clave', opciones, escuchasMotor);
+
+    sdk.escuchas.get('click')?.();
+
+    expect(escuchasMotor.alPulsarFondo).toHaveBeenCalled();
+  });
+
+  it('debería pintar el precio en el pin y subir el elegido sobre sus vecinos', async () => {
+    const motor = await crearMotorGoogle('clave', opciones, escuchasMotor);
+    motor.pintar(PUNTOS, 'a2');
+
+    expect(sdk.panel.querySelectorAll('.rs-pin__precio')).toHaveLength(2);
+    const elegido = sdk.panel.querySelector('.rs-pin--activo')?.parentElement as HTMLElement;
+    expect(elegido.style.zIndex).toBe('1000');
+  });
+});

@@ -23,11 +23,19 @@ function resumirTramos(tramos: readonly google.maps.DirectionsLeg[]): ResumenRut
 /** Margen en píxeles al encajar la vista a los resultados. */
 const MARGEN_ENCUADRE = 48;
 
+/** Sube el pin elegido por encima de los vecinos que lo taparían. */
+const ALTURA_PIN_ACTIVO = '1000';
+
 /** Pin colocado sobre el mapa; añade a la capa de Google la forma de retirarlo. */
 type Pin = google.maps.OverlayView & { destruir(): void };
+/** Cómo se dibuja un pin concreto. */
+interface AspectoPin {
+  readonly esActivo: boolean;
+  readonly conPrecio: boolean;
+}
 type ConstructorPin = new (
   punto: PuntoMapa,
-  esActivo: boolean,
+  aspecto: AspectoPin,
   escuchas: { alPulsar: () => void; alEntrar: () => void; alSalir: () => void },
 ) => Pin;
 
@@ -57,7 +65,8 @@ class MotorGoogle implements MotorMapa {
     opciones: OpcionesMotor,
     private readonly escuchas: EscuchasMotor,
   ) {
-    this.sinTarjetas = opciones.permitePulsar === true;
+    this.sinTarjetas = opciones.permitePulsar === true || opciones.fichaExterna === true;
+    this.pinesConPrecio = opciones.pinesConPrecio === true;
     const [lat, lng] = opciones.centro;
     this.mapa = new maps.Map(opciones.lienzo, {
       center: { lat, lng },
@@ -85,6 +94,10 @@ class MotorGoogle implements MotorMapa {
       this.mapa.addListener('idle', () => this.escuchas.alMoverse());
     });
 
+    if (opciones.fichaExterna) {
+      this.mapa.addListener('click', () => this.escuchas.alPulsarFondo?.());
+    }
+
     if (opciones.permitePulsar) {
       this.mapa.addListener('click', (evento: google.maps.MapMouseEvent) => {
         const punto = evento.latLng;
@@ -93,8 +106,9 @@ class MotorGoogle implements MotorMapa {
     }
   }
 
-  /** El mapa está colocando un punto, no enseñando resultados. */
+  /** El mapa coloca un punto, o la ficha la pone quien lo hospeda. */
   private readonly sinTarjetas: boolean;
+  private readonly pinesConPrecio: boolean;
 
   /** Línea recta de respaldo, cuando no se ha podido pedir la ruta real. */
   private ruta: google.maps.Polyline | null = null;
@@ -105,7 +119,8 @@ class MotorGoogle implements MotorMapa {
     this.limpiarPines();
 
     for (const punto of puntosGeolocalizados(puntos)) {
-      const pin = new this.Pin(punto, punto.id === activo, {
+      const aspecto = { esActivo: punto.id === activo, conPrecio: this.pinesConPrecio };
+      const pin = new this.Pin(punto, aspecto, {
         alPulsar: () => this.alPulsarPin(punto),
         // Sin tarjetas cuando el mapa sirve para colocar el punto: taparían el
         // sitio al que se apunta y no dirían nada nuevo.
@@ -239,7 +254,7 @@ class MotorGoogle implements MotorMapa {
 
   private alPulsarPin(punto: PuntoMapa): void {
     this.escuchas.alElegirPunto(punto.id);
-    this.mostrarTarjeta(punto);
+    if (!this.sinTarjetas) this.mostrarTarjeta(punto);
   }
 
   /**
@@ -294,7 +309,7 @@ function definirPin(maps: typeof google.maps): ConstructorPin {
 
     constructor(
       private readonly punto: PuntoMapa,
-      private readonly esActivo: boolean,
+      private readonly aspecto: AspectoPin,
       private readonly escuchas: { alPulsar: () => void; alEntrar: () => void; alSalir: () => void },
     ) {
       super();
@@ -303,7 +318,8 @@ function definirPin(maps: typeof google.maps): ConstructorPin {
     override onAdd(): void {
       const elemento = document.createElement('div');
       elemento.className = 'rs-pin-capa';
-      elemento.innerHTML = htmlPin(this.punto, this.esActivo);
+      elemento.innerHTML = htmlPin(this.punto, this.aspecto.esActivo, this.aspecto.conPrecio);
+      if (this.aspecto.esActivo) elemento.style.zIndex = ALTURA_PIN_ACTIVO;
       elemento.addEventListener('click', (evento) => {
         evento.stopPropagation();
         this.escuchas.alPulsar();

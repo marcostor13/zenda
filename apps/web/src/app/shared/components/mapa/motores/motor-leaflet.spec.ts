@@ -237,3 +237,66 @@ describe('MotorLeaflet · tarjeta al pasar el raton', () => {
     expect(oyentes.alElegirPunto).toHaveBeenCalledWith('a1');
   });
 });
+
+describe('crearMotorLeaflet con ficha externa (buscador por mapa)', () => {
+  const opcionesBuscador = (): OpcionesMotor => ({
+    lienzo: document.createElement('div'),
+    centro: [40.4168, -3.7038],
+    zoom: 11,
+    zoomConRueda: true,
+    pinesConPrecio: true,
+    fichaExterna: true,
+  });
+  const oyentes = (): jest.Mocked<EscuchasMotor> => ({
+    alMoverse: jest.fn(), alElegirPunto: jest.fn(), alPulsarFondo: jest.fn(),
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    marcadores.length = 0;
+  });
+
+  it('no debería abrir la tarjeta del proveedor: la ficha la pone el buscador', async () => {
+    const motor = await crearMotorLeaflet(opcionesBuscador(), oyentes());
+    motor.pintar(PUNTOS, null);
+
+    expect(marcadores[0].bindPopup).not.toHaveBeenCalled();
+  });
+
+  it('debería seguir avisando del pin pulsado', async () => {
+    const escuchas = oyentes();
+    const motor = await crearMotorLeaflet(opcionesBuscador(), escuchas);
+    motor.pintar(PUNTOS, null);
+
+    lanzar(marcadores[0], 'click');
+
+    expect(escuchas.alElegirPunto).toHaveBeenCalledWith('a1');
+  });
+
+  it('debería avisar de las pulsaciones sobre el fondo, que cierran la ficha', async () => {
+    const escuchas = oyentes();
+    await crearMotorLeaflet(opcionesBuscador(), escuchas);
+
+    const [, alPulsar] = mapaFalso.on.mock.calls.find(([evento]) => evento === 'click') ?? [];
+    (alPulsar as () => void)();
+
+    expect(escuchas.alPulsarFondo).toHaveBeenCalled();
+  });
+
+  it('debería pintar el precio en el pin y subir el elegido sobre sus vecinos', async () => {
+    const leaflet = await import('leaflet');
+    const motor = await crearMotorLeaflet(opcionesBuscador(), oyentes());
+    motor.pintar(PUNTOS, 'a1');
+
+    const [icono] = (leaflet.divIcon as jest.Mock).mock.calls[0];
+    expect(icono.html).toContain('rs-pin__precio');
+    const [, opcionesMarcador] = (leaflet.marker as jest.Mock).mock.calls[0];
+    expect(opcionesMarcador.zIndexOffset).toBeGreaterThan(0);
+  });
+
+  it('no debería escuchar el fondo en un mapa sin ficha externa', async () => {
+    await crearMotorLeaflet({ ...opcionesBuscador(), fichaExterna: false }, oyentes());
+
+    expect(mapaFalso.on.mock.calls.some(([evento]) => evento === 'click')).toBe(false);
+  });
+});

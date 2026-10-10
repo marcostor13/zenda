@@ -139,7 +139,11 @@ describe('AlojamientoListaComponent', () => {
   describe('mapa y facetas (PDF 27/07 §3)', () => {
     it('debería construir los pines desde el endpoint de mapa, no desde la página actual', async () => {
       alojamientoService.puntosMapa.mockResolvedValue([
-        { id: 'a1', titulo: 'Royal Paws Retreat', precio: 24, lat: 40.4, lng: -3.7, rating: 4.8, imagen: 'img.jpg' },
+        {
+          id: 'a1', titulo: 'Royal Paws Retreat', precio: 24, lat: 40.4, lng: -3.7, rating: 4.8,
+          imagen: 'img.jpg', imagenes: ['img.jpg', 'patio.jpg'], totalResenas: 12,
+          ciudad: 'Madrid', slug: 'royal-paws-retreat',
+        },
       ]);
 
       await component.cargarPuntosMapa({});
@@ -148,6 +152,9 @@ describe('AlojamientoListaComponent', () => {
         {
           id: 'a1', lat: 40.4, lng: -3.7, etiqueta: '24 €', vertical: 'alojamiento',
           titulo: 'Royal Paws Retreat', imagen: 'img.jpg', rating: 4.8,
+          // Lo que necesita la ficha del mapa: fotos, sitio, reseñas y enlace.
+          subtitulo: 'Madrid', imagenes: ['img.jpg', 'patio.jpg'], totalResenas: 12,
+          enlace: ['/alojamiento', 'royal-paws-retreat'],
         },
       ]);
     });

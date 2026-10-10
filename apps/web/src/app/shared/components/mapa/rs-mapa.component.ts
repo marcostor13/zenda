@@ -22,6 +22,13 @@ export { MAX_PARADAS_INTERMEDIAS } from './motores/motor-mapa';
 const ESPERA_MOVIMIENTO_MS = 400;
 
 /**
+ * Margen en el que una pulsación sobre el fondo se atribuye al pin recién
+ * elegido. Según el proveedor, pulsar un pin puede avisar también del fondo que
+ * hay debajo, y sin este margen la ficha se cerraría nada más abrirse.
+ */
+const MARGEN_PULSACION_PIN_MS = 300;
+
+/**
  * Mapa de puntos (PDF 27/07 §3, captura WA0009).
  *
  * Compartido a propósito: lo consumen el listado de resultados (pines con
@@ -97,11 +104,67 @@ const ESPERA_MOVIMIENTO_MS = 400;
       transform: translate(-50%, -50%) scale(1.08);
     }
 
+    /* Pin con precio (buscador por mapa): pastilla con el icono y la cifra, y
+       una punta debajo que señala el sitio exacto. Cuelga por encima de la
+       coordenada en vez de centrarse, o la punta no apuntaría a nada. */
+    :host ::ng-deep .rs-pin--precio {
+      width: auto;
+      height: 30px;
+      gap: var(--sp-1);
+      padding: 0 var(--sp-3) 0 3px;
+      background: var(--dk-blue);
+      border-color: var(--c-card);
+      color: #fff;
+      font-family: var(--font);
+      font-size: var(--f-sm);
+      font-weight: var(--w-7, 700);
+      line-height: 1;
+      white-space: nowrap;
+      transform: translate(-50%, calc(-100% - 7px));
+    }
+
+    :host ::ng-deep .rs-pin--precio .rs-pin__icono {
+      width: 22px;
+      height: 22px;
+      padding: 3px;
+      border-radius: var(--r-full);
+      background: var(--c-card);
+    }
+
+    :host ::ng-deep .rs-pin--precio::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: -7px;
+      width: 10px;
+      height: 10px;
+      background: inherit;
+      border-right: 2px solid var(--c-card);
+      border-bottom: 2px solid var(--c-card);
+      border-bottom-right-radius: 2px;
+      transform: translateX(-50%) rotate(45deg);
+    }
+
+    :host ::ng-deep .rs-pin--precio:hover,
+    :host ::ng-deep .rs-pin--precio:focus-visible,
+    :host ::ng-deep .rs-pin--precio.rs-pin--activo {
+      border-color: var(--c-card);
+      transform: translate(-50%, calc(-100% - 7px)) scale(1.08);
+    }
+
+    /* El pin bajo el ratón sube por encima de los vecinos que lo pisan; los
+       dos proveedores fijan el orden en línea, de ahí el !important. */
+    :host ::ng-deep .rs-pin-capa:hover,
+    :host ::ng-deep .rs-pin-capa:focus-within { z-index: 1001 !important; }
+
     @media (prefers-reduced-motion: reduce) {
       :host ::ng-deep .rs-pin { transition: none; }
       :host ::ng-deep .rs-pin:hover,
       :host ::ng-deep .rs-pin:focus-visible,
       :host ::ng-deep .rs-pin--activo { transform: translate(-50%, -50%); }
+      :host ::ng-deep .rs-pin--precio:hover,
+      :host ::ng-deep .rs-pin--precio:focus-visible,
+      :host ::ng-deep .rs-pin--precio.rs-pin--activo { transform: translate(-50%, calc(-100% - 7px)); }
     }
 
     /* Tarjeta emergente del pin (mismo contenido mínimo que la de Booking). */
@@ -160,11 +223,22 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
    */
   readonly permitePulsar = input(false);
 
+  /** Pinta el precio dentro del pin; sólo en el buscador por mapa. */
+  readonly pinesConPrecio = input(false);
+
+  /**
+   * Quien hospeda el mapa enseña su propia ficha al elegir un pin, así que no
+   * se abre la tarjeta emergente del proveedor.
+   */
+  readonly fichaExterna = input(false);
+
   /** Lo que mide el trayecto una vez trazado; `null` si no hay recorrido. */
   readonly rutaTrazada = output<ResumenRuta | null>();
   readonly puntoElegido = output<string>();
   /** Coordenadas del lugar pulsado; sólo con `permitePulsar`. */
   readonly mapaPulsado = output<{ lat: number; lng: number }>();
+  /** Pulsación fuera de los pines; sólo con `fichaExterna`. */
+  readonly fondoPulsado = output<void>();
   /** Zona visible tras mover o hacer zoom; la dispara solo el usuario. */
   readonly zonaCambiada = output<ZonaMapa>();
 
@@ -182,6 +256,10 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
   private reencuadrando = false;
   /** El componente puede morir mientras se carga el SDK del proveedor. */
   private destruido = false;
+  private ultimoPinElegido = 0;
+  /** Lo último que se pintó, para distinguir datos nuevos de un simple resaltado. */
+  private puntosPintados: readonly PuntoMapa[] | null = null;
+  private rutaPintada: readonly PuntoRuta[] | null = null;
 
   constructor() {
     // Repinta los pines cuando cambian los puntos o el resaltado, pero solo
@@ -254,11 +332,14 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
       zoom: ZOOM_POR_DEFECTO,
       zoomConRueda: this.zoomConRueda(),
       permitePulsar: this.permitePulsar(),
+      pinesConPrecio: this.pinesConPrecio(),
+      fichaExterna: this.fichaExterna(),
     };
     const escuchas = {
       alMoverse: (): void => this.anunciarZona(),
-      alElegirPunto: (id: string): void => this.puntoElegido.emit(id),
+      alElegirPunto: (id: string): void => this.elegirPunto(id),
       alPulsarMapa: (lat: number, lng: number): void => this.mapaPulsado.emit({ lat, lng }),
+      alPulsarFondo: (): void => this.pulsarFondo(),
     };
 
     /*
@@ -288,12 +369,31 @@ export class RsMapaComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private elegirPunto(id: string): void {
+    this.ultimoPinElegido = Date.now();
+    this.puntoElegido.emit(id);
+  }
+
+  private pulsarFondo(): void {
+    if (Date.now() - this.ultimoPinElegido < MARGEN_PULSACION_PIN_MS) return;
+    this.fondoPulsado.emit();
+  }
+
   private pintar(puntos: readonly PuntoMapa[], activo: string | null): void {
     const motor = this.motor;
     if (!motor) return;
 
     const paradas = this.ruta();
+    // Cambiar sólo el pin resaltado repinta los pines y nada más: reencuadrar
+    // ahí le movería el mapa a quien acaba de pulsar uno, y volver a pedir la
+    // ruta gastaría una consulta a Directions por cada pin que se mira.
+    const soloResaltado = puntos === this.puntosPintados && paradas === this.rutaPintada;
+    this.puntosPintados = puntos;
+    this.rutaPintada = paradas;
+
     motor.pintar(puntos, activo);
+    if (soloResaltado) return;
+
     // Trazar la ruta va a la red (Google Directions): no se espera aquí para no
     // retrasar el pintado de los pines, que sí es inmediato.
     void motor.pintarRuta(paradas)

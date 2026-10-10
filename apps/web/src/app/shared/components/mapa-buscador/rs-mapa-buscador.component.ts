@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy, Component, computed, input, output, signal, viewChild,
 } from '@angular/core';
+import { RsFichaMapaComponent } from './rs-ficha-mapa.component';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import {
   RsPlaceAutocompleteComponent, type LugarElegido,
@@ -20,19 +21,23 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
   selector: 'rs-mapa-buscador',
   standalone: true,
   imports: [
-    TraducirPipe, RsIconComponent, RsPlaceAutocompleteComponent, RsMapaComponent
+    TraducirPipe, RsIconComponent, RsPlaceAutocompleteComponent, RsMapaComponent, RsFichaMapaComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '(document:keydown.escape)': 'cerrarFicha()' },
   template: `
 <div class="mb">
   <rs-mapa #mapa class="mb__lienzo"
            [puntos]="puntos()"
-           [activo]="activo()"
+           [activo]="resaltado()"
            [autoencuadre]="autoencuadre()"
            [zoomConRueda]="true"
+           [pinesConPrecio]="true"
+           [fichaExterna]="true"
            [centro]="centro()"
            [ariaLabel]="ariaLabel()"
-           (puntoElegido)="puntoElegido.emit($event)"
+           (puntoElegido)="elegir($event)"
+           (fondoPulsado)="cerrarFicha()"
            (zonaCambiada)="alMoverMapa($event)" />
 
   <!-- Buscador, cierre y estado en una sola rejilla: repartirse el ancho entre
@@ -59,6 +64,11 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
       }
     </p>
   </div>
+
+  <!-- Ficha del pin elegido: fotos, datos y paso a la ficha completa -->
+  @if (fichaAbierta(); as punto) {
+    <rs-ficha-mapa class="mb__ficha" [punto]="punto" (cerrar)="cerrarFicha()" />
+  }
 
   <!-- Controles de zona: réplica del "Buscar mientras me desplazo" de Booking -->
   <div class="mb__zona">
@@ -196,6 +206,17 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
       &:hover { background: var(--c-accent-h); }
     }
 
+    /* La ficha se ancla abajo a la izquierda, por encima de los controles de
+       zona: junto al pin taparía a sus vecinos, y en un sitio fijo se puede ir
+       de pin en pin sin que la ficha salte por el mapa. */
+    .mb__ficha {
+      position: absolute;
+      z-index: 500;
+      left: var(--sp-4);
+      bottom: calc(max(var(--sp-4), env(safe-area-inset-bottom, 0px)) + 44px + var(--sp-3));
+      width: min(340px, calc(100% - 2 * var(--sp-4)));
+    }
+
     /* Va bajo la caja de búsqueda, dentro de la rejilla: colocarlo con un
        desplazamiento fijo lo dejaba encima del buscador en cuanto el texto
        ocupaba dos líneas. */
@@ -221,6 +242,7 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
       .mb__estado { grid-column: 1 / -1; }
       .mb__cerrar-txt { display: none; }
       .mb__auto, .mb__rebuscar { font-size: var(--f-xs); }
+      .mb__ficha { left: var(--sp-3); right: var(--sp-3); width: auto; }
     }
   `],
 })
@@ -255,6 +277,23 @@ export class RsMapaBuscadorComponent {
    */
   readonly autoencuadre = signal(true);
 
+  /** Pin cuya ficha está abierta. */
+  private readonly elegido = signal<string | null>(null);
+
+  /**
+   * Sale de los puntos vigentes y no de una copia: si una búsqueda nueva deja
+   * fuera al comercio elegido, su ficha se cierra sola en vez de quedarse
+   * enseñando algo que ya no está en el mapa.
+   */
+  readonly fichaAbierta = computed(() => {
+    const id = this.elegido();
+    const punto = id ? this.puntos().find((p) => p.id === id) : undefined;
+    return punto?.titulo ? punto : null;
+  });
+
+  /** El pin con la ficha abierta manda sobre el resaltado que venga de fuera. */
+  readonly resaltado = computed(() => this.fichaAbierta()?.id ?? this.activo());
+
   readonly resumen = computed(() => {
     const total = this.total();
     const pines = this.puntos().length;
@@ -271,6 +310,15 @@ export class RsMapaBuscadorComponent {
   /** Recalcula el tamaño del lienzo; se llama al abrir el panel desde fuera. */
   refrescar(): void {
     this.mapa()?.refrescar();
+  }
+
+  elegir(id: string): void {
+    this.elegido.set(id);
+    this.puntoElegido.emit(id);
+  }
+
+  cerrarFicha(): void {
+    this.elegido.set(null);
   }
 
   alMoverMapa(zona: ZonaMapa): void {

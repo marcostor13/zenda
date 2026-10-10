@@ -21,22 +21,30 @@ export function escapar(texto: string): string {
 /**
  * Pin con el icono de la categoría.
  *
- * Antes llevaba el precio, y un mapa con veinte pastillas de texto encima tapa
- * el mapa que se supone que está enseñando (feedback 2026-08-20). El icono se
- * reconoce de un vistazo y ocupa lo mismo pase lo que pase con la cifra; el
- * precio sigue estando a un toque, en la tarjeta emergente.
+ * Por defecto va sólo el icono: un mapa con veinte pastillas de texto encima
+ * tapa el mapa que se supone que está enseñando (feedback 2026-08-20). En el
+ * buscador por mapa (`conPrecio`) el cliente pidió después ver el precio sin
+ * pulsar, como en Booking (2026-10-10): ahí el pin es una pastilla compacta con
+ * el icono y la cifra, y el resto de mapas siguen con el icono a secas.
  *
  * Es un `<button>` y no un `<span>` para que se pueda alcanzar con el teclado y
  * lo anuncie un lector de pantalla: los resultados del mapa son los mismos que
  * los de la lista y deben ser igual de accesibles. Como el texto ya no dice
  * nada, la etiqueta accesible carga con el título y el precio.
  */
-export function htmlPin(punto: PuntoMapa, esActivo: boolean): string {
+export function htmlPin(punto: PuntoMapa, esActivo: boolean, conPrecio = false): string {
   const icono = escapar(CATEGORIA_ICONOS[punto.vertical ?? ''] ?? ICONO_GENERICO);
-  return `<button type="button" class="rs-pin${esActivo ? ' rs-pin--activo' : ''}"`
+  // Sin precio que enseñar —transporte lo calcula por viaje— el pin se queda en
+  // el icono: una pastilla vacía sería más ruido que información.
+  const precio = conPrecio && punto.etiqueta
+    ? `<span class="rs-pin__precio">${escapar(punto.etiqueta)}</span>`
+    : '';
+  const clases = `rs-pin${precio ? ' rs-pin--precio' : ''}${esActivo ? ' rs-pin--activo' : ''}`;
+
+  return `<button type="button" class="${clases}"`
     + ` aria-label="${escapar(etiquetaAccesible(punto))}"`
     + `${esActivo ? ' aria-current="true"' : ''}>`
-    + `<img class="rs-pin__icono" src="${icono}" alt="" aria-hidden="true"></button>`;
+    + `<img class="rs-pin__icono" src="${icono}" alt="" aria-hidden="true">${precio}</button>`;
 }
 
 /** Lo que oye quien no ve el mapa: el nombre y, si lo hay, el precio. */

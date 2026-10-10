@@ -162,6 +162,8 @@ export class TransporteListaComponent implements OnInit {
       // Sin precio en el pin: en transporte depende del viaje y se calcula cerrado.
       id: p.id, lat: p.lat, lng: p.lng, vertical: VerticalKey.TRANSPORTE,
       titulo: p.titulo, imagen: p.imagen, rating: p.rating,
+      subtitulo: p.ciudad, imagenes: p.imagenes, totalResenas: p.totalResenas,
+      enlace: ['/transporte', p.slug || p.id],
     })),
   );
 

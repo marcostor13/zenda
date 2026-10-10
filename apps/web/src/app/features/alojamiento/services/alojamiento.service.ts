@@ -44,6 +44,11 @@ export interface PuntoServicio {
   lng: number;
   rating: number;
   imagen?: string;
+  /** Fotos del carrusel de la ficha del mapa. */
+  imagenes?: string[];
+  totalResenas?: number;
+  ciudad?: string;
+  slug?: string;
 }
 
 export type OrdenServicios = 'relevancia' | 'precio_asc' | 'precio_desc' | 'valoracion' | 'distancia';

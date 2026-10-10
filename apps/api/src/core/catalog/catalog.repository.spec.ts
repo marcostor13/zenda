@@ -438,7 +438,27 @@ describe('CatalogRepository', () => {
       expect(puntos).toEqual([{
         id: 'a1', titulo: 'Residencia Las Rozas', precio: 24,
         lat: 40.4168, lng: -3.7038, rating: 4.8, imagen: 'img.jpg',
+        imagenes: ['img.jpg'], totalResenas: 0, ciudad: undefined, slug: undefined,
       }]);
+    });
+
+    it('debería mandar lo que enseña la ficha del mapa, con las fotos topadas', async () => {
+      const fotos = ['1.jpg', '2.jpg', '3.jpg', '4.jpg', '5.jpg', '6.jpg', '7.jpg'];
+      model.find.mockReturnValue(chainable([
+        {
+          _id: 'a1', titulo: 'Residencia Las Rozas', slug: 'residencia-las-rozas', precioBase: 24,
+          ratingPromedio: 4.5, totalReseñas: 18, imagenes: fotos,
+          ubicacion: { ciudad: 'Las Rozas', geo: { coordinates: [-3.7038, 40.4168] } },
+        },
+      ]));
+
+      const [punto] = await repository.puntos({ vertical: 'alojamiento', page: 1, limit: 1 });
+
+      expect(punto).toMatchObject({
+        slug: 'residencia-las-rozas', ciudad: 'Las Rozas', totalResenas: 18, imagen: '1.jpg',
+      });
+      // Trescientos pines con la galería entera multiplicarían la respuesta.
+      expect(punto.imagenes).toEqual(fotos.slice(0, 5));
     });
 
     it('debería descartar los servicios sin coordenadas utilizables', async () => {

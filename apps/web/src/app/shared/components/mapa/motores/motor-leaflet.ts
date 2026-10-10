@@ -8,6 +8,9 @@ import { htmlPin, htmlTarjeta } from './pin-html';
 /** Margen en píxeles al encajar la vista a los resultados. */
 const MARGEN_ENCUADRE: [number, number] = [48, 48];
 
+/** Sube el pin elegido por encima de los vecinos que lo taparían. */
+const ALTURA_PIN_ACTIVO = 1000;
+
 /**
  * Desenvuelve la API real de Leaflet.
  *
@@ -78,8 +81,13 @@ class MotorLeaflet implements MotorMapa {
       maxZoom: 19,
     }).addTo(this.mapa);
 
-    this.sinTarjetas = opciones.permitePulsar === true;
+    this.sinTarjetas = opciones.permitePulsar === true || opciones.fichaExterna === true;
+    this.pinesConPrecio = opciones.pinesConPrecio === true;
     this.mapa.on('moveend', () => this.escuchas.alMoverse());
+
+    if (opciones.fichaExterna) {
+      this.mapa.on('click', () => this.escuchas.alPulsarFondo?.());
+    }
 
     if (opciones.permitePulsar) {
       this.mapa.on('click', (evento: { latlng: { lat: number; lng: number } }) => {
@@ -88,8 +96,9 @@ class MotorLeaflet implements MotorMapa {
     }
   }
 
-  /** El mapa está colocando un punto, no enseñando resultados. */
+  /** El mapa coloca un punto, o la ficha la pone quien lo hospeda. */
   private readonly sinTarjetas: boolean;
+  private readonly pinesConPrecio: boolean;
 
   pintar(puntos: readonly PuntoMapa[], activo: string | null): void {
     this.limpiarMarcadores();
@@ -97,14 +106,19 @@ class MotorLeaflet implements MotorMapa {
     for (const punto of puntosGeolocalizados(puntos)) {
       const icono = this.L.divIcon({
         className: 'rs-pin-capa',
-        html: htmlPin(punto, punto.id === activo),
+        html: htmlPin(punto, punto.id === activo, this.pinesConPrecio),
         // Tamaño cero: el pin se centra sobre su coordenada por CSS. Dejarlo sin
         // definir hacía que Leaflet lo anclase por la esquina y el precio salía
         // desplazado respecto al sitio que señala.
         iconSize: [0, 0],
       });
 
-      const marcador = this.L.marker([punto.lat, punto.lng], { icon: icono, title: punto.titulo })
+      const marcador = this.L
+        .marker([punto.lat, punto.lng], {
+          icon: icono,
+          title: punto.titulo,
+          zIndexOffset: punto.id === activo ? ALTURA_PIN_ACTIVO : 0,
+        })
         .addTo(this.mapa)
         .on('click', () => this.escuchas.alElegirPunto(punto.id));
 

@@ -109,3 +109,31 @@ describe('htmlTarjeta', () => {
     expect(htmlTarjeta({ id: 'x', lat: 1, lng: 2 })).toBeNull();
   });
 });
+
+describe('htmlPin con precio (buscador por mapa)', () => {
+  it('debería enseñar el precio junto al icono de la categoría', () => {
+    const html = htmlPin(PUNTO, false, true);
+
+    expect(html).toContain('rs-pin--precio');
+    expect(html).toContain('src="/icons/alojamiento.svg"');
+    expect(html).toContain('<span class="rs-pin__precio">24 €</span>');
+  });
+
+  it('debería quedarse en el icono cuando el servicio no tiene precio que enseñar', () => {
+    // Transporte calcula el precio por viaje: una pastilla vacía sería ruido.
+    const html = htmlPin({ ...PUNTO, etiqueta: undefined }, false, true);
+
+    expect(html).not.toContain('rs-pin--precio');
+    expect(html).not.toContain('rs-pin__precio');
+  });
+
+  it('debería escapar el precio que venga del API', () => {
+    const html = htmlPin({ ...PUNTO, etiqueta: '<b>24</b>' }, false, true);
+
+    expect(html).toContain('&lt;b&gt;24&lt;/b&gt;');
+  });
+
+  it('debería marcar el pin elegido', () => {
+    expect(htmlPin(PUNTO, true, true)).toContain('rs-pin--precio rs-pin--activo');
+  });
+});

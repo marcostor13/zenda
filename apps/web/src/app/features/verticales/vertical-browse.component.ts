@@ -467,6 +467,8 @@ export class VerticalBrowseComponent implements OnInit {
       id: p.id, lat: p.lat, lng: p.lng,
       etiqueta: this.moneda.formatear(p.precio), vertical: this.cfg().vertical,
       titulo: p.titulo, imagen: p.imagen, rating: p.rating,
+      subtitulo: p.ciudad, imagenes: p.imagenes, totalResenas: p.totalResenas,
+      enlace: enlaceAServicio(this.cfg().vertical, p),
     })),
   );
 

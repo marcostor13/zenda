@@ -195,6 +195,10 @@ export class AlojamientoListaComponent implements OnInit {
       titulo: p.titulo,
       imagen: p.imagen,
       rating: p.rating,
+      subtitulo: p.ciudad,
+      imagenes: p.imagenes,
+      totalResenas: p.totalResenas,
+      enlace: ['/alojamiento', p.slug || p.id],
     })),
   );
 
@@ -249,7 +253,9 @@ export class AlojamientoListaComponent implements OnInit {
   /** Al pulsar un pin se resalta su tarjeta y se lleva al usuario hasta ella. */
   destacarDesdeMapa(id: string): void {
     this.destacadoId.set(id);
-    document.getElementById(`card-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // `nearest` mueve sólo lo imprescindible: centrar la tarjeta desplazaba la
+    // página entera y se llevaba de la vista la ficha que acaba de abrir el pin.
+    document.getElementById(`card-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
   /** Badges de la tarjeta unificada (HU-3.1/HU-0.9): destacado, descuento, y automáticos por datos reales. */
