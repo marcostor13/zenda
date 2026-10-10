@@ -89,7 +89,10 @@ describe('CatalogController', () => {
     });
 
     it('debería delegar los pines del mapa en el service', async () => {
-      const puntos = [{ id: 'a1', titulo: 'Las Rozas', precio: 24, lat: 40.4, lng: -3.7, rating: 4.8 }];
+      const puntos = [{
+        id: 'a1', titulo: 'Las Rozas', precio: 24, lat: 40.4, lng: -3.7, rating: 4.8,
+        imagenes: ['fachada.jpg'], totalResenas: 18,
+      }];
       service.obtenerPuntosMapa.mockResolvedValue(puntos);
 
       const result = await controller.mapa(
