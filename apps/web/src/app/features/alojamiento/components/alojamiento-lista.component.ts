@@ -195,7 +195,7 @@ export class AlojamientoListaComponent implements OnInit {
       titulo: p.titulo,
       imagen: p.imagen,
       rating: p.rating,
-      subtitulo: p.ciudad,
+      subtitulo: p.ciudad && this.subtituloDe(p.ciudad, undefined, p.distanciaCentroKm),
       imagenes: p.imagenes,
       totalResenas: p.totalResenas,
       enlace: ['/alojamiento', p.slug || p.id],

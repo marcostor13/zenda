@@ -15,7 +15,7 @@
  */
 import 'reflect-metadata';
 import mongoose from 'mongoose';
-import { PuntoGeo, claveUbicacion, distanciaKm, resolverMunicipio } from 'shared';
+import { PuntoGeo, canonizarUbicacion, claveUbicacion, distanciaKm } from 'shared';
 import { prepararEntorno } from './entorno';
 import { Geocodificador, elegirGeocodificador } from './geocodificar';
 
@@ -33,7 +33,7 @@ type Centros = mongoose.mongo.Collection;
 async function centroDe(
   centros: Centros, buscar: Geocodificador, ciudad: string, provincia?: string,
 ): Promise<PuntoGeo | null> {
-  const nombre = resolverMunicipio(ciudad)?.municipio.nombre ?? ciudad.trim();
+  const nombre = canonizarUbicacion(ciudad).ciudad;
   const clave = claveUbicacion(nombre);
   if (!clave) return null;
 

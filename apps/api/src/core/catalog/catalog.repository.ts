@@ -75,6 +75,8 @@ export interface PuntoServicio {
   imagenes: string[];
   totalResenas: number;
   ciudad?: string;
+  /** Km al centro de su población, para el «a 2,3 km del centro» de la ficha. */
+  distanciaCentroKm?: number;
   /** Con él la ficha del mapa enlaza a la dirección legible del servicio. */
   slug?: string;
 }
@@ -806,7 +808,7 @@ export class CatalogRepository {
 
     const docs = await this.servicioModel
       .find(filtro)
-      .select('titulo slug precioBase ubicacion.geo ubicacion.ciudad ratingPromedio totalReseñas imagenes')
+      .select('titulo slug precioBase ubicacion.geo ubicacion.ciudad ratingPromedio totalReseñas imagenes distanciaCentroKm')
       .limit(LIMITE_PUNTOS_MAPA)
       .lean()
       .exec();
@@ -823,7 +825,7 @@ export class CatalogRepository {
       const lean = doc as unknown as {
         _id: unknown; titulo: string; precioBase: number;
         ratingPromedio?: number; imagenes?: string[];
-        slug?: string; totalReseñas?: number;
+        slug?: string; totalReseñas?: number; distanciaCentroKm?: number;
       };
       const imagenes = (lean.imagenes ?? []).slice(0, FOTOS_POR_PUNTO);
       return [{
@@ -837,6 +839,7 @@ export class CatalogRepository {
         imagenes,
         totalResenas: lean.totalReseñas ?? 0,
         ciudad: ubicacion?.ciudad,
+        distanciaCentroKm: lean.distanciaCentroKm,
         slug: lean.slug,
       }];
     });

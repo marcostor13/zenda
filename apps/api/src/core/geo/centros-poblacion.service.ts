@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PuntoGeo, claveUbicacion, distanciaKm, resolverMunicipio } from 'shared';
+import { PuntoGeo, canonizarUbicacion, claveUbicacion, distanciaKm } from 'shared';
 import { CentrosPoblacionRepository } from './centros-poblacion.repository';
 import { GeoService } from './geo.service';
 
@@ -25,7 +25,7 @@ export class CentrosPoblacionService {
    * inventarse una.
    */
   async centroDe(ciudad: string, provincia?: string): Promise<PuntoGeo | null> {
-    const nombre = resolverMunicipio(ciudad)?.municipio.nombre ?? ciudad.trim();
+    const nombre = canonizarUbicacion(ciudad).ciudad;
     const clave = claveUbicacion(nombre);
     if (!clave) return null;
 

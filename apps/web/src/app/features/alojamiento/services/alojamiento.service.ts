@@ -48,6 +48,8 @@ export interface PuntoServicio {
   imagenes?: string[];
   totalResenas?: number;
   ciudad?: string;
+  /** Km al centro de su población («a 2,3 km del centro»). */
+  distanciaCentroKm?: number;
   slug?: string;
 }
 

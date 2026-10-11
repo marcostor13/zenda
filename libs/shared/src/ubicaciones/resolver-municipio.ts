@@ -84,6 +84,10 @@ export function resolverMunicipio(texto: string): MunicipioResuelto | null {
  * No inventa: un municipio que no está en el catálogo se respeta como lo
  * escribió el comercio. Lo que sí se garantiza es que dos altas de la misma
  * población conocida acaben escritas igual, que es lo que el buscador necesita.
+ *
+ * La coincidencia aproximada no vale aquí: corrige erratas de quien busca, pero
+ * al guardar convertía «L'Alcora» —que no está en el catálogo— en «Alzira», a
+ * una letra de su alias «Alcira», y el servicio acababa en otra población.
  */
 export function canonizarUbicacion(texto: string): {
   ciudad: string;
@@ -92,7 +96,8 @@ export function canonizarUbicacion(texto: string): {
   provincia?: string;
 } {
   const limpio = (texto ?? '').trim().replace(/\s+/g, ' ');
-  const resuelto = resolverMunicipio(limpio);
+  const encontrado = resolverMunicipio(limpio);
+  const resuelto = encontrado?.origen === 'aproximada' ? null : encontrado;
   const ciudad = resuelto ? resuelto.municipio.nombre : limpio;
 
   return {

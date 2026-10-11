@@ -25,7 +25,9 @@ describe('StripeService', () => {
   it('debería cargar el SDK con la clave publicable del entorno', async () => {
     await service.getStripe();
 
-    expect(loadStripeMock).toHaveBeenCalledWith(environment.stripePublicKey);
+    expect(loadStripeMock).toHaveBeenCalledWith(environment.stripePublicKey, {
+      developerTools: { assistant: { enabled: false } },
+    });
   });
 
   it('debería cargar el script una sola vez aunque se pida varias veces', async () => {

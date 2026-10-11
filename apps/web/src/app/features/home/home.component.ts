@@ -14,6 +14,7 @@ import { REDES_SOCIALES } from '../../shared/catalogos/redes-sociales.catalogo';
 import { RsSearchBarComponent } from '../../shared/components/search-bar/rs-search-bar.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { I18nService } from '../../core/i18n/i18n.service';
+import { lugarConDistancia } from '../../shared/distancia';
 import { RsCardComponent } from '../../shared/components/card/rs-card.component';
 import {
   BRAND, CATEGORIA_BADGES, CATEGORIA_ICONOS, EXPLORA_DESTACADOS_IMAGES, HOTEL_IMAGES, MOTIVOS_IMAGES,
@@ -34,6 +35,8 @@ interface AlojamientoRecomendado {
   /** Dirección legible de la ficha, si ya la tiene. */
   slug?: string;
   ciudad: string;
+  /** Km al centro de su población; sólo en las tarjetas del catálogo real. */
+  distanciaCentroKm?: number;
   nombre: string;
   estrellas?: number;
   score: number;
@@ -334,7 +337,7 @@ type SearchMode = 'filtros' | 'ia';
           <rs-card
             [rsAnim]="''" [rsAnimDelay]="$index * 70"
             [imageUrl]="a.imagen" [imageAlt]="a.nombre"
-            [title]="a.nombre" [subtitle]="a.ciudad"
+            [title]="a.nombre" [subtitle]="lugarDe(a)"
             [badges]="[{ icon: 'crown', label: badgeRecomendado(), variant: 'accent' }]"
             [rating]="{ score: a.score, label: a.scoreLabel, count: a.numResenas }"
             [price]="{ amount: moneda.formatear(a.precioPorNoche), period: periodoNoche() }"
@@ -1684,6 +1687,11 @@ export class HomeComponent implements OnInit {
   private readonly http = inject(HttpClient);
   private readonly alojamientoService = inject(AlojamientoService);
   private readonly i18n = inject(I18nService);
+
+  /** Población de la tarjeta y, si se conoce, a cuánto queda de su centro. */
+  lugarDe(a: AlojamientoRecomendado): string {
+    return lugarConDistancia(a.ciudad, undefined, a.distanciaCentroKm, (texto, params) => this.i18n.t(texto, params));
+  }
   private readonly seo = inject(SeoService);
   private readonly consentimiento = inject(ConsentimientoService);
 
@@ -1705,6 +1713,7 @@ export class HomeComponent implements OnInit {
           slug: a.slug,
           nombre: a.nombre,
           ciudad: a.ciudad,
+          distanciaCentroKm: a.distanciaCentroKm,
           score: a.score,
           scoreLabel: a.scoreLabel,
           numResenas: a.numResenas,

@@ -8,6 +8,8 @@ export interface FavoritoResumenDto {
   titulo: string;
   imagen: string | null;
   ciudad: string;
+  /** Km al centro de su población; ausente si el servicio no tiene coordenadas. */
+  distanciaCentroKm?: number;
   vertical: VerticalKey;
   precioBase: number;
   moneda: string;

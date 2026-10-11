@@ -14,6 +14,8 @@ import { CatalogBrowseService, type ServicioCard } from '../verticales/catalog-b
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { MonedaService } from '../../core/moneda/moneda.service';
+import { I18nService } from '../../core/i18n/i18n.service';
+import { lugarConDistancia } from '../../shared/distancia';
 type OrdenFavoritos = 'recientes' | 'valorados' | 'precio';
 
 /** Verticales con ficha de detalle propia (Fase 4); las demás solo tienen listado. */
@@ -96,7 +98,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
             <div class="fav-card__body">
               <h3>{{ f.titulo }}</h3>
               <p class="fav-card__loc">
-                <rs-icon name="map-pin" [size]="13" [stroke]="2"></rs-icon> {{ f.ciudad || '—' }}
+                <rs-icon name="map-pin" [size]="13" [stroke]="2"></rs-icon> {{ f.ciudad ? lugarDe(f.ciudad, f.distanciaCentroKm) : '—' }}
               </p>
               <p class="fav-card__desde"><rs-icon name="heart" [size]="12" [stroke]="2"></rs-icon> {{ desdeHace(f.createdAt) }}</p>
               <div class="fav-card__footer">
@@ -143,7 +145,7 @@ const VERTICALES_CON_FICHA = new Set<string>([
               <div class="fav-card__body">
                 <h3>{{ s.nombre }}</h3>
                 <span class="fav-card__loc">
-                  <rs-icon name="map-pin" [size]="12" [stroke]="2"></rs-icon> {{ s.ciudad }}
+                  <rs-icon name="map-pin" [size]="12" [stroke]="2"></rs-icon> {{ lugarDe(s.ciudad, s.distanciaCentroKm) }}
                 </span>
                 <div class="fav-card__footer">
                   @if (s.numResenas) {
@@ -209,6 +211,12 @@ export class FavoritosComponent implements OnInit {
   private readonly reservasService = inject(ReservasService);
   private readonly auth = inject(AuthService);
   private readonly catalogBrowse = inject(CatalogBrowseService);
+  private readonly i18n = inject(I18nService);
+
+  /** Población de la tarjeta y, si se conoce, a cuánto queda de su centro. */
+  lugarDe(ciudad: string, distanciaCentroKm?: number): string {
+    return lugarConDistancia(ciudad, undefined, distanciaCentroKm, (texto, params) => this.i18n.t(texto, params));
+  }
 
   readonly cargando = signal(true);
   readonly favoritos = signal<FavoritoResumenDto[]>([]);

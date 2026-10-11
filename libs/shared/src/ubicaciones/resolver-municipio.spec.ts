@@ -98,6 +98,12 @@ describe('canonizarUbicacion', () => {
     });
   });
 
+  it('no debería convertir una población real en otra que se escribe parecido', () => {
+    // «alcora» queda a una letra de «alcira», alias de Alzira.
+    expect(resolverMunicipio("L'Alcora")?.origen).toBe('aproximada');
+    expect(canonizarUbicacion("L'Alcora").ciudad).toBe("L'Alcora");
+  });
+
   it('debería respetar una población desconocida, sólo limpiando los espacios', () => {
     expect(canonizarUbicacion('  Riola  ')).toEqual({
       ciudad: 'Riola',

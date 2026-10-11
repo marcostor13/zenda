@@ -16,6 +16,7 @@ interface ServicioLean {
   moneda: string;
   ratingPromedio: number;
   totalReseñas: number;
+  distanciaCentroKm?: number;
 }
 
 @Injectable()
@@ -72,7 +73,7 @@ export class FavoritosService {
     const objectIds = favoritos.map((f) => new Types.ObjectId(f.servicioId));
     const servicios = (await this.servicioModel
       .find({ _id: { $in: objectIds } })
-      .select('slug titulo imagenes ubicacion vertical precioBase moneda ratingPromedio totalReseñas')
+      .select('slug titulo imagenes ubicacion vertical precioBase moneda ratingPromedio totalReseñas distanciaCentroKm')
       .lean()
       .exec()) as unknown as ServicioLean[];
 
@@ -90,6 +91,7 @@ export class FavoritosService {
           titulo: s.titulo,
           imagen: s.imagenes?.[0] ?? null,
           ciudad: s.ubicacion?.ciudad ?? '',
+          distanciaCentroKm: s.distanciaCentroKm,
           vertical: s.vertical,
           precioBase: s.precioBase,
           moneda: s.moneda ?? 'EUR',

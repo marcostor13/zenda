@@ -2496,6 +2496,21 @@ export class ComercioListadoFormComponent implements OnInit {
 
   readonly fotosSuficientes = computed(() => this.totalFotos() >= MIN_FOTOS);
 
+  /**
+   * En residencias y hoteles las fotos se suben dentro de cada unidad. Un alta
+   * recién abierta no tiene ninguna, así que el paso enseñaba el contador en
+   * «0 de 5 fotos» sin ningún sitio donde subirlas: parecía que la subida no
+   * funcionaba. Se deja la primera unidad puesta para que el hueco esté a la
+   * vista.
+   */
+  private asegurarPrimeraUnidad(): void {
+    if (this.paso() !== 'detalles' || !this.fotosPorUnidad()) return;
+    if (this.unidadesConFotos().length > 0) return;
+
+    if (this.form.controls.vertical.value === VerticalKey.HOTELES) this.agregarHabitacionHotel();
+    else this.agregarEspacio();
+  }
+
   mensajeFotos(): string {
     const total = this.totalFotos();
     if (total >= MIN_FOTOS) return `${total} fotos. Ya puedes publicar.`;
@@ -2526,6 +2541,7 @@ export class ComercioListadoFormComponent implements OnInit {
     const indice = PASOS.findIndex((p) => p.clave === clave);
     if (indice < 0 || !this.puedeIrAlPaso(indice)) return;
     this.paso.set(clave);
+    this.asegurarPrimeraUnidad();
     // El paso forma parte del borrador: cambiarlo no dispara `valueChanges`, así
     // que recargar tras avanzar devolvía al primero con los campos ya llenos.
     this.guardarBorrador();
@@ -3816,6 +3832,7 @@ export class ComercioListadoFormComponent implements OnInit {
         // ya los había pasado antes de recargar.
         this.pasoMaximo.set(Math.max(0, PASOS.findIndex((p) => p.clave === paso)));
         this.paso.set(paso);
+        this.asegurarPrimeraUnidad();
       }
       this.borradorRestaurado.set(true);
       return true;
@@ -4314,6 +4331,7 @@ export class ComercioListadoFormComponent implements OnInit {
       ? actuales.filter((m) => m !== modalidad)
       : [...actuales, modalidad];
     this.alojamientoGroup.get('modalidades')?.setValue(nuevas);
+    this.asegurarPrimeraUnidad();
     this.errorMsg.set('');
   }
 
