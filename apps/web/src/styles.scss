@@ -1461,22 +1461,21 @@ select.rs-inp {
   .rs-hotel-card__nota { font-size: var(--f-xs); color: var(--t-500); }
 
   /* Móvil: la tarjeta NO se apila. Antes pasaba a columna con una foto 16/9
-     que ocupaba media pantalla y dejaba dos resultados por pantallazo; en
-     apaisado con la foto pequeña se ven cuatro, que es lo que enseñan los
-     bocetos. Sólo encoge la foto y baja el cuerpo de tamaño. */
+     que ocupaba media pantalla. Sólo encoge la foto y baja el cuerpo de
+     tamaño: el contenido es el mismo que en escritorio, sin esconder nada
+     (observación del cliente 12-10: la distancia al centro, las reseñas y el
+     resto de datos no pueden depender del ancho de la pantalla). */
   @media (max-width: 860px) {
     min-height: 0;
 
-    /* Medido sobre los bocetos: la foto ocupa el 26 % del ancho de pantalla
-       (102 px en un movil de 390) y su alto no lo marca ella sino el texto de
-       al lado, que es lo que deja la tarjeta en las cuatro filas del boceto.
-       Con `aspect-ratio` fijo la foto imponia su propio alto y sobraba hueco
-       en blanco bajo el precio. */
+    /* La foto ocupa el 26 % del ancho de pantalla (102 px en un movil de 390)
+       y es cuadrada, como en escritorio: estirada al alto del cuerpo, que
+       ahora lleva todas sus filas, quedaba como una tira vertical. */
     .rs-hotel-card__img {
       width: 102px;
       flex: 0 0 102px;
-      aspect-ratio: auto;
-      align-self: stretch;
+      aspect-ratio: 1;
+      align-self: flex-start;
       margin: var(--sp-3) 0 var(--sp-3) var(--sp-3);
       border-radius: var(--r-lg);
     }
@@ -1520,31 +1519,32 @@ select.rs-inp {
        el boton arrastra de `&__cta`) sumaban 28 px de aire dentro de una
        tarjeta que aqui mide 140. Las marca el `gap` del cuerpo. */
     .rs-hotel-card__meta { font-size: var(--f-xs); gap: var(--sp-1) var(--sp-2); margin-bottom: 0; }
-    /* La ciudad se cae en movil: los resultados ya vienen filtrados por ella,
-       asi que repetirla en cada tarjeta costaba una linea entera. Los bocetos
-       tampoco la traen. En escritorio se queda. */
-    .rs-hotel-card__meta-loc { display: none; }
-    /* En móvil sólo el cuadrado de la nota: la etiqueta y las reseñas no caben
-       junto al nombre en una foto de 102 px. */
-    .rs-hotel-card__puntuacion-txt { display: none; }
+    /* La ubicación con su distancia al centro puede partirse en dos líneas:
+       recortada con puntos suspensivos se perdía justo la distancia. */
+    .rs-hotel-card__meta-loc { white-space: normal; overflow: visible; }
+    /* El punto separa la ubicación de las estrellas cuando van en la misma
+       línea; aquí la ubicación baja a la suya y quedaría colgando delante. */
+    .rs-hotel-card__meta-sep { display: none; }
+    /* La nota baja a su propia fila, bajo el nombre: junto a él, la etiqueta
+       y las reseñas dejaban el nombre en 90 px. El cuadrado va primero y el
+       texto a su derecha, en línea. */
+    .rs-hotel-card__cabecera { flex-wrap: wrap; gap: var(--sp-1) var(--sp-2); }
+    .rs-hotel-card__cabecera .rs-hotel-card__name { flex: 1 1 100%; }
+    .rs-hotel-card__puntuacion { flex-direction: row-reverse; }
+    .rs-hotel-card__puntuacion-txt {
+      flex-direction: row;
+      align-items: baseline;
+      gap: var(--sp-2);
+      strong { font-size: var(--f-xs); }
+    }
     .rs-hotel-card__puntuacion-nota { min-width: 30px; height: 30px; font-size: var(--f-xs); }
-    .rs-hotel-card__amenities { margin-bottom: 0; gap: var(--sp-1); flex-wrap: nowrap; overflow: hidden; }
+    .rs-hotel-card__amenities { margin-bottom: 0; gap: var(--sp-1); }
     .rs-hotel-card__amenities .rs-amenity {
       font-size: var(--f-xs);
       padding: 2px var(--sp-2);
       white-space: nowrap;
     }
-    /* De las seis que caben en escritorio, en movil se ensenan dos: es lo que
-       pinta el boceto y lo que entra en una sola fila sin recortarse. */
-    .rs-hotel-card__amenities .rs-amenity:nth-child(n+3) { display: none; }
-
-    /*
-     * Fuera en movil, no en escritorio: los bocetos dejan la tarjeta en nombre,
-     * valoracion, dos etiquetas y precio. Estos dos anadian dos filas mas y son
-     * los que hacian que solo cupieran dos resultados por pantalla.
-     */
-    .rs-hotel-card__destacados { display: none; }
-    .rs-hotel-card__nota { display: none; }
+    .rs-hotel-card__destacados { margin-top: 0; }
 
     /*
       El pie envuelve si no cabe. En 211 px de cuerpo entran el importe con su
@@ -1558,7 +1558,6 @@ select.rs-inp {
     .rs-hotel-card__pie-precio { flex: 1 1 auto; flex-wrap: nowrap; }
     .rs-hotel-card__pie .rs-price { flex-wrap: nowrap; }
     .rs-hotel-card__pie .rs-hotel-card__cta { flex: none; }
-    .rs-hotel-card__cta--escritorio { display: none; }
     .rs-hotel-card__pie .rs-price__amount { font-size: var(--f-lg); }
     .rs-hotel-card__pie .rs-price__period { font-size: var(--f-xs); white-space: nowrap; }
     .rs-hotel-card__pie .rs-hotel-card__cta {

@@ -329,7 +329,6 @@ const CONFIGS: Record<string, VerticalConfig> = {
           [favoritoServicioId]="c.id"
           [routerLink]="enlaceAServicio(cfg().vertical, c)"
           [ctaLabel]="'Reservar' | t"
-          [accionSoloEscritorio]="!!enlaceAServicio(cfg().vertical, c)"
           [mensaje]="solicitadoId() === c.id ? cfg().confirmMsg : ''"
           (ctaClick)="solicitar(c)">
         </rs-card>

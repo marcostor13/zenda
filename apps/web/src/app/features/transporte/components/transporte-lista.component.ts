@@ -84,8 +84,7 @@ import { migasDePan } from '../../../core/seo/json-ld';
           [destacados]="incluyeDe(t)"
           [favoritoServicioId]="t.id"
           [routerLink]="['/transporte', t.slug || t.id]"
-          [ctaLabel]="'Reservar' | t"
-          [accionSoloEscritorio]="true">
+          [ctaLabel]="'Reservar' | t">
         </rs-card>
       }
     </div>

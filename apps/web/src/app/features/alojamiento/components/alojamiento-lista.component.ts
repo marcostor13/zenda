@@ -98,8 +98,7 @@ interface BusquedaUrl {
           [favoritoServicioId]="a.id"
           [routerLink]="['/alojamiento', a.slug || a.id]"
           [queryParams]="queryParamsDetalle()"
-          [ctaLabel]="'Reservar' | t"
-          [accionSoloEscritorio]="true">
+          [ctaLabel]="'Reservar' | t">
         </rs-card>
       }
     </div>
