@@ -15,7 +15,7 @@ import { AbstractControl, FormArray, FormGroup } from '@angular/forms';
 export function motivoBloqueoPorFotos(control: AbstractControl): string | null {
   // La que falló va primero: esperar no la arregla, hay que hacer algo.
   if (tieneError(control, 'subidaFallida')) {
-    return 'Hay una foto que no se ha subido (marcada en rojo). Debajo verás el motivo: pulsa «Reintentar» o quítala con la ✕ para poder continuar.';
+    return 'Hay una foto que no se ha subido (marcada en rojo). Debajo verás el motivo: pulsa «Reintentar» o quítala con la cruz de la esquina para poder continuar.';
   }
   if (tieneError(control, 'subidaEnCurso')) {
     return 'Todavía se están subiendo fotos. Espera unos segundos a que terminen y vuelve a pulsar el botón.';
