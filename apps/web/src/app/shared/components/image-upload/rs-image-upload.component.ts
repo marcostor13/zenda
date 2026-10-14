@@ -16,7 +16,7 @@ import {
   Validator,
 } from '@angular/forms';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
+import { TimeoutError, firstValueFrom, timeout } from 'rxjs';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { environment } from '../../../../environments/environment';
 import { DiagnosticoSubidaService } from '../../../core/diagnostico/diagnostico-subida.service';
@@ -24,6 +24,14 @@ import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
 import {
   MAX_SUBIDA_BYTES, ProblemaSubida, pareceImagen, prepararImagen, problemaDeSubida,
 } from '../../media/preparar-imagen';
+
+/**
+ * Tope de una subida. Con mala cobertura la petición puede quedarse colgada sin
+ * error, y mientras tanto el control está en `subidaEnCurso`: el formulario no
+ * dejaba continuar y la casilla giraba para siempre. 5 MB a 3G lento caben de
+ * sobra en dos minutos.
+ */
+const ESPERA_SUBIDA_MS = 120_000;
 
 interface ImageSlot {
   id: string;
@@ -464,7 +472,8 @@ export class RsImageUploadComponent
       const formData = new FormData();
       formData.append('file', file);
       const res = await firstValueFrom(
-        this.http.post<{ url: string }>(`${environment.apiUrl}/upload/image`, formData),
+        this.http.post<{ url: string }>(`${environment.apiUrl}/upload/image`, formData)
+          .pipe(timeout(ESPERA_SUBIDA_MS)),
       );
       this.slots.update(s =>
         s.map(sl => sl.id === id ? { ...sl, uploadedUrl: res.url, uploading: false } : sl),
@@ -521,17 +530,37 @@ export class RsImageUploadComponent
 
   /** Traduce el fallo HTTP a algo que el usuario pueda entender y accionar. */
   private textoDelError(error: unknown): string {
+    if (error instanceof TimeoutError) {
+      return 'La foto tardaba demasiado en subir (la conexión va lenta). Pulsa «Reintentar» cuando tengas mejor cobertura o wifi.';
+    }
     if (!(error instanceof HttpErrorResponse)) {
-      return 'No se pudo subir la imagen. Vuelve a intentarlo.';
+      return 'No se pudo subir la foto. Pulsa «Reintentar».';
     }
-    if (error.status === 0) {
-      return 'No se pudo subir la imagen: sin conexión con el servidor.';
+    const detalle = (error.error as { message?: unknown } | null)?.message;
+    switch (true) {
+      case error.status === 0:
+        return 'No se pudo subir la foto: no hay conexión con el servidor. Comprueba tu cobertura o wifi y pulsa «Reintentar».';
+      case error.status === 401:
+        return 'Tu sesión ha caducado y la foto no se ha subido. Vuelve a iniciar sesión y súbela de nuevo.';
+      case error.status === 413:
+        return 'La foto pesa demasiado (máx. 5 MB). Prueba con otra o hazle una captura de pantalla.';
+      // El 422 por tamaño lo genera Nest en inglés («expected size…»); el de
+      // formato, el servicio, en español. Al usuario se le explica cada uno.
+      case error.status === 422 && /size/i.test(String(detalle)):
+        return 'La foto pesa demasiado (máx. 5 MB). Prueba con otra o hazle una captura de pantalla.';
+      case error.status === 422:
+        return 'Ese archivo no es una foto válida. Usa una imagen JPEG, PNG, WebP o una foto del carrete del móvil.';
+      case error.status === 429:
+        return 'Has subido muchas fotos seguidas. Espera un minuto y pulsa «Reintentar».';
+      // Un fallo nuestro con causa conocida («almacén no configurado») trae su
+      // texto; el 500 genérico de Nest llega en inglés y no dice nada útil.
+      case error.status >= 500 && (typeof detalle !== 'string' || /internal server error/i.test(detalle)):
+        return 'El servidor no ha podido guardar la foto ahora mismo. Espera unos segundos y pulsa «Reintentar».';
+      default:
+        return typeof detalle === 'string' && detalle.trim()
+          ? detalle
+          : 'No se pudo subir la foto. Pulsa «Reintentar».';
     }
-    if (error.status === 413 || error.status === 422) {
-      return 'La imagen no es válida: usa JPEG, PNG, WebP, GIF o HEIC de menos de 5 MB.';
-    }
-    const detalle = (error.error as { message?: string } | null)?.message;
-    return detalle ?? 'No se pudo subir la imagen. Vuelve a intentarlo.';
   }
 
   private emitValue(): void {

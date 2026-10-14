@@ -2,6 +2,7 @@ import { Component, signal, inject, computed, input, output, DestroyRef, OnInit 
 import { Router, RouterLink, ActivatedRoute } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ReactiveFormsModule, FormsModule, NonNullableFormBuilder, FormGroup, FormArray, Validators, AbstractControl } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
   VerticalKey, VERTICAL_LABELS, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS,
@@ -50,6 +51,7 @@ import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { AltaTransporteComponent } from './transporte/alta-transporte.component';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { almacenLocal } from '../../core/plataforma/almacen';
+import { motivoBloqueoPorFotos } from '../../shared/media/estado-subidas';
 /** Una parada del trayecto declarado por un transportista. */
 interface ParadaTrayecto {
   nombre: string;
@@ -2578,7 +2580,10 @@ export class ComercioListadoFormComponent implements OnInit {
       .filter((control) => control?.invalid);
 
     for (const control of invalidos) control?.markAsTouched();
-    if (invalidos.length) return false;
+    if (invalidos.length) {
+      this.errorMsg.set('Hay campos sin completar o con errores (marcados en rojo). Revísalos para continuar.');
+      return false;
+    }
 
     if (this.paso() === 'categoria' && this.form.controls.vertical.value === VerticalKey.ALOJAMIENTO
         && this.modalidadesForm().length === 0) {
@@ -2591,7 +2596,16 @@ export class ComercioListadoFormComponent implements OnInit {
     // Los detalles del vertical tienen su propio grupo y su regla de negocio.
     const vertical = this.form.controls.vertical.value;
     const grupo = vertical ? this.form.get(vertical) : null;
-    if (grupo?.invalid) { grupo.markAllAsTouched(); return false; }
+    if (grupo?.invalid) {
+      grupo.markAllAsTouched();
+      this.errorMsg.set(this.motivoFormularioInvalido(grupo));
+      return false;
+    }
+
+    // La galería suelta no vive en el grupo del vertical: una foto que sigue
+    // subiendo o que falló ahí también tiene que frenar y decir por qué.
+    const motivoGaleria = motivoBloqueoPorFotos(this.form.controls.imagenes);
+    if (motivoGaleria) { this.errorMsg.set(motivoGaleria); return false; }
 
     const errorVertical = this.validarVertical(vertical);
     if (errorVertical) { this.errorMsg.set(errorVertical); return false; }
@@ -4515,8 +4529,37 @@ export class ComercioListadoFormComponent implements OnInit {
     return this.submit();
   }
 
+  /**
+   * Por qué no se deja avanzar. Sin esto el botón no hacía nada: en el móvil,
+   * con una foto aún subiendo o rechazada dentro de una suite, el comercio no
+   * veía ningún aviso y creía que la app estaba rota.
+   */
+  private motivoFormularioInvalido(control: AbstractControl): string {
+    return motivoBloqueoPorFotos(control)
+      ?? 'Hay campos sin completar o con errores (marcados en rojo). Revísalos para continuar.';
+  }
+
+  /**
+   * Qué decir cuando el API rechaza el guardado. Los rechazos de negocio llegan
+   * como un texto en español (`DomainException`) que explica la causa real; las
+   * listas de class-validator nombran rutas internas y no ayudan al comercio.
+   */
+  private motivoErrorAlGuardar(error: unknown): string {
+    const generico = 'No se pudo guardar el servicio. Revisa los datos y vuelve a intentarlo.';
+    if (!(error instanceof HttpErrorResponse)) return generico;
+    if (error.status === 0) {
+      return 'No hay conexión con el servidor. Comprueba tu cobertura o wifi y vuelve a pulsar el botón: no se ha perdido nada.';
+    }
+    const mensaje = (error.error as { message?: unknown } | null)?.message;
+    return typeof mensaje === 'string' && mensaje.trim() ? mensaje : generico;
+  }
+
   async submit(): Promise<void> {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.errorMsg.set(this.motivoFormularioInvalido(this.form));
+      return;
+    }
 
     const vertical = this.form.controls.vertical.value;
     const errorVertical = this.validarVertical(vertical);
@@ -4563,8 +4606,8 @@ export class ComercioListadoFormComponent implements OnInit {
         if (this.modoAlta()) { this.creado.emit(); return; }
       }
       setTimeout(() => void this.router.navigate(['/comercio/listados']), 1200);
-    } catch {
-      this.errorMsg.set('Error al guardar el servicio. Verifica los datos e intenta de nuevo.');
+    } catch (error) {
+      this.errorMsg.set(this.motivoErrorAlGuardar(error));
     } finally {
       this.guardando.set(false);
     }

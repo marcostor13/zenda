@@ -113,13 +113,37 @@ describe('RsImageUploadComponent', () => {
     it('debería explicar la falta de conexión cuando el servidor no responde', async () => {
       await fallarConEstado(0);
 
-      expect(component.mensajeError()).toContain('sin conexión con el servidor');
+      expect(component.mensajeError()).toContain('no hay conexión con el servidor');
     });
 
-    it('debería explicar el formato o tamaño no válido ante un 422', async () => {
-      await fallarConEstado(422);
+    it('debería explicar el formato no válido ante un 422 del servicio', async () => {
+      await fallarConEstado(422, { message: 'El archivo no tiene un formato admitido.' });
 
-      expect(component.mensajeError()).toContain('menos de 5 MB');
+      expect(component.mensajeError()).toContain('no es una foto válida');
+    });
+
+    it('debería explicar el exceso de peso ante el 422 de tamaño de Nest', async () => {
+      await fallarConEstado(422, { message: 'Validation failed (current file size is 6000000, expected size is less than 5242880)' });
+
+      expect(component.mensajeError()).toContain('pesa demasiado');
+    });
+
+    it('debería pedir volver a entrar cuando la sesión ha caducado', async () => {
+      await fallarConEstado(401, { message: 'Unauthorized' });
+
+      expect(component.mensajeError()).toContain('sesión ha caducado');
+    });
+
+    it('debería pedir esperar ante demasiadas subidas seguidas', async () => {
+      await fallarConEstado(429, { message: 'ThrottlerException: Too Many Requests' });
+
+      expect(component.mensajeError()).toContain('Espera un minuto');
+    });
+
+    it('no debería enseñar el 500 genérico de Nest en inglés', async () => {
+      await fallarConEstado(500, { message: 'Internal server error' });
+
+      expect(component.mensajeError()).toContain('El servidor no ha podido guardar la foto');
     });
 
     it('debería invalidar el control para que el formulario no se guarde sin foto', async () => {

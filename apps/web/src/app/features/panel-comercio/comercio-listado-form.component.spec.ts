@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideHttpClient } from '@angular/common/http';
+import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { FormArray } from '@angular/forms';
 import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
@@ -1729,8 +1729,34 @@ describe('ComercioListadoFormComponent', () => {
       dejarListoParaPublicar();
       await componente.submit();
 
-      expect(componente.errorMsg()).toContain('Error al guardar');
+      expect(componente.errorMsg()).toContain('No se pudo guardar');
       expect(componente.guardando()).toBe(false);
+    });
+
+    it('debería enseñar el motivo que da el API cuando rechaza el guardado', async () => {
+      await crear();
+      api.crearServicio.mockReturnValue(throwError(() => new HttpErrorResponse({
+        status: 422, error: { message: 'Sube al menos 5 fotos para publicar.' },
+      })));
+      rellenarBase(VerticalKey.TRANSPORTE);
+
+      dejarListoParaPublicar();
+      await componente.submit();
+
+      expect(componente.errorMsg()).toBe('Sube al menos 5 fotos para publicar.');
+    });
+
+    it('debería avisar de la foto que no se subió en vez de no hacer nada', async () => {
+      // En el móvil, una foto rechazada dejaba el botón sin respuesta y sin aviso.
+      await crear();
+      rellenarBase(VerticalKey.TRANSPORTE);
+      dejarListoParaPublicar();
+      componente.form.controls.imagenes.setErrors({ subidaFallida: true });
+
+      await componente.submit();
+
+      expect(componente.errorMsg()).toContain('no se ha subido');
+      expect(api.crearServicio).not.toHaveBeenCalled();
     });
   });
 
