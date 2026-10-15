@@ -183,6 +183,87 @@ describe('RsImageUploadComponent', () => {
       expect(component.mensajeError()).toBe('');
       expect(component.validate({} as never)).toBeNull();
     });
+
+    it('debería decir qué foto falló, con su número y su nombre', async () => {
+      await fallarConEstado(500, { message: 'Internal server error' });
+
+      expect(component.fallos()).toEqual([
+        expect.objectContaining({ etiqueta: 'Foto 1 (foto.jpg)' }),
+      ]);
+      const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';
+      expect(texto).toContain('Foto 1 (foto.jpg):');
+    });
+  });
+
+  /**
+   * iPhone: fotos elegidas que «no aparecían». Ninguno de estos casos dejaba
+   * rastro en pantalla antes.
+   */
+  describe('cuando la foto no llega a aparecer', () => {
+    afterEach(() => sessionStorage.clear());
+
+    it('debería avisar si el selector se cierra sin entregar ninguna foto', () => {
+      component.onFileChange({ target: { files: [], value: '' } } as unknown as Event);
+
+      expect(component.aviso()).toContain('iCloud');
+      expect(partes()).toEqual([expect.objectContaining({ paso: 'sin_ficheros' })]);
+    });
+
+    it('debería avisar de las fotos que no caben en vez de tirarlas en silencio', async () => {
+      component.multiple = true;
+      component.maxFiles = 1;
+      const fotos = ['a.jpg', 'b.jpg'].map((n) => new File(['x'], n, { type: 'image/jpeg' }));
+
+      component.onFileChange({ target: { files: fotos, value: '' } } as unknown as Event);
+      await fixture.whenStable();
+
+      expect(component.aviso()).toContain('una no se ha añadido');
+      httpMock.expectOne(`${environment.apiUrl}/upload/image`).flush({ url: 'https://cdn.doogking.com/a.jpg' });
+      await fixture.whenStable();
+    });
+
+    it('debería explicar que la página se recargó con fotos a medio preparar', () => {
+      sessionStorage.setItem('dk_fotos_preparandose', JSON.stringify({
+        origen: 'servicio/imagenes', en: Date.now(), nombres: ['IMG_0001.HEIC'],
+      }));
+      component.origen = 'servicio/imagenes';
+
+      component.ngOnInit();
+
+      expect(component.aviso()).toContain('se recargó');
+      expect(component.aviso()).toContain('IMG_0001.HEIC');
+      expect(sessionStorage.getItem('dk_fotos_preparandose')).toBeNull();
+      expect(partes()).toEqual([expect.objectContaining({ paso: 'recargada' })]);
+    });
+
+    it('no debería hablar de recarga si la marca es de otra pantalla', () => {
+      sessionStorage.setItem('dk_fotos_preparandose', JSON.stringify({
+        origen: 'perro/fotos', en: Date.now(), nombres: ['IMG_0001.HEIC'],
+      }));
+      component.origen = 'servicio/imagenes';
+
+      component.ngOnInit();
+
+      expect(component.aviso()).toBe('');
+    });
+
+    it('debería borrar la marca de recarga cuando la tanda termina', async () => {
+      await subirArchivo();
+
+      expect(sessionStorage.getItem('dk_fotos_preparandose')).toBeNull();
+      httpMock.expectOne(`${environment.apiUrl}/upload/image`).flush({ url: 'https://cdn.doogking.com/foto.jpg' });
+      await fixture.whenStable();
+    });
+
+    it('debería abrir el selector una sola vez al pulsar el enlace', () => {
+      fixture.detectChanges();
+      const input: HTMLInputElement = fixture.nativeElement.querySelector('input[type="file"]');
+      const abrir = jest.spyOn(input, 'click').mockImplementation(() => undefined);
+
+      (fixture.nativeElement.querySelector('.upload-link') as HTMLButtonElement).click();
+
+      expect(abrir).toHaveBeenCalledTimes(1);
+    });
   });
   /**
    * Fotos de iPhone. Desde iOS 11 el carrete guarda en HEIC, que sólo Safari

@@ -2,6 +2,10 @@ import { IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validat
 
 /** En qué punto se quedó la subida. Ordenado por el recorrido del fichero. */
 export const PASOS_SUBIDA = [
+  /** Se cerró el selector con fotos marcadas y el navegador no entregó ninguna (iCloud). */
+  'sin_ficheros',
+  /** La pestaña se recargó con fotos a medio preparar: Safari se quedó sin memoria. */
+  'recargada',
   /** El navegador entregó el fichero. Sólo se registra en modo verboso. */
   'elegido',
   /** Ni siquiera parecía una imagen: se descartó antes de tocar nada. */

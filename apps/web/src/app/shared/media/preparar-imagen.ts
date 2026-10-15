@@ -123,6 +123,17 @@ function necesitaProceso(fichero: File, objetivo: number): boolean {
 }
 
 /**
+ * ¿Habrá que convertir o reducir esta foto antes de subirla?
+ *
+ * Sirve para no pintar su vista previa en crudo: una foto de 48 MP decodificada
+ * ocupa ~190 MB en memoria aunque se enseñe en una miniatura de 96 px, y con
+ * varias a la vez Safari en iOS recarga la pestaña.
+ */
+export function requierePreparacion(fichero: File, maxBytes: number = MAX_SUBIDA_BYTES): boolean {
+  return necesitaProceso(fichero, objetivoDe(maxBytes));
+}
+
+/**
  * Reduce hasta respetar a la vez el lado máximo y el techo de canvas de iOS.
  * Nunca amplía: una foto pequeña se queda como está.
  */
@@ -179,7 +190,24 @@ async function volcar(
 
   contexto.drawImage(imagen.fuente, 0, 0, ancho, alto);
 
-  return new Promise<Blob | null>((resolver) => canvas.toBlob(resolver, tipo, calidad));
+  const blob = await new Promise<Blob | null>((resolver) => canvas.toBlob(resolver, tipo, calidad));
+  liberarCanvas(canvas);
+  return blob;
+}
+
+/**
+ * Suelta la memoria del lienzo en cuanto se ha volcado.
+ *
+ * Safari en iOS tiene un tope de memoria **total** para canvas (unos 384 MB en
+ * muchos modelos) y no la devuelve hasta que pasa el recolector, que no tiene
+ * prisa. Cada pasada de una foto crea un lienzo de hasta 2560 px (~20 MB): con
+ * varias fotos y varias pasadas se llegaba al tope, `getContext` devolvía
+ * `null` y la conversión fallaba —o Safari recargaba la pestaña sin avisar—.
+ * Dejarlo a 0x0 es la forma documentada de liberarla al momento.
+ */
+function liberarCanvas(canvas: HTMLCanvasElement): void {
+  canvas.width = 0;
+  canvas.height = 0;
 }
 
 /**

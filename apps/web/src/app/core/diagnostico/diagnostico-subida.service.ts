@@ -4,6 +4,8 @@ import { environment } from '../../../environments/environment';
 
 /** En qué punto se quedó la subida. Debe seguir a `PASOS_SUBIDA` del API. */
 export type PasoSubida =
+  | 'sin_ficheros'
+  | 'recargada'
   | 'elegido'
   | 'descartado'
   | 'sin_decodificar'

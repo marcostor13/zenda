@@ -1,5 +1,5 @@
 import {
-  MAX_SUBIDA_BYTES, esHeic, pareceImagen, prepararImagen, problemaDeSubida,
+  MAX_SUBIDA_BYTES, esHeic, pareceImagen, prepararImagen, problemaDeSubida, requierePreparacion,
 } from './preparar-imagen';
 
 describe('preparar-imagen', () => {
@@ -67,6 +67,17 @@ describe('preparar-imagen', () => {
 
       expect(convertido.type).toBe('image/jpeg');
       expect(convertido.name).toBe('IMG_0042.jpg');
+    });
+
+    it('debería liberar cada lienzo nada más volcarlo', async () => {
+      // iOS tiene un tope de memoria total para canvas y no la devuelve hasta
+      // que pasa el recolector: con varias fotos se agotaba y la pestaña caía.
+      const canvas = simularCanvas({ ancho: 3024, alto: 4032, tamano: 1000 });
+
+      await prepararImagen(fichero('IMG_0042.HEIC', 'image/heic'));
+
+      expect(canvas.lienzos.length).toBeGreaterThan(0);
+      expect(canvas.lienzos.every((l) => l.width === 0 && l.height === 0)).toBe(true);
     });
 
     it('debería respetar la orientación EXIF al decodificar', async () => {
@@ -253,6 +264,20 @@ describe('preparar-imagen', () => {
    * de fotos de iPhone que hasta ahora acababan en un 422 del servidor o en una
    * imagen que sólo se veía desde Safari.
    */
+  describe('requierePreparacion', () => {
+    it('debería pedir preparar un HEIC aunque pese poco', () => {
+      expect(requierePreparacion(fichero('IMG_0042.HEIC', 'image/heic'))).toBe(true);
+    });
+
+    it('debería pedir preparar una foto que no cabe en el endpoint', () => {
+      expect(requierePreparacion(fichero('grande.jpg', 'image/jpeg', MAX_SUBIDA_BYTES))).toBe(true);
+    });
+
+    it('no debería tocar un JPEG que ya cabe', () => {
+      expect(requierePreparacion(fichero('foto.jpg', 'image/jpeg', 1000))).toBe(false);
+    });
+  });
+
   describe('problemaDeSubida', () => {
     it('debería dar por buena una imagen convertida y ligera', () => {
       expect(problemaDeSubida(fichero('foto.jpg', 'image/jpeg', 1000))).toBeNull();
@@ -279,6 +304,8 @@ describe('preparar-imagen', () => {
     readonly tipos: string[];
     readonly cerrado: jest.Mock;
     readonly decodificar: jest.Mock;
+    /** Lienzos creados, para ver si se liberaron después de volcarlos. */
+    readonly lienzos: { width: number; height: number }[];
   }
 
   /**
@@ -296,6 +323,7 @@ describe('preparar-imagen', () => {
       dimensiones: [],
       calidades: [],
       tipos: [],
+      lienzos: [],
       cerrado: jest.fn(),
       decodificar: jest.fn().mockResolvedValue({
         width: opciones.ancho,
@@ -339,6 +367,7 @@ describe('preparar-imagen', () => {
           cb(opciones.tamano === null ? null : new Blob([new Uint8Array(opciones.tamano)], { type: tipo }));
         },
       };
+      registro.lienzos.push(canvas);
       return canvas as unknown as HTMLCanvasElement;
     });
 

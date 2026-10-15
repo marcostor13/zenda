@@ -3,6 +3,7 @@ import {
   Input,
   OnInit,
   OnDestroy,
+  computed,
   forwardRef,
   inject,
   signal,
@@ -21,8 +22,9 @@ import { RsIconComponent } from '../icon/rs-icon.component';
 import { environment } from '../../../../environments/environment';
 import { DiagnosticoSubidaService } from '../../../core/diagnostico/diagnostico-subida.service';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
+import { almacenSesion } from '../../../core/plataforma/almacen';
 import {
-  MAX_SUBIDA_BYTES, ProblemaSubida, pareceImagen, prepararImagen, problemaDeSubida,
+  MAX_SUBIDA_BYTES, ProblemaSubida, pareceImagen, prepararImagen, problemaDeSubida, requierePreparacion,
 } from '../../media/preparar-imagen';
 
 /**
@@ -33,8 +35,22 @@ import {
  */
 const ESPERA_SUBIDA_MS = 120_000;
 
+/** Fotos a medio preparar, apuntadas por si Safari recarga la pestaña. */
+const CLAVE_PREPARACION = 'dk_fotos_preparandose';
+
+/** Una marca más vieja no es de esta visita: alguien volvió horas después. */
+const VIGENCIA_MARCA_MS = 10 * 60_000;
+
+interface MarcaPreparacion {
+  readonly origen: string;
+  readonly en: number;
+  readonly nombres: string[];
+}
+
 interface ImageSlot {
   id: string;
+  /** Nombre con que la entregó el móvil, para decir cuál falló. */
+  nombre: string;
   previewUrl: string;
   uploadedUrl: string | null;
   uploading: boolean;
@@ -78,16 +94,28 @@ interface ImageSlot {
           </div>
           <p class="upload-hint">
             Arrastra {{ multiple ? 'imágenes' : 'una imagen' }} aquí o
-            <button type="button" class="upload-link" (click)="fileInput.click()">{{ 'haz clic para seleccionar' | t }}</button>
+            <!-- Sin stopPropagation el toque subía a la zona, que volvía a
+                 abrir el selector: dos click() por un toque, y en iOS la
+                 selección se podía perder sin evento de cambio. -->
+            <button type="button" class="upload-link"
+                    (click)="$event.stopPropagation(); fileInput.click()">{{ 'haz clic para seleccionar' | t }}</button>
           </p>
           <p class="upload-meta">JPEG, PNG o WebP · Máx 5 MB{{ multiple ? ' · Hasta ' + maxFiles + ' imágenes' : '' }}</p>
           <p class="upload-meta">{{ 'Las fotos de iPhone se convierten solas.' | t }}</p>
         </div>
       } @else {
         <div class="image-grid" (click)="$event.stopPropagation()">
-          @for (slot of slots(); track slot.id) {
+          @for (slot of slots(); track slot.id; let i = $index) {
             <div class="image-tile" [class.image-tile--error]="slot.error">
-              <img [src]="slot.previewUrl" [alt]="'Imagen subida' | t" class="image-tile__img" />
+              @if (slot.previewUrl) {
+                <img [src]="slot.previewUrl" [alt]="'Imagen subida' | t" class="image-tile__img" />
+              } @else {
+                <!-- Foto grande aún sin convertir: su vista previa en crudo es
+                     lo que agota la memoria del iPhone. -->
+                <div class="image-tile__vacia">
+                  <rs-icon name="image" [size]="22" [stroke]="1.5"></rs-icon>
+                </div>
+              }
 
               @if (slot.uploading) {
                 <div class="image-tile__overlay">
@@ -96,8 +124,10 @@ interface ImageSlot {
               }
 
               @if (slot.error && !slot.uploading) {
+                <!-- El número casa la casilla con su aviso de debajo. -->
                 <div class="image-tile__overlay image-tile__overlay--error">
-                  <rs-icon name="alert-circle" [size]="18" [stroke]="2"></rs-icon>
+                  <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
+                  <span class="image-tile__numero">{{ i + 1 }}</span>
                 </div>
               }
 
@@ -126,11 +156,19 @@ interface ImageSlot {
       }
     </div>
 
-    @if (mensajeError(); as error) {
+    @if (aviso(); as texto) {
       <p class="upload-error" role="alert">
         <rs-icon name="alert-circle" [size]="15" [stroke]="2" />
-        <span>{{ error }}</span>
-        <button type="button" class="upload-error__retry" (click)="reintentar()">{{ 'Reintentar' | t }}</button>
+        <span>{{ texto }}</span>
+      </p>
+    }
+    <!-- Un aviso por foto: con varias a la vez, «no se pudo subir» no decía
+         cuál ni por qué. -->
+    @for (fallo of fallos(); track fallo.id) {
+      <p class="upload-error" role="alert">
+        <rs-icon name="alert-circle" [size]="15" [stroke]="2" />
+        <span><strong>{{ fallo.etiqueta }}:</strong> {{ fallo.mensaje }}</span>
+        <button type="button" class="upload-error__retry" (click)="reintentarSlot(fallo.id)">{{ 'Reintentar' | t }}</button>
       </p>
     }
 
@@ -210,7 +248,13 @@ interface ImageSlot {
       display: flex; align-items: center; justify-content: center;
       color: #fff;
     }
-    .image-tile__overlay--error { background: rgba(239,68,68,.5); }
+    .image-tile__overlay--error { background: rgba(239,68,68,.5); gap: var(--sp-1); }
+    .image-tile__numero { font-size: var(--f-sm); font-weight: 700; }
+    .image-tile__vacia {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--c-surface); color: var(--t-400);
+    }
 
     .image-tile__remove {
       position: absolute; top: 4px; right: 4px;
@@ -269,21 +313,49 @@ export class RsImageUploadComponent
 
   readonly isDragging = signal(false);
   readonly slots = signal<ImageSlot[]>([]);
-  /** Motivo del último fallo de subida; se muestra bajo la zona de subida. */
-  readonly mensajeError = signal('');
+  /**
+   * Aviso que no es de una foto concreta: la selección llegó vacía, no era una
+   * imagen, sobraban fotos o la pestaña se recargó a medias.
+   */
+  readonly aviso = signal('');
+  /** Un aviso por cada foto que no se subió, numerado como su casilla. */
+  readonly fallos = computed(() =>
+    this.slots()
+      .map((slot, i) => ({ slot, posicion: i + 1 }))
+      .filter(({ slot }) => slot.error)
+      .map(({ slot, posicion }) => ({
+        id: slot.id,
+        etiqueta: slot.nombre ? `Foto ${posicion} (${slot.nombre})` : `Foto ${posicion}`,
+        mensaje: slot.error,
+      })),
+  );
+  /** Todo lo que se le está avisando al usuario, en una línea. */
+  readonly mensajeError = computed(() =>
+    [this.aviso(), ...this.fallos().map((f) => f.mensaje)].filter(Boolean).join(' '),
+  );
   disabled = false;
 
   private blobUrls: string[] = [];
   /** Ficheros que fallaron, para poder reintentar sin volver a elegirlos. */
   private pendientes = new Map<string, File>();
+  /** Tandas de fotos preparándose ahora mismo; ver `marcarPreparacion`. */
+  private tandasEnCurso = 0;
   private onChange: (v: string | string[] | null) => void = () => {};
   private onTouched: () => void = () => {};
   private onValidatorChange: () => void = () => {};
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.avisarSiSeRecargo();
+  }
 
   ngOnDestroy(): void {
     this.blobUrls.forEach(u => URL.revokeObjectURL(u));
+    // Salir de la pantalla a mitad de tanda no es una recarga: sin esto, volver
+    // al alta enseñaría el aviso de «la página se recargó». Una recarga de
+    // verdad no pasa por aquí.
+    if (this.tandasEnCurso > 0) {
+      try { almacenSesion().removeItem(CLAVE_PREPARACION); } catch { /* nada */ }
+    }
   }
 
   canAddMore(): boolean {
@@ -291,13 +363,13 @@ export class RsImageUploadComponent
   }
 
   writeValue(value: string | string[] | null): void {
-    this.mensajeError.set('');
     this.pendientes.clear();
     if (!value) { this.slots.set([]); return; }
     const urls = Array.isArray(value) ? value : [value];
     this.slots.set(
       urls.filter(Boolean).map(url => ({
         id: this.uid(),
+        nombre: '',
         previewUrl: url,
         uploadedUrl: url,
         uploading: false,
@@ -327,10 +399,17 @@ export class RsImageUploadComponent
 
   /** Vuelve a intentar las subidas que fallaron, sin reelegir los ficheros. */
   reintentar(): void {
-    const fallidos = this.slots().filter(s => s.error);
-    fallidos.forEach(s => this.removeSlot(s.id));
-    const ficheros = fallidos.map(s => this.pendientes.get(s.id)).filter((f): f is File => !!f);
-    fallidos.forEach(s => this.pendientes.delete(s.id));
+    this.reintentarSlots(this.slots().filter(s => s.error).map(s => s.id));
+  }
+
+  /** Reintenta sólo la foto de ese aviso. */
+  reintentarSlot(id: string): void {
+    this.reintentarSlots([id]);
+  }
+
+  private reintentarSlots(ids: string[]): void {
+    const ficheros = ids.map(id => this.pendientes.get(id)).filter((f): f is File => !!f);
+    ids.forEach(id => { this.removeSlot(id); this.pendientes.delete(id); });
     void this.processFiles(ficheros);
   }
 
@@ -351,62 +430,98 @@ export class RsImageUploadComponent
   onFileChange(e: Event): void {
     const input = e.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
-    void this.processFiles(files);
     input.value = '';
+
+    /*
+     * El selector se cerró con fotos marcadas y el navegador no entregó
+     * ninguna. En iPhone pasa con fotos que viven en iCloud y no se llegan a
+     * descargar: antes no se pintaba nada y parecía que la web ignoraba la
+     * selección.
+     */
+    if (!files.length) {
+      this.aviso.set('No ha llegado ninguna foto desde el móvil. Si están guardadas en iCloud, ábrelas primero en la app Fotos para que se descarguen y vuelve a elegirlas.');
+      this.diagnostico.registrar({ paso: 'sin_ficheros', ...this.contexto() });
+      return;
+    }
+    void this.processFiles(files);
   }
 
   removeSlot(id: string): void {
     const slot = this.slots().find(s => s.id === id);
     if (slot) this.olvidarPreview(slot);
     this.slots.update(s => s.filter(sl => sl.id !== id));
-    if (!this.slots().some(sl => sl.error)) this.mensajeError.set('');
     this.emitValue();
     this.onTouched();
   }
 
   private async processFiles(files: File[]): Promise<void> {
+    this.aviso.set('');
     const imagenes = files.filter(f => pareceImagen(f));
+    const descartados = files.filter(f => !pareceImagen(f));
 
     // Callar un descarte deja al usuario mirando una pantalla que no reacciona.
+    for (const descartado of descartados) {
+      this.diagnostico.registrar({ paso: 'descartado', ...this.contexto(), fichero: descartado });
+    }
     if (files.length && !imagenes.length) {
-      this.mensajeError.set('Ese archivo no es una imagen. Usa JPEG, PNG, WebP o GIF.');
-      for (const descartado of files) {
-        this.diagnostico.registrar({ paso: 'descartado', ...this.contexto(), fichero: descartado });
-      }
+      this.aviso.set('Ese archivo no es una imagen. Usa JPEG, PNG, WebP o GIF.');
       return;
     }
 
     const restantes = this.multiple ? this.maxFiles - this.slots().length : 1;
     const aSubir = imagenes.slice(0, Math.max(0, restantes));
+    this.avisarDescartes(descartados, imagenes.length - aSubir.length);
+
+    // Todas las casillas a la vista desde el primer momento: con la preparación
+    // de una en una, la quinta foto tardaba medio minuto en aparecer.
+    const casillas = aSubir.map(original => ({ id: this.crearSlot(original), original }));
+    this.marcarPreparacion(aSubir, true);
 
     const enVuelo: Promise<void>[] = [];
-    for (const original of aSubir) {
-      /*
-       * La preparación va de una en una. Decodificar varias fotos de 12 MP a la
-       * vez agota la memoria de un iPhone y Safari recarga la pestaña sin más;
-       * el envío, que no consume memoria, sí se solapa.
-       */
-      const listo = await this.prepararSlot(original);
-      if (listo) enVuelo.push(this.enviar(listo.id, listo.file));
+    try {
+      for (const { id, original } of casillas) {
+        /*
+         * La preparación va de una en una. Decodificar varias fotos de 12 MP a
+         * la vez agota la memoria de un iPhone y Safari recarga la pestaña sin
+         * más; el envío, que no consume memoria, sí se solapa.
+         */
+        const listo = await this.prepararSlot(id, original);
+        if (listo) enVuelo.push(this.enviar(listo.id, listo.file));
+      }
+    } finally {
+      this.marcarPreparacion(aSubir, false);
     }
 
     await Promise.all(enVuelo);
   }
 
-  /**
-   * Crea la casilla, prepara la imagen y comprueba que se puede subir.
-   *
-   * La casilla se crea **antes** de preparar: convertir una foto de 48 MP en un
-   * iPhone tarda varios segundos y hasta ahora no se veía nada durante ese rato,
-   * así que parecía que elegir la foto no hacía nada.
-   */
-  private async prepararSlot(original: File): Promise<{ id: string; file: File } | null> {
-    if (!original) return null;
+  /** Lo que no entra en la tanda se dice, no se tira en silencio. */
+  private avisarDescartes(descartados: File[], sobrantes: number): void {
+    const partes: string[] = [];
+    if (descartados.length) {
+      const nombres = descartados.map(f => f.name || 'sin nombre').join(', ');
+      partes.push(`No son imágenes y no se han añadido: ${nombres}.`);
+    }
+    if (sobrantes > 0) {
+      partes.push(`Aquí caben ${this.maxFiles} fotos como máximo: ${sobrantes === 1 ? 'una no se ha añadido' : sobrantes + ' no se han añadido'}.`);
+    }
+    if (partes.length) this.aviso.set(partes.join(' '));
+  }
 
+  /**
+   * Crea la casilla en cuanto llega la foto, antes de prepararla.
+   *
+   * Si hay que convertirla o reducirla, la casilla sale sin vista previa: pintar
+   * el original de una foto de 48 MP, aunque sea en 96 px, lo decodifica entero
+   * (~190 MB), y con varias a la vez Safari en iOS recargaba la pestaña. Las
+   * fotos simplemente desaparecían.
+   */
+  private crearSlot(original: File): string {
     const id = this.uid();
     const slot: ImageSlot = {
       id,
-      previewUrl: this.registrarPreview(original),
+      nombre: original.name,
+      previewUrl: requierePreparacion(original) ? '' : this.registrarPreview(original),
       uploadedUrl: null,
       uploading: true,
       error: '',
@@ -420,7 +535,25 @@ export class RsImageUploadComponent
       this.slots.update(s => [...s, slot]);
     }
     this.onValidatorChange();
+    return id;
+  }
 
+  /**
+   * Prepara la imagen de la casilla y comprueba que se puede subir. Nunca
+   * lanza: un fallo inesperado acaba en el aviso de esa foto, no en una casilla
+   * girando para siempre.
+   */
+  private async prepararSlot(id: string, original: File): Promise<{ id: string; file: File } | null> {
+    try {
+      return await this.convertirSlot(id, original);
+    } catch (error) {
+      this.diagnostico.registrar({ paso: 'sin_convertir', ...this.contexto(), fichero: original, detalle: String(error) });
+      this.marcarFallo(id, original, 'No se ha podido preparar esta foto en el móvil. Prueba con otra o hazle una captura de pantalla.');
+      return null;
+    }
+  }
+
+  private async convertirSlot(id: string, original: File): Promise<{ id: string; file: File } | null> {
     /*
      * Conversión y reescalado (ver `shared/media/preparar-imagen.ts`): un HEIC
      * en crudo sólo lo pinta Safari, y una foto de móvil sin reducir se pasa del
@@ -454,9 +587,10 @@ export class RsImageUploadComponent
       return null;
     }
 
-    // La vista previa del original no se pinta fuera de Safari si era un HEIC:
-    // se cambia por la de la imagen ya convertida.
-    if (file !== original) {
+    // La casilla salió sin vista previa, o con la del original, que no se pinta
+    // fuera de Safari si era un HEIC: se pone la de la imagen ya preparada.
+    const sinVista = this.slots().some(sl => sl.id === id && !sl.previewUrl);
+    if (file !== original || sinVista) {
       this.slots.update(s => s.map(sl => {
         if (sl.id !== id) return sl;
         this.olvidarPreview(sl);
@@ -479,7 +613,6 @@ export class RsImageUploadComponent
         s.map(sl => sl.id === id ? { ...sl, uploadedUrl: res.url, uploading: false } : sl),
       );
       this.diagnostico.registrar({ paso: 'subida', ...this.contexto(), fichero: file });
-      this.mensajeError.set('');
       this.emitValue();
       this.onTouched();
     } catch (error) {
@@ -497,10 +630,46 @@ export class RsImageUploadComponent
   private marcarFallo(id: string, fichero: File, mensaje: string): void {
     this.pendientes.set(id, fichero);
     this.slots.update(s =>
-      s.map(sl => sl.id === id ? { ...sl, uploading: false, error: 'Error al subir' } : sl),
+      s.map(sl => sl.id === id ? { ...sl, uploading: false, error: mensaje } : sl),
     );
-    this.mensajeError.set(mensaje);
     this.emitValue();
+  }
+
+  /**
+   * Apunta en la sesión qué fotos se están preparando, para poder explicarlo
+   * si la pestaña no sobrevive.
+   *
+   * Cuando Safari en iOS se queda sin memoria convirtiendo fotos, no hay error
+   * que capturar: recarga la página y ya. El alta se restaura desde el
+   * borrador, pero sin esas fotos, y el comercio veía que «no aparecían».
+   */
+  private marcarPreparacion(ficheros: File[], empieza: boolean): void {
+    this.tandasEnCurso += empieza ? 1 : -1;
+    try {
+      if (empieza) {
+        const marca: MarcaPreparacion = { origen: this.origen, en: Date.now(), nombres: ficheros.map(f => f.name) };
+        almacenSesion().setItem(CLAVE_PREPARACION, JSON.stringify(marca));
+      } else if (this.tandasEnCurso <= 0) {
+        almacenSesion().removeItem(CLAVE_PREPARACION);
+      }
+    } catch { /* sin almacén de sesión sólo se pierde el aviso */ }
+  }
+
+  /** Si la pestaña se recargó con fotos a medio preparar, lo dice. */
+  private avisarSiSeRecargo(): void {
+    let marca: MarcaPreparacion | null = null;
+    try {
+      marca = JSON.parse(almacenSesion().getItem(CLAVE_PREPARACION) ?? 'null') as MarcaPreparacion | null;
+    } catch { return; }
+    if (!marca || marca.origen !== this.origen || Date.now() - marca.en > VIGENCIA_MARCA_MS) return;
+
+    try { almacenSesion().removeItem(CLAVE_PREPARACION); } catch { /* nada */ }
+    const nombres = marca.nombres.filter(Boolean).join(', ');
+    this.aviso.set(
+      `La página se recargó mientras se preparaban tus fotos${nombres ? ` (${nombres})` : ''} y no se han subido. `
+      + 'Suele pasar en iPhone al elegir muchas fotos grandes a la vez: vuelve a elegirlas de dos en dos.',
+    );
+    this.diagnostico.registrar({ paso: 'recargada', ...this.contexto(), detalle: `fotos=${marca.nombres.length} ${nombres}` });
   }
 
   /** Qué contarle al usuario cuando la foto no llega siquiera a enviarse. */
