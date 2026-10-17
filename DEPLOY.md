@@ -591,3 +591,52 @@ export const environment = {
 ```
 
 Si cambias el dominio del backend, actualiza este archivo y haz push — el pipeline reconstruirá el frontend automáticamente.
+
+---
+
+## 9. Entorno de desarrollo (rama `dev`)
+
+Copia de producción con **datos ficticios** y base de datos propia. Todo push a `dev` pasa
+por los mismos tests y build que `main` y, si salen en verde, despliega aquí.
+
+| Pieza | Valor |
+|---|---|
+| Web | `https://dev.doogking.com` — Coolify `Zenda WEB (dev)` · uuid `reyrj52wrnf8a5que49tpfyq` · puerto 4000 |
+| API | `https://api-dev.doogking.com` — Coolify `Zenda API (dev)` · uuid `skovo2vbe504vu5rusobm7tu` · puerto 3051 |
+| Base de datos | MongoDB en Coolify `zenda-dev-mongo` (entorno `dev` del proyecto Zenda), base `doogking_dev`. **No es Atlas**: producción no se toca nunca desde aquí. |
+| Imágenes | Sin S3: se guardan en la propia MongoDB (GridFS). |
+| Pagos | `PAGOS_BYPASS=true`: el paso de pago ofrece confirmar sin cobrar. Con claves `sk_test`/`pk_test` también funciona Stripe en modo test (webhook ya creado: `…/api-dev.doogking.com/api/v1/payments/webhook`). |
+| Buscadores | `NO_INDEXAR=true` en la web: `robots.txt` lo bloquea todo y cada respuesta lleva `X-Robots-Tag: noindex`. |
+
+**DNS** (Cloudflare, zona `doogking.com`): registros **A** `dev` y `api-dev` → `98.87.37.45`,
+**sin proxy** (nube gris), igual que `doogking.com`. Coolify/Traefik emite el certificado
+en cuanto el nombre resuelve.
+
+**CI/CD**: `.github/workflows/ci.yml` usa el secret `COOLIFY_API_TOKEN` de siempre y los uuid
+de arriba (no son secretos). No hace falta ningún secret nuevo. Apaga el **Auto Deploy**
+propio de Coolify en estos dos recursos (Configuration → Advanced): si sigue encendido,
+Coolify despliega con cada push sin esperar a los tests, y el workflow lanza otro detrás.
+
+### 9.1 Datos ficticios
+
+Los siembra el API al arrancar (`apps/api/src/demo/`) cuando `SEMBRAR_DATOS_DEMO=true`:
+
+- 7 comercios (`b0…01`–`b0…07`): uno por categoría con sus listados (alojamiento,
+  transporte, veterinaria, peluquería, adiestramiento, hoteles) y uno **pendiente** de
+  aprobar, para probar el flujo del admin.
+- Cuentas en `@doogking.test`: `admin@`, `cliente@`, `cliente2@` y una por comercio
+  (`alojamiento@`, `transporte@`, `veterinaria@`, `peluqueria@`, `adiestramiento@`,
+  `hoteles@`, `pendiente@`). Contraseña: la variable `DATOS_DEMO_PASSWORD` del API dev.
+
+Es idempotente: cada despliegue crea lo que falte y no pisa lo que se haya cambiado. Y
+se niega a escribir si la base tiene algún comercio que no sea de los suyos, así que
+activarlo por error en producción no hace nada. Para empezar de cero, vacía la base
+`doogking_dev` y reinicia el API.
+
+### 9.2 Variables opcionales del API dev
+
+Sin ellas el entorno funciona; añadirlas en Coolify activa la función correspondiente:
+`STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` (y `WEB_STRIPE_PUBLIC_KEY` en la web, de la
+misma cuenta), `RESEND_API_KEY` + `EMAIL_FROM`, `GOOGLE_MAPS_API_KEY`, `DEEPSEEK_API_KEY`.
+`GOOGLE_MAPS_BROWSER_KEY` sólo si su restricción de sitios incluye `https://dev.doogking.com/*`;
+sin ella el mapa usa OpenStreetMap.

@@ -2,10 +2,18 @@ name: CI/CD — Reservalo
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
+
+# Entorno dev (dev.doogking.com · api-dev.doogking.com): mismos jobs, otro destino.
+# Los uuid de Coolify no son secretos —el que autoriza es COOLIFY_API_TOKEN—, así
+# que viven aquí y no hace falta un secret por recurso.
+env:
+  COOLIFY_URL: https://coolify.marcostorresalarcon.com
+  COOLIFY_UUID_API_DEV: skovo2vbe504vu5rusobm7tu
+  COOLIFY_UUID_WEB_DEV: reyrj52wrnf8a5que49tpfyq
 
 jobs:
   changes:
@@ -64,6 +72,12 @@ jobs:
           COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: .github/scripts/desplegar-coolify.sh "$COOLIFY_WEBHOOK_URL" "$COOLIFY_API_TOKEN" "API"
 
+      - name: Deploy API dev (Coolify)
+        if: github.ref == 'refs/heads/dev' && github.event_name != 'pull_request'
+        env:
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: .github/scripts/desplegar-coolify.sh "$COOLIFY_URL/api/v1/deploy?uuid=$COOLIFY_UUID_API_DEV&force=false" "$COOLIFY_API_TOKEN" "API (dev)"
+
   web:
     name: Web — CI + Deploy
     needs: changes
@@ -96,3 +110,9 @@ jobs:
           COOLIFY_WEBHOOK_URL_WEB: ${{ secrets.COOLIFY_WEBHOOK_URL_WEB }}
           COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: .github/scripts/desplegar-coolify.sh "$COOLIFY_WEBHOOK_URL_WEB" "$COOLIFY_API_TOKEN" "web"
+
+      - name: Deploy Web dev (Coolify)
+        if: github.ref == 'refs/heads/dev' && github.event_name != 'pull_request'
+        env:
+          COOLIFY_API_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: .github/scripts/desplegar-coolify.sh "$COOLIFY_URL/api/v1/deploy?uuid=$COOLIFY_UUID_WEB_DEV&force=false" "$COOLIFY_API_TOKEN" "web (dev)"
