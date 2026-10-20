@@ -109,7 +109,7 @@ Los tres eran funcionalidad ya escrita en Angular que en la app instalada no pod
 | Jest (suite completa) | **2776 pasan, 1 falla** |
 | `gradlew assembleRelease` | BUILD SUCCESSFUL — 2 m 32 s |
 | `apksigner verify` | Firmado, esquema v2, `CN=Doogking` |
-| URL del API dentro del APK | `https://apizenda.marcostorresalarcon.com/api/v1` |
+| URL del API dentro del APK | `https://api.doogking.com/api/v1` |
 
 **El fallo de Jest es previo y ajeno a este trabajo.** Es
 `AdminDashboardComponent › periodo del panel` y falla igualmente con el árbol limpio

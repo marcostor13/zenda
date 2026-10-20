@@ -10,7 +10,7 @@ import { bandera, variable } from './entorno-runtime';
  */
 export const environment = {
   production: true,
-  apiUrl: variable('WEB_API_URL', 'https://apizenda.marcostorresalarcon.com/api/v1'),
+  apiUrl: variable('WEB_API_URL', 'https://api.doogking.com/api/v1'),
   // Pantalla "muy pronto" mientras se prepara el lanzamiento público.
   // Acceso directo: https://doogking.com/?acceso=royal-preview-2026
   // Al entrar una vez con la clave correcta, queda guardado en localStorage

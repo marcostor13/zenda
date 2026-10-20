@@ -326,7 +326,7 @@ export class NotificationsService {
 
   /** Base del API: el píxel de apertura lo sirve el backend, no la web. */
   private apiUrl(): string {
-    return this.config.get<string>('API_URL') ?? 'https://api.doogking.com';
+    return this.config.get<string>('API_URL') ?? 'https://api.doogking.com/api/v1';
   }
 
   /** Envía el correo de verificación de email con el enlace de confirmación. */

@@ -75,7 +75,7 @@ NODE_ENV=production
 **Stripe: tres cosas que tienen que cuadrar entre sí**, y ninguna da un error visible si falla:
 
 1. El endpoint del webhook en Stripe apunta al **API**
-   (`https://apizenda.marcostorresalarcon.com/api/v1/payments/webhook`), no a la web:
+   (`https://api.doogking.com/api/v1/payments/webhook`), no a la web:
    `doogking.com` responde 200 a cualquier ruta, Stripe da los avisos por entregados y las
    reservas pagadas se quedan sin confirmar.
 2. Ese endpoint está suscrito a los eventos de `EVENTOS_DE_WEBHOOK`
@@ -87,7 +87,7 @@ Se comprueban las tres con `bun run --cwd apps/api diagnostico:stripe` (y los pu
 corrigen con `-- --reparar --url <URL del punto 1>`).
 
 Añade también `API_URL` con el dominio público del API
-(`API_URL=https://apizenda.marcostorresalarcon.com`): es la base de los enlaces de
+(`API_URL=https://api.doogking.com`): es la base de los enlaces de
 los callbacks de calendario **y de las URLs de las imágenes subidas** (§2.3.1).
 
 #### 2.2.1 CORS y Swagger
@@ -187,9 +187,17 @@ S3_PUBLIC_BASE_URL=https://cdn.doogking.com
 
 En la pestaña **Domains**:
 
-1. Agrega `apizenda.marcostorresalarcon.com`.
+1. Agrega `api.doogking.com`.
 2. Habilita **Generate SSL Certificate** (Let's Encrypt automático).
-3. En tu proveedor DNS, crea un registro **A** o **CNAME** apuntando `apizenda.marcostorresalarcon.com` → IP de tu servidor Coolify.
+3. En tu proveedor DNS, crea un registro **A** o **CNAME** apuntando `api.doogking.com` → IP de tu servidor Coolify.
+
+> **Estado actual (2026-10-19):** Cloudflare, zona `doogking.com`, registro **A** `api` →
+> `98.87.37.45`, **sin proxy** (nube gris), igual que `doogking.com` y `api-dev`. El recurso
+> `Zenda API` (uuid `qjthu7gcjnr9cn9xa9zvbzjf`) conserva también el dominio antiguo
+> `apizenda.marcostorresalarcon.com`, porque las apps móviles ya instaladas lo llevan dentro;
+> ese dominio caducó, así que sólo vuelve a funcionar si se renueva.
+> `API_URL=https://api.doogking.com/api/v1` (con el prefijo: el píxel de los correos y la vuelta
+> de Google/Microsoft Calendar se construyen encima de él).
 
 ### 2.5 Obtener el Webhook URL de Coolify
 
@@ -266,7 +274,7 @@ genera en el servidor y el que se hidrata en el navegador hablan con el mismo AP
 
 | Variable | Para qué |
 |---|---|
-| `WEB_API_URL` | Base del API con el prefijo de versión: `https://apizenda.marcostorresalarcon.com/api/v1`. **Comprueba su valor real en `https://doogking.com/env.js`**: si ahí pone `localhost`, el navegador de cada visitante intenta llamar a su propia máquina y el error que ves es de CORS o de contenido mixto, no del API. |
+| `WEB_API_URL` | Base del API con el prefijo de versión: `https://api.doogking.com/api/v1`. **Comprueba su valor real en `https://doogking.com/env.js`**: si ahí pone `localhost`, el navegador de cada visitante intenta llamar a su propia máquina y el error que ves es de CORS o de contenido mixto, no del API. |
 | `WEB_UNDER_CONSTRUCTION` | `true` mantiene la pantalla "muy pronto"; `false` abre la web |
 | `WEB_UNDER_CONSTRUCTION_KEY` | Clave del acceso anticipado (`?acceso=…`) |
 | `WEB_STRIPE_PUBLIC_KEY` | Clave **publicable** de Stripe (`pk_live_…`) |
@@ -397,7 +405,7 @@ Repite con un cambio en `apps/web/` para verificar el deploy del frontend (mismo
 
 ```bash
 # Backend
-curl https://apizenda.marcostorresalarcon.com/api/v1/health
+curl https://api.doogking.com/api/v1/health
 
 # Frontend
 open https://doogking.com  # (el dominio que configures en Coolify, §3.4)
@@ -586,7 +594,7 @@ El archivo `apps/web/src/environments/environment.prod.ts` contiene la URL de la
 ```typescript
 export const environment = {
   production: true,
-  apiUrl: 'https://apizenda.marcostorresalarcon.com/api/v1',
+  apiUrl: 'https://api.doogking.com/api/v1',
 };
 ```
 
