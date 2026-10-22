@@ -543,12 +543,17 @@ export class AdminService {
     if (verificado !== undefined) filtro['verificado'] = verificado;
     if (buscar) {
       const regex = regexLiteral(buscar);
-      filtro['$or'] = [{ nombre: regex }, { email: regex }];
+      filtro['$or'] = [{ nombre: regex }, { email: regex }, { emailBaja: regex }];
     }
-    const [items, total] = await Promise.all([
+    const [encontrados, total] = await Promise.all([
       this.usuarioModel.find(filtro).sort({ createdAt: -1 }).skip(skip).limit(limite).lean().exec() as unknown as UsuarioDocument[],
       this.usuarioModel.countDocuments(filtro).exec(),
     ]);
+    // Una baja cuyo email reclamó un alta nueva lleva uno interno; el panel
+    // enseña el que tuvo, que es el que el admin reconoce.
+    const items = encontrados.map((usuario) =>
+      usuario.emailBaja ? ({ ...usuario, email: usuario.emailBaja } as UsuarioDocument) : usuario,
+    );
 
     const clientes = items.filter((u) => u.rol === Rol.CLIENTE).map((u) => String(u._id));
     if (!clientes.length) return { items: items as UsuarioAdminDto[], total };
@@ -1357,7 +1362,16 @@ export class AdminService {
       throw new ConflictException('La cuenta no está dada de baja.');
     }
 
-    const restaurado = await this.usersRepo.restaurar(id);
+    // Durante la baja un alta nueva pudo quedarse su email. Al revés que el CIF
+    // de un comercio, el email es obligatorio: sin él la cuenta no puede volver.
+    const emailArchivado = previo.emailBaja;
+    if (emailArchivado && (await this.usersRepo.findByEmail(emailArchivado))) {
+      throw new ConflictException(
+        `No se puede restaurar: el email ${emailArchivado} ya lo usa una cuenta creada después de la baja.`,
+      );
+    }
+
+    const restaurado = await this.usersRepo.restaurar(id, emailArchivado);
     if (!restaurado) throw new NotFoundException('Usuario no encontrado');
 
     if (adminId) {

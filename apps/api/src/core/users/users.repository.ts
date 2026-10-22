@@ -4,6 +4,9 @@ import { Model } from 'mongoose';
 import { Usuario, UsuarioDocument } from './usuario.schema';
 import { Rol } from 'shared';
 
+/** `.invalid` está reservado (RFC 2606): ningún correo puede llegar ahí por error. */
+const DOMINIO_EMAIL_BAJA = 'doogking.invalid';
+
 export interface CrearUsuarioParams {
   nombre: string;
   email: string;
@@ -23,8 +26,36 @@ export class UsersRepository {
     @InjectModel(Usuario.name) private readonly usuarioModel: Model<UsuarioDocument>,
   ) {}
 
+  /**
+   * Sólo cuentas vivas. Una cuenta dada de baja ya no es de nadie: si contara,
+   * su dueño no podría volver a registrarse con su email, y el login con Google
+   * entraría en la cuenta cerrada en vez de crear una nueva.
+   */
   async findByEmail(email: string): Promise<UsuarioDocument | null> {
-    return this.usuarioModel.findOne({ email: email.toLowerCase() }).exec();
+    return this.usuarioModel
+      .findOne({ email: email.toLowerCase(), eliminadoAt: { $exists: false } })
+      .exec();
+  }
+
+  /**
+   * Suelta el email que todavía conserve una cuenta dada de baja, para que un
+   * alta nueva pueda usarlo. La baja pasa a un email interno e irrepetible
+   * (lleva su id) y guarda el original en `emailBaja`.
+   */
+  async liberarEmailDeBajas(email: string): Promise<void> {
+    const normalizado = email.toLowerCase();
+    const baja = await this.usuarioModel
+      .findOne({ email: normalizado, eliminadoAt: { $exists: true } })
+      .select('_id')
+      .lean()
+      .exec();
+    if (!baja) return;
+    await this.usuarioModel
+      .updateOne(
+        { _id: baja._id },
+        { $set: { email: `baja-${String(baja._id)}@${DOMINIO_EMAIL_BAJA}`, emailBaja: normalizado } },
+      )
+      .exec();
   }
 
   async findById(id: string): Promise<UsuarioDocument | null> {
@@ -52,6 +83,7 @@ export class UsersRepository {
   }
 
   async crear(params: CrearUsuarioParams): Promise<UsuarioDocument> {
+    await this.liberarEmailDeBajas(params.email);
     const usuario = new this.usuarioModel({
       ...params,
       email: params.email.toLowerCase(),
@@ -143,7 +175,10 @@ export class UsersRepository {
     datos: Partial<Pick<Usuario, 'nombre' | 'telefono' | 'verificado' | 'rol' | 'permisosAdmin' | 'permisosComercio' | 'activo' | 'puesto'>> & { email?: string; comercioId?: string },
   ): Promise<UsuarioDocument | null> {
     const update: Record<string, unknown> = { ...datos };
-    if (datos.email) update['email'] = datos.email.toLowerCase();
+    if (datos.email) {
+      update['email'] = datos.email.toLowerCase();
+      await this.liberarEmailDeBajas(datos.email);
+    }
     return this.usuarioModel.findByIdAndUpdate(id, update, { new: true }).exec();
   }
 
@@ -166,10 +201,21 @@ export class UsersRepository {
       .exec();
   }
 
-  /** Deshace la baja dentro del periodo de gracia. */
-  async restaurar(id: string): Promise<UsuarioDocument | null> {
+  /**
+   * Deshace la baja dentro del periodo de gracia. `emailRecuperado` es el email
+   * original cuando lo reclamó un alta y luego quedó libre otra vez.
+   */
+  async restaurar(id: string, emailRecuperado?: string): Promise<UsuarioDocument | null> {
     return this.usuarioModel
-      .findByIdAndUpdate(id, { activo: true, $unset: { eliminadoAt: 1, baja: 1 } }, { new: true })
+      .findByIdAndUpdate(
+        id,
+        {
+          activo: true,
+          ...(emailRecuperado ? { email: emailRecuperado } : {}),
+          $unset: { eliminadoAt: 1, baja: 1, emailBaja: 1 },
+        },
+        { new: true },
+      )
       .exec();
   }
 

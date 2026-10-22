@@ -844,8 +844,26 @@ describe('AdminService', () => {
 
       const restaurado = await service.restaurarUsuario('u1', 'admin-1');
 
-      expect(usersRepo.restaurar).toHaveBeenCalledWith('u1');
+      expect(usersRepo.restaurar).toHaveBeenCalledWith('u1', undefined);
       expect(restaurado.activo).toBe(true);
+    });
+
+    it('debería devolverle su email al restaurar si nadie lo ha reclamado', async () => {
+      usersRepo.findById.mockResolvedValue({ _id: 'u1', nombre: 'Ana', eliminadoAt: new Date(), emailBaja: 'ana@test.com' });
+      usersRepo.findByEmail.mockResolvedValue(null);
+      usersRepo.restaurar.mockResolvedValue({ _id: 'u1', nombre: 'Ana', activo: true });
+
+      await service.restaurarUsuario('u1', 'admin-1');
+
+      expect(usersRepo.restaurar).toHaveBeenCalledWith('u1', 'ana@test.com');
+    });
+
+    it('no debería restaurar si su email ya lo usa una cuenta nueva', async () => {
+      usersRepo.findById.mockResolvedValue({ _id: 'u1', nombre: 'Ana', eliminadoAt: new Date(), emailBaja: 'ana@test.com' });
+      usersRepo.findByEmail.mockResolvedValue({ _id: 'u2' });
+
+      await expect(service.restaurarUsuario('u1', 'admin-1')).rejects.toThrow('ya lo usa una cuenta');
+      expect(usersRepo.restaurar).not.toHaveBeenCalled();
     });
 
     it('no debería restaurar una cuenta que nunca se dio de baja', async () => {
@@ -1275,8 +1293,18 @@ describe('AdminService', () => {
       await service.listarUsuarios(1, 20, undefined, 'a.b');
 
       const filtro = filtroUsado();
-      expect(filtro['$or']).toHaveLength(2);
+      // El tercer campo es el email archivado de una baja: el admin la busca por el que tuvo.
+      expect(filtro['$or']).toHaveLength(3);
       expect(filtro['$or'][0].nombre.source).toBe('a\\.b');
+      expect(filtro['$or'][2].emailBaja.source).toBe('a\\.b');
+    });
+
+    it('debería enseñar el email original de una baja cuyo email se liberó', async () => {
+      mockUsuarios([{ _id: 'u1', rol: 'admin', email: 'baja-u1@doogking.invalid', emailBaja: 'ana@test.com' }]);
+
+      const { items } = await service.listarUsuarios(1, 20, undefined, undefined, undefined, true);
+
+      expect(items[0].email).toBe('ana@test.com');
     });
 
     it('no debería calcular nivel Alpha si no hay ningún cliente en la página', async () => {
