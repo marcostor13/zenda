@@ -14,7 +14,7 @@
 | ID de aplicación (Android e iOS) | `com.doogking.app` |
 | Origen del WebView en la app | `https://localhost` |
 | Dominio web | `doogking.com` / `www.doogking.com` |
-| API | `https://apizenda.marcostorresalarcon.com/api/v1` |
+| API | `https://api.doogking.com/api/v1` |
 | SHA-1 del certificado de firma | `2D:08:8D:C4:DC:CD:F4:1E:8B:52:DD:B2:AA:BA:70:F4:2D:15:8E:F9` |
 | SHA-256 del certificado | `61:B4:7D:6E:C1:D1:65:15:66:74:AE:4E:2A:38:B5:B6:B4:0E:90:5F:33:D9:7E:BD:A5:8A:01:A8:69:30:B6:E3` |
 | Key hash de Meta (Android, base64) | `LQiNxNzN9B6LUt2yqrpw9C0Vjvk=` |

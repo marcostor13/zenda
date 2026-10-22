@@ -24,7 +24,7 @@ import { dirname, join } from 'node:path';
 import { configuracionWeb, escribirEnvJs, raizWeb } from './generar-env.mjs';
 
 /** API público de Doogking: lo que debe llevar dentro una app instalada. */
-const API_POR_DEFECTO = 'https://apizenda.marcostorresalarcon.com/api/v1';
+const API_POR_DEFECTO = 'https://api.doogking.com/api/v1';
 
 /** Direcciones que sólo resuelven dentro del equipo que compila. */
 const SOLO_LOCALES = ['localhost', '127.0.0.1', '0.0.0.0', '[::1]'];
