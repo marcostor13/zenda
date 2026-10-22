@@ -20,7 +20,12 @@ describe('UsersRepository', () => {
 
   beforeEach(async () => {
     mockModel = jest.fn().mockImplementation(() => usuarioMock);
-    mockModel.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(usuarioMock) });
+    mockModel.findOne = jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnThis(),
+      lean: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue(usuarioMock),
+    });
+    mockModel.updateOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({}) });
     mockModel.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(usuarioMock) });
     mockModel.findByIdAndUpdate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(usuarioMock) });
     mockModel.find = jest.fn().mockReturnValue({
@@ -43,7 +48,7 @@ describe('UsersRepository', () => {
   describe('findByEmail', () => {
     it('debería encontrar usuario por email (normalizado a minúsculas)', async () => {
       const resultado = await repository.findByEmail('JUAN@TEST.COM');
-      expect(mockModel.findOne).toHaveBeenCalledWith({ email: 'juan@test.com' });
+      expect(mockModel.findOne).toHaveBeenCalledWith({ email: 'juan@test.com', eliminadoAt: { $exists: false } });
       expect(resultado).toMatchObject({ email: 'juan@test.com' });
     });
 
@@ -53,6 +58,58 @@ describe('UsersRepository', () => {
       });
       const resultado = await repository.findByEmail('noexiste@test.com');
       expect(resultado).toBeNull();
+    });
+  });
+
+  describe('emails de cuentas dadas de baja', () => {
+    it('debería pasar la baja a un email interno y archivar el original', async () => {
+      mockModel.findOne.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue({ _id: 'baja-1' }),
+      });
+
+      await repository.liberarEmailDeBajas('Ana@Test.com');
+
+      expect(mockModel.findOne).toHaveBeenCalledWith({ email: 'ana@test.com', eliminadoAt: { $exists: true } });
+      expect(mockModel.updateOne).toHaveBeenCalledWith(
+        { _id: 'baja-1' },
+        { $set: { email: 'baja-baja-1@doogking.invalid', emailBaja: 'ana@test.com' } },
+      );
+    });
+
+    it('no debería tocar nada si ninguna baja tiene ese email', async () => {
+      mockModel.findOne.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue(null),
+      });
+
+      await repository.liberarEmailDeBajas('nadie@test.com');
+
+      expect(mockModel.updateOne).not.toHaveBeenCalled();
+    });
+
+    it('debería liberar el email de una baja antes de crear la cuenta nueva', async () => {
+      // Sin esto el índice único rechaza el alta de quien se dio de baja y vuelve.
+      await repository.crear({ nombre: 'Ana', email: 'ana@test.com', passwordHash: 'x' });
+
+      expect(mockModel.findOne).toHaveBeenCalledWith({ email: 'ana@test.com', eliminadoAt: { $exists: true } });
+    });
+
+    it('debería devolver el email original al restaurar si se recupera', async () => {
+      await repository.restaurar('user-1', 'ana@test.com');
+
+      const [, actualizacion] = mockModel.findByIdAndUpdate.mock.calls[0];
+      expect(actualizacion.email).toBe('ana@test.com');
+      expect(actualizacion.$unset).toEqual({ eliminadoAt: 1, baja: 1, emailBaja: 1 });
+    });
+
+    it('no debería tocar el email al restaurar si nunca se archivó', async () => {
+      await repository.restaurar('user-1');
+
+      const [, actualizacion] = mockModel.findByIdAndUpdate.mock.calls[0];
+      expect(actualizacion.email).toBeUndefined();
     });
   });
 

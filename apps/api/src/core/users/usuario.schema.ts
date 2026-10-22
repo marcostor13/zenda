@@ -72,6 +72,15 @@ export class Usuario {
   @Prop({ type: Object })
   baja?: { motivo?: string; fecha: Date; actorId?: string };
 
+  /**
+   * Email original de una cuenta dada de baja cuya dirección reclamó un alta
+   * nueva. El índice único no admite dos cuentas con el mismo email, así que la
+   * baja pasa a un email interno y el original se guarda aquí: sirve para el
+   * histórico y para devolvérselo si se restaura y sigue libre.
+   */
+  @Prop()
+  emailBaja?: string;
+
   @Prop({ default: false })
   verificado!: boolean;
 
