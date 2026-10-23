@@ -39,6 +39,13 @@ const CORREO = { to: 'cliente@x.com', subject: 'Hola', html: '<p>hi</p>' };
 describe('MailerService', () => {
   afterEach(() => jest.restoreAllMocks());
 
+  it('debería devolver el id que Resend asigna al correo, para poder rastrearlo', async () => {
+    aceptado();
+    const service = await construir({ RESEND_API_KEY: 're_test' });
+
+    await expect(service.enviar(CORREO)).resolves.toBe('e-1');
+  });
+
   describe('sin configurar', () => {
     it('no debería tumbar el arranque, sino fallar al enviar con un motivo claro', async () => {
       global.fetch = jest.fn() as unknown as typeof fetch;

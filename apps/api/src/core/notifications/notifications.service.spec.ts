@@ -93,6 +93,26 @@ describe('NotificationsService', () => {
     expect(repo.marcarEnviado).toHaveBeenCalledTimes(2);
   });
 
+  it('debería guardar el id de Resend en la notificación enviada', async () => {
+    mailer.enviar.mockResolvedValue('e-42');
+
+    await service.enviarRecuperacionPassword('juan@test.com', 'Juan', 'https://doogking.test/auth/restablecer?token=t');
+
+    expect(repo.marcarEnviado).toHaveBeenCalledWith(expect.any(Types.ObjectId), 'e-42');
+  });
+
+  it('debería explicar a una cuenta de Google que entra con Google', async () => {
+    await service.enviarAvisoCuentaSocial('juan@test.com', 'Juan', {
+      proveedores: ['google'], urlLogin: 'https://doogking.test/auth/login',
+    });
+
+    const correo = mailer.enviar.mock.calls[0][0];
+    expect(correo.to).toBe('juan@test.com');
+    expect(correo.html).toContain('Continuar con Google');
+    expect(correo.html).toContain('https://doogking.test/auth/login');
+    expect(repo.crear).toHaveBeenCalledWith(expect.objectContaining({ tipo: 'recuperacion_password_social' }));
+  });
+
   it('debería mandar al cliente un comprobante completo con el calendario adjunto', async () => {
     await service.notificarReservaConfirmada(reservaId.toString());
 

@@ -21,8 +21,9 @@ export class NotificationsRepository {
     return this.model.create({ ...data, estado: 'pendiente' });
   }
 
-  marcarEnviado(id: Types.ObjectId): Promise<void> {
-    return this.model.updateOne({ _id: id }, { estado: 'enviado' }).exec().then(() => undefined);
+  marcarEnviado(id: Types.ObjectId, referenciaEnvio?: string): Promise<void> {
+    const cambios = referenciaEnvio ? { estado: 'enviado', referenciaEnvio } : { estado: 'enviado' };
+    return this.model.updateOne({ _id: id }, cambios).exec().then(() => undefined);
   }
 
   marcarFallido(id: Types.ObjectId, error: string): Promise<void> {

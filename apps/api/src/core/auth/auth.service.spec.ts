@@ -62,7 +62,7 @@ describe('AuthService', () => {
         },
         {
           provide: NotificationsService,
-          useValue: { enviarVerificacionEmail: jest.fn(), enviarRecuperacionPassword: jest.fn() },
+          useValue: { enviarVerificacionEmail: jest.fn(), enviarRecuperacionPassword: jest.fn(), enviarAvisoCuentaSocial: jest.fn() },
         },
         {
           provide: ConfigService,
@@ -367,6 +367,20 @@ describe('AuthService', () => {
         await service.solicitarRecuperacionPassword('juan@test.com');
 
         expect(usersRepository.establecerTokenRecuperacion).not.toHaveBeenCalled();
+      });
+
+      it('debería avisar por correo a una cuenta de Google de que entra con Google', async () => {
+        usersRepository.findByEmail.mockResolvedValue({
+          ...usuarioMock, passwordHash: undefined, proveedores: ['google'],
+        } as any);
+
+        await service.solicitarRecuperacionPassword('juan@test.com');
+
+        expect(notificationsService.enviarAvisoCuentaSocial).toHaveBeenCalledWith(
+          usuarioMock.email, usuarioMock.nombre,
+          expect.objectContaining({ proveedores: ['google'], urlLogin: expect.stringContaining('/auth/login') }),
+        );
+        expect(notificationsService.enviarRecuperacionPassword).not.toHaveBeenCalled();
       });
     });
 

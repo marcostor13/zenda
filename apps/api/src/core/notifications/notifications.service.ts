@@ -356,6 +356,46 @@ export class NotificationsService {
     );
   }
 
+  /**
+   * Respuesta a «he olvidado mi contraseña» de una cuenta que entra con Google o
+   * Facebook. Antes no se mandaba nada y la pantalla decía «te hemos enviado un
+   * enlace»: para el usuario, el correo no llegaba nunca.
+   */
+  async enviarAvisoCuentaSocial(destinatario: string, nombre: string, aviso: AvisoCuentaSocial): Promise<void> {
+    await this.enviarYRegistrar(
+      {
+        tipo: 'recuperacion_password_social',
+        destinatario,
+        asunto: 'Tu cuenta de Doogking no usa contraseña',
+        cuerpo: this.plantillaCuentaSocial(nombre, aviso),
+      },
+      'Doogking | Seguridad de la cuenta',
+    );
+  }
+
+  private plantillaCuentaSocial(nombre: string, aviso: AvisoCuentaSocial): string {
+    const proveedor = aviso.proveedores.map(nombreProveedor).join(' o ') || 'tu red social';
+    return `
+      <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
+        <h2 style="color:#08258B;margin-bottom:4px">Hola ${nombre}, tu cuenta entra con ${proveedor}</h2>
+        <p style="color:#334155">
+          Nos has pedido restablecer la contraseña, pero tu cuenta de Doogking no tiene una:
+          la creaste con ${proveedor}. Para entrar, pulsa «Continuar con ${proveedor}» en la
+          pantalla de acceso.
+        </p>
+        <p style="margin:28px 0;text-align:center">
+          <a href="${aviso.urlLogin}" style="background:#08258B;color:#fff;padding:14px 32px;border-radius:999px;text-decoration:none;font-weight:700;box-shadow:0 4px 12px rgba(8,37,139,.25)">
+            Ir a iniciar sesión
+          </a>
+        </p>
+        <p style="color:#8B9BBC;font-size:12px">
+          <strong>Si no has sido tú</strong>, ignora este correo: tu cuenta no ha cambiado.
+        </p>
+        <p style="color:#8B9BBC;font-size:12px;margin-top:16px">Equipo Doogking · www.doogking.com</p>
+      </div>
+    `;
+  }
+
   private plantillaRecuperacionPassword(nombre: string, url: string): string {
     return `
       <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto">
@@ -620,12 +660,25 @@ export class NotificationsService {
   ): Promise<void> {
     const notif = await this.repo.crear(data);
     try {
-      await this.mailer.enviar({ to: data.destinatario, subject: data.asunto, html: data.cuerpo, nombreRemitente, adjuntos });
-      await this.repo.marcarEnviado(notif._id);
+      const referenciaEnvio = await this.mailer.enviar({
+        to: data.destinatario, subject: data.asunto, html: data.cuerpo, nombreRemitente, adjuntos,
+      });
+      await this.repo.marcarEnviado(notif._id, referenciaEnvio);
     } catch (error) {
       const mensaje = error instanceof Error ? error.message : 'Error desconocido';
       await this.repo.marcarFallido(notif._id, mensaje);
       this.logger.warn(`Email no enviado a ${data.destinatario}: ${mensaje}`);
     }
   }
+}
+
+export interface AvisoCuentaSocial {
+  readonly proveedores: readonly string[];
+  readonly urlLogin: string;
+}
+
+const NOMBRES_PROVEEDOR: Readonly<Record<string, string>> = { google: 'Google', facebook: 'Facebook' };
+
+function nombreProveedor(proveedor: string): string {
+  return NOMBRES_PROVEEDOR[proveedor] ?? proveedor;
 }
