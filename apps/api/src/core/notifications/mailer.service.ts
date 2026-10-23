@@ -69,7 +69,12 @@ export class MailerService {
     return Boolean(this.apiKey);
   }
 
-  async enviar(email: EnvioEmail): Promise<void> {
+  /**
+   * Devuelve el id que Resend asigna al correo. Es la única forma de saber
+   * después, en su panel o en `GET /emails/{id}`, si se entregó, rebotó o lo
+   * bloqueó la lista de supresión: «aceptado por Resend» no es «entregado».
+   */
+  async enviar(email: EnvioEmail): Promise<string | undefined> {
     if (!this.apiKey) {
       throw new Error('Email no configurado (falta RESEND_API_KEY): no se envió.');
     }
@@ -99,6 +104,16 @@ export class MailerService {
 
     if (!respuesta.ok) {
       throw new Error(`Resend rechazó el envío (${respuesta.status}): ${await this.motivo(respuesta)}`);
+    }
+    return this.idEnvio(respuesta);
+  }
+
+  private async idEnvio(respuesta: Response): Promise<string | undefined> {
+    try {
+      const cuerpo = await respuesta.json() as { id?: string };
+      return cuerpo.id;
+    } catch {
+      return undefined;
     }
   }
 

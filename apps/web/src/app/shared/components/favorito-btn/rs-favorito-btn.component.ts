@@ -1,28 +1,31 @@
 import { Component, inject, input, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { RsIconComponent } from '../icon/rs-icon.component';
 import { FavoritosService } from '../../../features/favoritos/favoritos.service';
 import { AuthService } from '../../../core/auth/auth.service';
 
 /**
  * Botón de corazón para marcar/desmarcar un servicio como favorito. Se apoya en el
- * cache de FavoritosService; si el usuario no está autenticado, no se muestra.
+ * cache de FavoritosService.
+ *
+ * Se muestra también sin sesión: si se ocultaba, la mayoría de visitantes nunca
+ * veía que se pueden guardar favoritos, y la tarjeta enseñaba un círculo blanco
+ * vacío. Al pulsarlo sin sesión lleva al login y vuelve a la misma página.
  */
 @Component({
   selector: 'rs-favorito-btn',
   standalone: true,
   imports: [RsIconComponent],
   template: `
-    @if (auth.estaAutenticado()) {
-      <button
-        type="button"
-        class="rs-fav-btn"
-        [class.rs-fav-btn--activo]="esFavorito()"
-        [attr.aria-pressed]="esFavorito()"
-        [attr.aria-label]="esFavorito() ? 'Quitar de favoritos' : 'Añadir a favoritos'"
-        (click)="alternar($event)">
-        <rs-icon name="heart" [size]="tamano()" [stroke]="2"></rs-icon>
-      </button>
-    }
+    <button
+      type="button"
+      class="rs-fav-btn"
+      [class.rs-fav-btn--activo]="esFavorito()"
+      [attr.aria-pressed]="esFavorito()"
+      [attr.aria-label]="esFavorito() ? 'Quitar de favoritos' : 'Añadir a favoritos'"
+      (click)="alternar($event)">
+      <rs-icon name="heart" [size]="tamano()" [stroke]="2"></rs-icon>
+    </button>
   `,
   styles: [`
     .rs-fav-btn {
@@ -43,6 +46,7 @@ export class RsFavoritoBtnComponent implements OnInit {
 
   readonly favoritos = inject(FavoritosService);
   readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
 
   ngOnInit(): void {
     void this.favoritos.cargarIds();
@@ -55,6 +59,10 @@ export class RsFavoritoBtnComponent implements OnInit {
   async alternar(event: Event): Promise<void> {
     event.preventDefault();
     event.stopPropagation();
+    if (!this.auth.estaAutenticado()) {
+      await this.router.navigate(['/auth/login'], { queryParams: { volverA: this.router.url } });
+      return;
+    }
     await this.favoritos.toggle(this.servicioId());
   }
 }

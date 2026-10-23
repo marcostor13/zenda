@@ -13,6 +13,7 @@ export type TipoNotificacion =
   | 'solicitud_valoracion'
   | 'recuperacion_reserva'
   | 'recuperacion_password'
+  | 'recuperacion_password_social'
   // Seguimiento de viajes y presupuestos (docs/PLAN-TRANSPORTE-FLUJO-CLIENTE.md).
   | `hito_${string}`
   | 'aceptacion_pendiente'
@@ -48,6 +49,10 @@ export class Notificacion {
 
   @Prop()
   error?: string;
+
+  /** Id del correo en Resend, para rastrear si se entregó o rebotó. */
+  @Prop()
+  referenciaEnvio?: string;
 }
 
 export const NotificacionSchema = SchemaFactory.createForClass(Notificacion);

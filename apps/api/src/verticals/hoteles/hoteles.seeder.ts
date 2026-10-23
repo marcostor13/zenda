@@ -5,7 +5,7 @@ import { VerticalKey } from 'shared';
 import { Hoteles, HotelesDocument, RazasRestringidas, SuplementoPorTamanoMascota } from './hoteles.schema';
 import { DESPLAZAMIENTO_DEMO, ubicacionServicio } from '../ubicaciones-demo';
 
-const DEMO_COMERCIO_ID = new Types.ObjectId('b00000000000000000000005');
+const DEMO_COMERCIO_ID = new Types.ObjectId('b00000000000000000000006');
 
 /** Siembra hoteles pet-friendly demo de Madrid (colección vacía). */
 @Injectable()

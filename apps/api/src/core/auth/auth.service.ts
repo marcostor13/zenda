@@ -186,10 +186,18 @@ export class AuthService {
   async solicitarRecuperacionPassword(email: string): Promise<void> {
     const usuario = await this.usersRepository.findByEmail(email);
 
+    if (!usuario) return;
+
     // Sin `passwordHash` la cuenta es sólo social: no hay contraseña que
     // restablecer, y crear una por esta vía permitiría entrar sin pasar por el
-    // proveedor que verificó ese email.
-    if (!usuario || !usuario.passwordHash) return;
+    // proveedor que verificó ese email. Se le explica por correo cómo entrar.
+    if (!usuario.passwordHash) {
+      await this.notificationsService.enviarAvisoCuentaSocial(usuario.email, usuario.nombre, {
+        proveedores: usuario.proveedores ?? [],
+        urlLogin: `${this.urlFrontend()}/auth/login`,
+      });
+      return;
+    }
 
     const token = randomBytes(32).toString('hex');
     const expira = new Date(Date.now() + RECUPERACION_VALIDEZ_MS);

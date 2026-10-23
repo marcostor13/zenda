@@ -37,6 +37,12 @@ describe('NotificationsRepository', () => {
     expect(model.updateOne).toHaveBeenCalledWith({ _id: id }, { estado: 'enviado' });
   });
 
+  it('debería guardar el id de Resend al marcar como enviado', async () => {
+    const id = new Types.ObjectId();
+    await repo.marcarEnviado(id, 'e-1');
+    expect(model.updateOne).toHaveBeenCalledWith({ _id: id }, { estado: 'enviado', referenciaEnvio: 'e-1' });
+  });
+
   it('debería marcar como fallido con el mensaje de error', async () => {
     const id = new Types.ObjectId();
     await repo.marcarFallido(id, 'SMTP no configurado');

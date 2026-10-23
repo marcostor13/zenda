@@ -200,6 +200,21 @@ app.use((peticion, respuesta, siguiente) => {
 });
 
 /**
+ * Entornos que no son producción (dev.doogking.com): fuera de Google entero. Sin
+ * esto, los datos ficticios competirían en los resultados con la web real y el
+ * canonical de cada ficha de prueba apuntaría a un dominio que no es el bueno.
+ */
+if (process.env['NO_INDEXAR'] === 'true') {
+  app.get('/robots.txt', (_peticion, respuesta) => {
+    respuesta.type('text/plain').send('User-agent: *\nDisallow: /\n');
+  });
+  app.use((_peticion, respuesta, siguiente) => {
+    respuesta.setHeader('X-Robots-Tag', 'noindex, nofollow');
+    siguiente();
+  });
+}
+
+/**
  * Extensiones de lo que produce el build o vive en `public/`. Lo que acaba así y
  * no está en disco no existe: no hay ninguna ruta de Angular con ese nombre.
  */
