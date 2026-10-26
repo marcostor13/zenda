@@ -3,6 +3,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { Types } from 'mongoose';
 import { AdminService } from './admin.service';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
+import { ComisionConfigDocument } from '../comision-configs/comision-config.schema';
 import { AlphaRepository } from '../alpha/alpha.repository';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { ComerciosRepository } from '../comercios/comercios.repository';
@@ -488,6 +489,31 @@ describe('AdminService', () => {
         }),
         { new: true },
       );
+    });
+  });
+
+  describe('listarComisiones', () => {
+    it('debería devolver una fila editable por vertical aunque no haya nada guardado', async () => {
+      comisionConfigRepo.listarTodas.mockResolvedValue([]);
+
+      const filas = await service.listarComisiones();
+
+      expect(filas.map((f) => f.vertical)).toEqual(Object.values(VerticalKey));
+      expect(filas[0]).toEqual({
+        vertical: VerticalKey.ALOJAMIENTO, comisionPct: 0.15, stripePct: 0.015, stripeFijoEur: 0.25, activo: true,
+      });
+    });
+
+    it('debería respetar las guardadas y completar sólo los verticales que faltan', async () => {
+      const guardada = {
+        vertical: VerticalKey.VETERINARIA, comisionPct: 0.1, stripePct: 0.015, stripeFijoEur: 0.25, activo: false,
+      } as ComisionConfigDocument;
+      comisionConfigRepo.listarTodas.mockResolvedValue([guardada]);
+
+      const filas = await service.listarComisiones();
+
+      expect(filas).toHaveLength(Object.values(VerticalKey).length);
+      expect(filas.filter((f) => f.vertical === VerticalKey.VETERINARIA)).toEqual([guardada]);
     });
   });
 

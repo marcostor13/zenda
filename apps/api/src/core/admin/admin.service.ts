@@ -21,6 +21,9 @@ import { ComercioCuentaService, DIAS_GRACIA_BAJA_COMERCIO } from '../comercios/c
  * arrepentirse— y dos plazos distintos sólo confundirían a quien opera.
  */
 const DIAS_GRACIA_BAJA_USUARIO = DIAS_GRACIA_BAJA_COMERCIO;
+
+/** Lo que pinta la tabla de comisiones del admin, guardado o no. */
+type ComisionConfigFila = Pick<ComisionConfigDocument, 'vertical' | 'comisionPct' | 'stripePct' | 'stripeFijoEur' | 'activo'>;
 import { Perro, PerroDocument } from '../perros/perro.schema';
 import { Resena, ResenaDocument } from '../reviews/resena.schema';
 import { Incidencia, IncidenciaDocument } from '../incidencias/incidencia.schema';
@@ -315,8 +318,30 @@ export class AdminService {
 
   // ── Comisiones ───────────────────────────────────────────────────────────────
 
-  async listarComisiones(): Promise<ComisionConfigDocument[]> {
-    return this.comisionConfigRepo.listarTodas();
+  /**
+   * Una fila por vertical, esté guardada o no. Con la colección vacía (así
+   * arranca producción) la tabla del admin salía sin filas y no había nada que
+   * editar; las que faltan llevan la comisión que se aplica hoy y se crean al
+   * guardar.
+   */
+  async listarComisiones(): Promise<ComisionConfigFila[]> {
+    const guardadas = await this.comisionConfigRepo.listarTodas();
+    const verticalesGuardados = new Set(guardadas.map((c) => c.vertical));
+    const faltantes = Object.values(VerticalKey).filter((v) => !verticalesGuardados.has(v));
+
+    const porDefecto = await Promise.all(faltantes.map((v) => this.comisionVigenteSinGuardar(v)));
+    return [...guardadas, ...porDefecto];
+  }
+
+  private async comisionVigenteSinGuardar(vertical: VerticalKey): Promise<ComisionConfigFila> {
+    const efectiva = await this.comisionConfigRepo.obtenerComisionEfectiva(vertical);
+    return {
+      vertical,
+      comisionPct: efectiva.comisionPct ?? COMISION_PCT_DEFAULT,
+      stripePct: efectiva.stripePct,
+      stripeFijoEur: efectiva.stripeFijoEur,
+      activo: true,
+    };
   }
 
   async actualizarComision(
