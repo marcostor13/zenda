@@ -658,6 +658,28 @@ describe('AdminService', () => {
       expect(res).toEqual({ _id: 'c1', nombreComercial: 'Nuevo' });
     });
 
+    it('debería guardar la comisión propia del comercio como fracción', async () => {
+      comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1' });
+
+      await service.actualizarComercio('c1', { comisionPctOverride: 0.12 });
+
+      expect(comerciosRepo.actualizar).toHaveBeenCalledWith('c1', { comisionPctOverride: 0.12 });
+    });
+
+    it('debería poder quitar la comisión propia con null', async () => {
+      comerciosRepo.actualizar.mockResolvedValue({ _id: 'c1' });
+
+      await service.actualizarComercio('c1', { comisionPctOverride: null });
+
+      expect(comerciosRepo.actualizar).toHaveBeenCalledWith('c1', { comisionPctOverride: null });
+    });
+
+    it('debería rechazar una comisión fuera de 0-100 % (un «12» pensado como porcentaje)', async () => {
+      await expect(service.actualizarComercio('c1', { comisionPctOverride: 12 }))
+        .rejects.toThrow('entre 0 % y 100 %');
+      expect(comerciosRepo.actualizar).not.toHaveBeenCalled();
+    });
+
     it('debería lanzar 404 al actualizar un comercio que no existe', async () => {
       comerciosRepo.actualizar.mockResolvedValue(null);
 

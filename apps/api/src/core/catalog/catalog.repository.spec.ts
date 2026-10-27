@@ -598,10 +598,22 @@ describe('CatalogRepository', () => {
     });
 
     it('debería actualizar solo los campos indicados, devolviendo el documento nuevo', async () => {
-      await repository.actualizarCampos('s1', { cuposDisponibles: 5 });
+      const id = '507f1f77bcf86cd799439011';
+      await repository.actualizarCampos(id, { cuposDisponibles: 5 });
 
-      expect(model.findByIdAndUpdate)
-        .toHaveBeenCalledWith('s1', { cuposDisponibles: 5 }, { new: true });
+      const [filtro, cambios, opciones] = model.findOneAndUpdate.mock.calls.at(-1)!;
+      expect(String(filtro._id)).toBe(id);
+      expect(filtro).not.toHaveProperty('vertical');
+      expect(cambios).toEqual({ $set: { cuposDisponibles: 5 } });
+      expect(opciones).toEqual({ new: true });
+    });
+
+    it('debería filtrar por vertical para que Mongoose no descarte los campos del discriminador', async () => {
+      await repository.actualizarCampos('507f1f77bcf86cd799439011', { espacios: [] }, 'alojamiento');
+
+      expect(model.findOneAndUpdate.mock.calls.at(-1)![0]).toEqual(
+        expect.objectContaining({ vertical: 'alojamiento' }),
+      );
     });
   });
 
@@ -628,6 +640,14 @@ describe('CatalogRepository', () => {
       await repository.actualizar(id, comercioId, { lat: 40.4 } as never);
 
       expect(cambios()).not.toHaveProperty('ubicacion.geo');
+    });
+
+    it('debería filtrar por vertical cuando se indica, para persistir los campos del vertical', async () => {
+      await repository.actualizar(id, comercioId, { vertical: 'hoteles', extra: { espacios: [] } } as never);
+
+      expect(model.findOneAndUpdate.mock.calls.at(-1)![0]).toEqual(
+        expect.objectContaining({ vertical: 'hoteles' }),
+      );
     });
 
     it('debería fundir los campos propios del vertical con los comunes', async () => {

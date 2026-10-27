@@ -57,6 +57,23 @@ interface ItemAgenda {
   subtitulo: string;
 }
 
+/**
+ * Verticales donde cada reserva elige un tipo de plaza y el calendario se
+ * cuenta por tipo: un cierre parcial tiene que decir de cuál es.
+ */
+const POR_TIPO_DE_PLAZA: readonly string[] = [VerticalKey.ALOJAMIENTO];
+
+const NOMBRE_TIPO_PLAZA: Record<string, string> = {
+  suite: 'Suite', estandar: 'Estándar', compartido: 'Compartido', premium: 'Premium', climatizada: 'Climatizada',
+};
+
+/** Un tipo de plaza del servicio, con el id que guardan reservas y bloqueos. */
+interface TipoPlaza {
+  id: string;
+  nombre: string;
+  cantidad: number;
+}
+
 /** Recuento y descripciones de un día concreto del inventario. */
 interface MarcasDia {
   bloqueadas: number;
@@ -77,6 +94,8 @@ interface DiaInventario {
   /** Reservas de Doogking que ocupan ese día. */
   reservadas: number;
   cerradoDelTodo: boolean;
+  /** Plazas que quedan ese día frente a las que tiene el servicio en Doogking. */
+  libres: number;
   /** Todo lo que ocupa el día, descrito; lo que se lista al abrirlo. */
   items: ItemAgenda[];
   /** Las descripciones que caben en la celda, y cuántas quedan fuera. */
@@ -199,6 +218,11 @@ interface TarjetaSemana {
                         [attr.aria-label]="resumenDia(c)"
                         (click)="abrirDia(c)">
                   <span class="inv-dia__num">{{ c.dia }}</span>
+                  @if (plazasTotales() && c.delMes && !c.pasado) {
+                    <span class="inv-dia__libres" [class.inv-dia__libres--cero]="!c.libres">
+                      {{ c.cerradoDelTodo ? ('Cerrado' | t) : c.libres + '/' + plazasTotales() + ' libres' }}
+                    </span>
+                  }
                   <!-- Con el recuento a secas, un «2» no decía si eran reservas de
                        Doogking o cierres propios: había que abrir el día para saberlo. -->
                   @if (c.items.length) {
@@ -264,7 +288,7 @@ interface TarjetaSemana {
                   <span class="bloqueo__fechas">{{ rangoLegible(b) }}</span>
                   <span class="bloqueo__motivo">{{ b.motivo }}</span>
                   <span class="rs-badge rs-badge--neutral">
-                    {{ b.cantidad ? b.cantidad + ' plazas' : 'Cerrado del todo' }}
+                    {{ b.cantidad ? b.cantidad + ' plazas' + nombreDeTipo(b.espacioTipo) : 'Cerrado del todo' }}
                   </span>
                   <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
                           (click)="abrirCierre(b)" [attr.aria-label]="'Editar este tramo' | t">
@@ -314,12 +338,26 @@ interface TarjetaSemana {
             </div>
 
             @if (esInventario()) {
+              @if (pideTipoDePlaza()) {
+                <div class="rs-field">
+                  <label class="rs-lbl" for="bl-tipo">{{ '¿Qué tipo de plaza cierras?' | t }}</label>
+                  <select id="bl-tipo" class="rs-inp" [(ngModel)]="formTipo">
+                    <option value="">{{ 'Elige un tipo (obligatorio si cierras sólo una parte)' | t }}</option>
+                    @for (tp of tiposDePlaza(); track tp.id) {
+                      <option [value]="tp.id">{{ tp.nombre }} · {{ tp.cantidad }} {{ 'plazas' | t }}</option>
+                    }
+                  </select>
+                </div>
+              }
               <div class="rs-field">
                 <label class="rs-lbl" for="bl-cantidad">{{ '¿Cuántas plazas cierras?' | t }}</label>
-                <input id="bl-cantidad" class="rs-inp" type="number" min="0"
+                <input id="bl-cantidad" class="rs-inp" type="number" min="0" [max]="maxPlazasACerrar() || null"
                        [(ngModel)]="formCantidad" [placeholder]="'Déjalo vacío para cerrar del todo' | t" inputmode="numeric" />
                 <span class="rs-field-hint">
-                  {{ 'Pon un número para cerrar sólo esa parte (dos de tus cinco suites). Vacío cierra el servicio entero esos días.' | t }}
+                  @if (maxPlazasACerrar()) {
+                    {{ 'Tienes' | t }} {{ maxPlazasACerrar() }} {{ (formTipo ? 'plazas de este tipo publicadas en Doogking.' : 'plazas publicadas en Doogking.') | t }}
+                  }
+                  {{ 'Pon un número para cerrar sólo esa parte. Vacío cierra el servicio entero esos días.' | t }}
                 </span>
               </div>
             }
@@ -498,6 +536,8 @@ interface TarjetaSemana {
     .inv-dia--hoy { border-color: var(--dk-blue); box-shadow: inset 0 0 0 1px var(--dk-blue); }
     .inv-dia--lleno { background: rgba(251, 174, 23, .10); }
     .inv-dia__num { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); }
+    .inv-dia__libres { font-size: 10px; font-weight: var(--w-6); color: var(--t-400); }
+    .inv-dia__libres--cero { color: var(--dk-blue-deep); }
     .inv-dia__items { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
     /* La descripción se recorta, no parte la celda: el texto entero sale en el
@@ -650,6 +690,44 @@ export class ComercioAgendaComponent implements OnInit {
     return VERTICAL_LABELS[vertical as VerticalKey] ?? vertical;
   }
 
+  // ── Stock publicado del servicio ─────────────────────────────────────
+
+  /**
+   * Tipos de plaza del servicio, con el mismo id que guardan las reservas
+   * (`id` propio o `esp-<posición>`, ver `idDeUnidad` en el API).
+   */
+  readonly tiposDePlaza = computed<TipoPlaza[]>(() =>
+    (this.servicioActual()?.espacios ?? []).map((e, i) => {
+      const conId = e as typeof e & { _id?: string };
+      const tamano = e.tamanoMaxPerro ? ` (hasta ${e.tamanoMaxPerro})` : '';
+      return {
+        id: String(conId.id ?? conId._id ?? `esp-${i}`),
+        nombre: `${NOMBRE_TIPO_PLAZA[e.tipo] ?? e.tipo}${tamano}`,
+        cantidad: Number(e.cantidad) || 0,
+      };
+    }));
+
+  /** Plazas que el servicio tiene publicadas en Doogking. */
+  readonly plazasTotales = computed(() => {
+    const porTipos = this.tiposDePlaza().reduce((total, t) => total + t.cantidad, 0);
+    return porTipos || (this.servicioActual()?.unidadesDisponibles ?? 0);
+  });
+
+  /** Con varios tipos y calendario por tipo, un cierre parcial tiene que decir cuál. */
+  readonly pideTipoDePlaza = computed(() =>
+    POR_TIPO_DE_PLAZA.includes(this.servicioActual()?.vertical ?? '') && this.tiposDePlaza().length > 1);
+
+  /** Tope del campo «cuántas plazas»: las del tipo elegido o las del servicio. */
+  maxPlazasACerrar(): number {
+    if (this.formTipo) return this.tiposDePlaza().find((t) => t.id === this.formTipo)?.cantidad ?? 0;
+    return this.plazasTotales();
+  }
+
+  nombreDeTipo(id?: string): string {
+    const tipo = id ? this.tiposDePlaza().find((t) => t.id === id) : undefined;
+    return tipo ? ` · ${tipo.nombre}` : '';
+  }
+
   // ── Periodo a la vista ───────────────────────────────────────────────
 
   /** Comienzo del periodo: día 1 del mes, o el lunes de la semana. */
@@ -702,11 +780,14 @@ export class ComercioAgendaComponent implements OnInit {
     const hoy = hoyLocal().getTime();
     const porDia = this.ocupacionPorDia();
 
+    const totales = this.plazasTotales();
+
     return celdasDelMes(inicio).map((fecha) => {
       const clave = claveDia(fecha);
       const marcas = porDia.get(clave)
         ?? { bloqueadas: 0, reservadas: 0, cerradoDelTodo: false, items: [] };
       return {
+        libres: marcas.cerradoDelTodo ? 0 : Math.max(0, totales - marcas.reservadas - marcas.bloqueadas),
         clave,
         dia: fecha.getDate(),
         delMes: fecha.getMonth() === inicio.getMonth(),
@@ -923,6 +1004,8 @@ export class ComercioAgendaComponent implements OnInit {
   formHasta = '';
   formCantidad: number | null = null;
   formMotivo = '';
+  /** Tipo de plaza del cierre parcial; vacío = todo el servicio. */
+  formTipo = '';
 
   readonly textoGuardar = computed(() => {
     if (this.guardando()) return this.bloqueoEditando() ? 'Guardando…' : 'Bloqueando…';
@@ -947,6 +1030,7 @@ export class ComercioAgendaComponent implements OnInit {
     this.formHasta = this.paraInput(aCalendarioComercio(bloqueo.hasta));
     this.formCantidad = bloqueo.cantidad ?? null;
     this.formMotivo = bloqueo.motivo;
+    this.formTipo = bloqueo.espacioTipo ?? '';
   }
 
   /** Se propone el tramo más habitual —hoy— para no arrancar en blanco. */
@@ -958,6 +1042,7 @@ export class ComercioAgendaComponent implements OnInit {
     this.formHasta = this.esInventario() ? claveDia(manana) : `${claveDia(hoy)}T14:00`;
     this.formCantidad = null;
     this.formMotivo = '';
+    this.formTipo = '';
   }
 
   /** Valor para el `date` o el `datetime-local` del formulario, en hora local. */
@@ -985,17 +1070,24 @@ export class ComercioAgendaComponent implements OnInit {
         desde: parsearFechaPlataforma(this.formDesde).toISOString(),
         hasta: parsearFechaPlataforma(this.formHasta).toISOString(),
         motivo: this.formMotivo.trim(),
+        // Un cierre total no es de ningún tipo: cierra el servicio entero.
+        espacioTipo: cantidad ? this.formTipo : '',
       };
       const editado = this.bloqueoEditando();
 
       await firstValueFrom(editado
         ? this.api.actualizarBloqueo(editado._id, { ...tramo, cantidad: cantidad ?? null })
-        : this.api.crearBloqueo({ servicioId, ...tramo, cantidad }));
+        : this.api.crearBloqueo({ servicioId, ...tramo, espacioTipo: tramo.espacioTipo || undefined, cantidad }));
 
       this.cierreAbierto.set(false);
       await this.cargarPeriodo();
-    } catch {
-      this.errorModal.set('No pudimos guardar el bloqueo. Inténtalo de nuevo.');
+    } catch (e) {
+      // El API explica qué no cuadra con el stock («sólo te quedan 2 de 5»);
+      // un error genérico dejaba al comercio probando números a ciegas.
+      const motivo = (e as { error?: { message?: unknown } })?.error?.message;
+      this.errorModal.set(typeof motivo === 'string' && motivo
+        ? motivo
+        : 'No pudimos guardar el bloqueo. Inténtalo de nuevo.');
     } finally {
       this.guardando.set(false);
     }
@@ -1009,6 +1101,22 @@ export class ComercioAgendaComponent implements OnInit {
     }
     if (!(new Date(this.formHasta).getTime() > new Date(this.formDesde).getTime())) {
       this.errorModal.set('El fin tiene que ser posterior al inicio.');
+      return false;
+    }
+    return this.cantidadCuadraConElStock();
+  }
+
+  /** Lo que se cierra tiene que caber en lo que el servicio tiene publicado. */
+  private cantidadCuadraConElStock(): boolean {
+    if (!this.esInventario() || !this.formCantidad || this.formCantidad <= 0) return true;
+
+    if (this.pideTipoDePlaza() && !this.formTipo) {
+      this.errorModal.set('Elige qué tipo de plaza cierras: cada tipo tiene su propio inventario.');
+      return false;
+    }
+    const maximo = this.maxPlazasACerrar();
+    if (maximo && this.formCantidad > maximo) {
+      this.errorModal.set(`Sólo tienes ${maximo} plazas publicadas en Doogking${this.formTipo ? ' de este tipo' : ''}.`);
       return false;
     }
     return true;

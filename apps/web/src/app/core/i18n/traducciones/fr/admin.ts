@@ -470,6 +470,13 @@ const admin: Diccionario = {
   'Suspender': 'Suspendre',
   'Adherir a Alpha': 'Rejoindre Alpha',
   'Salir de Alpha': 'Quitter Alpha',
+  'Comisión propia del comercio (%)': 'Commission propre du commerce (%)',
+  'En blanco: la comisión de cada vertical': 'Vide : la commission de chaque catégorie',
+  'Escribe el porcentaje: 12 es un 12 %. Gana sobre la comisión del vertical.': 'Indique le pourcentage : 12 signifie 12 %. Il prime sur la commission de la catégorie.',
+  'En blanco: la de cada vertical': 'Vide : celle de chaque catégorie',
+  'Usar la del vertical': 'Utiliser celle de la catégorie',
+  'Escribe el porcentaje: 12 es un 12 %. Se aplica a las reservas nuevas de todas sus categorías.': 'Indique le pourcentage : 12 signifie 12 %. Il s’applique aux nouvelles réservations de toutes ses catégories.',
+  'Mientras siga vigente su comisión congelada de socio fundador, manda esa.': 'Tant que sa commission gelée de partenaire fondateur est en vigueur, c’est celle-ci qui s’applique.',
 };
 
 export default admin;

@@ -649,6 +649,71 @@ describe('ComercioAgendaComponent', () => {
       expect(f.componentInstance.servicios()).toEqual([]);
     });
   });
+
+  describe('stock de plazas', () => {
+    const conEspacios = (espacios: Array<{ tipo: string; cantidad: number }>) => servicio({
+      espacios: espacios.map((e) => ({ ...e, tamanoMaxPerro: '', precioNoche: 40, disponible: true })),
+    } as Partial<MiServicio>);
+
+    it('debería sacar las plazas totales de los espacios publicados', async () => {
+      await crear([conEspacios([{ tipo: 'suite', cantidad: 2 }, { tipo: 'estandar', cantidad: 3 }])]);
+
+      expect(componente.plazasTotales()).toBe(5);
+      expect(componente.tiposDePlaza().map((t) => t.id)).toEqual(['esp-0', 'esp-1']);
+      expect(componente.pideTipoDePlaza()).toBe(true);
+    });
+
+    it('debería pintar las plazas libres de cada día', async () => {
+      const manana = enDias(1);
+      await crear([conEspacios([{ tipo: 'suite', cantidad: 5 }])], {
+        bloqueos: [{
+          _id: 'b1', servicioId: 's1', motivo: 'Teléfono', cantidad: 2,
+          desde: desdeCalendarioComercio(manana).toISOString(),
+          hasta: desdeCalendarioComercio(enDias(2)).toISOString(),
+        }],
+      });
+
+      expect(componente.diasDelMes().find((d) => d.clave === claveDe(manana))?.libres).toBe(3);
+    });
+
+    it('no debería dejar cerrar más plazas de las publicadas', async () => {
+      await crear([conEspacios([{ tipo: 'suite', cantidad: 3 }])]);
+      componente.abrirCierre();
+      componente.formMotivo = 'Reservado por teléfono';
+      componente.formCantidad = 4;
+
+      await componente.guardarCierre();
+
+      expect(api['crearBloqueo']).not.toHaveBeenCalled();
+      expect(componente.errorModal()).toContain('3 plazas');
+    });
+
+    it('debería exigir el tipo de plaza con varios tipos y mandarlo al guardar', async () => {
+      await crear([conEspacios([{ tipo: 'suite', cantidad: 2 }, { tipo: 'estandar', cantidad: 3 }])]);
+      componente.abrirCierre();
+      componente.formMotivo = 'Reservado por teléfono';
+      componente.formCantidad = 2;
+
+      await componente.guardarCierre();
+      expect(api['crearBloqueo']).not.toHaveBeenCalled();
+
+      componente.formTipo = 'esp-1';
+      await componente.guardarCierre();
+      expect(api['crearBloqueo']).toHaveBeenCalledWith(expect.objectContaining({ espacioTipo: 'esp-1', cantidad: 2 }));
+    });
+
+    it('debería enseñar el motivo que da el API cuando no cuadra con el stock', async () => {
+      await crear([conEspacios([{ tipo: 'suite', cantidad: 3 }])]);
+      api['crearBloqueo'].mockReturnValue(throwError(() => ({ error: { message: 'Sólo te quedan 1 de 3' } })));
+      componente.abrirCierre();
+      componente.formMotivo = 'Reservado por teléfono';
+      componente.formCantidad = 2;
+
+      await componente.guardarCierre();
+
+      expect(componente.errorModal()).toBe('Sólo te quedan 1 de 3');
+    });
+  });
 });
 
 /** Clave `YYYY-MM-DD` local, la misma que usa el componente. */

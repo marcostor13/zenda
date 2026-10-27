@@ -17,6 +17,7 @@ import { iconoVertical } from '../panel-comercio/vertical-icon';
 import { FILTROS_ESTADO_RESERVA, metaEstadoReserva } from '../../shared/catalogos/estados-reserva.catalogo';
 import { describirPolitica } from '../../shared/catalogos/politicas-cancelacion.catalogo';
 import { FechaPipe } from '../../shared/pipes/fecha.pipe';
+import { comisionDesdePorcentaje, porcentajeDesdeComision } from './comision-comercio';
 
 /** Pestañas de la ficha. El contador va al lado del rótulo. */
 type Pestana = 'resumen' | 'servicios' | 'reservas' | 'equipo' | 'resenas' | 'incidencias' | 'datos';
@@ -299,6 +300,39 @@ const RESERVAS_POR_PAGINA = 10;
           } @else {
             <p class="vacio">{{ 'El comercio no opera en ninguna categoría todavía.' | t }}</p>
           }
+
+          <!-- Comisión propia: gana sobre la del vertical en todas sus categorías. -->
+          <div class="comision-propia">
+            <label class="rs-label" for="comision-propia">{{ 'Comisión propia del comercio (%)' | t }}</label>
+            <div class="comision-propia__fila">
+              <input id="comision-propia" class="rs-input comision-propia__input" type="number"
+                     min="0" max="100" step="0.1" inputmode="decimal"
+                     [value]="comisionEditada()" (input)="comisionEditada.set($any($event.target).value)"
+                     [placeholder]="'En blanco: la de cada vertical' | t" />
+              <button type="button" class="rs-btn rs-btn--primary rs-btn--sm"
+                      [disabled]="guardandoComision()" (click)="guardarComision()">
+                {{ guardandoComision() ? 'Guardando…' : 'Guardar comisión' }}
+              </button>
+              @if (d.comercio.comisionPctOverride != null) {
+                <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm"
+                        [disabled]="guardandoComision()" (click)="quitarComision()">
+                  {{ 'Usar la del vertical' | t }}
+                </button>
+              }
+            </div>
+            <span class="rs-field-hint">
+              {{ 'Escribe el porcentaje: 12 es un 12 %. Se aplica a las reservas nuevas de todas sus categorías.' | t }}
+              @if (d.comercio.comisionPctCongelada != null) {
+                {{ 'Mientras siga vigente su comisión congelada de socio fundador, manda esa.' | t }}
+              }
+            </span>
+            @if (avisoComision()) {
+              <div class="rs-alert rs-alert--success" role="status">{{ avisoComision() }}</div>
+            }
+            @if (errorComision()) {
+              <div class="rs-alert rs-alert--error" role="alert">{{ errorComision() }}</div>
+            }
+          </div>
         </section>
 
         <section class="rs-card bloque">
@@ -801,6 +835,9 @@ const RESERVAS_POR_PAGINA = 10;
     .comisiones__pct { font-family: var(--font-accent); font-size: var(--f-lg); color: var(--c-accent); }
     .comisiones__origen { font-size: var(--f-xs); color: var(--t-400); }
     .comisiones__stripe { font-size: var(--f-xs); color: var(--t-400); margin-left: auto; }
+    .comision-propia { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-4); }
+    .comision-propia__fila { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+    .comision-propia__input { max-width: 160px; }
 
     .reservas-mini { list-style: none; display: grid; gap: var(--sp-2); }
     .reservas-mini__item { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding: var(--sp-3); border-bottom: 1px solid var(--b-1); font-size: var(--f-sm); color: var(--t-300); }
@@ -1053,11 +1090,56 @@ export class AdminComercioDetalleComponent implements OnInit {
    * El error se enseña tal cual llega del API: un "no se pudo cargar" a secas no
    * dejaba distinguir un permiso que falta de un comercio borrado.
    */
+  // ── Comisión propia del comercio ─────────────────────────────────────
+
+  /** Lo escrito en el campo, en porcentaje (12 = 12 %). */
+  readonly comisionEditada = signal<string>('');
+  readonly guardandoComision = signal(false);
+  readonly avisoComision = signal('');
+  readonly errorComision = signal('');
+
+  private fijarDetalle(detalle: DetalleComercioDto): void {
+    this.detalle.set(detalle);
+    const porcentaje = porcentajeDesdeComision(detalle.comercio.comisionPctOverride);
+    this.comisionEditada.set(porcentaje != null ? String(porcentaje) : '');
+  }
+
+  async guardarComision(): Promise<void> {
+    const texto = this.comisionEditada().trim();
+    const porcentaje = texto === '' ? null : Number(texto);
+    if (porcentaje !== null && (!Number.isFinite(porcentaje) || porcentaje < 0 || porcentaje > 100)) {
+      this.errorComision.set('Escribe un porcentaje entre 0 y 100.');
+      return;
+    }
+    await this.enviarComision(comisionDesdePorcentaje(porcentaje));
+  }
+
+  quitarComision(): Promise<void> {
+    return this.enviarComision(null);
+  }
+
+  private async enviarComision(comision: number | null): Promise<void> {
+    this.guardandoComision.set(true);
+    this.avisoComision.set('');
+    this.errorComision.set('');
+    try {
+      await firstValueFrom(this.api.actualizarComercio(this.comercioId, { comisionPctOverride: comision }));
+      this.fijarDetalle(await firstValueFrom(this.api.getDetalleComercio(this.comercioId)));
+      this.avisoComision.set(comision === null
+        ? 'El comercio vuelve a pagar la comisión de cada vertical.'
+        : 'Comisión del comercio guardada.');
+    } catch (error) {
+      this.errorComision.set(mensajeDeError(error, 'No se pudo guardar la comisión.'));
+    } finally {
+      this.guardandoComision.set(false);
+    }
+  }
+
   async cargar(): Promise<void> {
     this.cargando.set(true);
     this.errorMsg.set('');
     try {
-      this.detalle.set(await firstValueFrom(this.api.getDetalleComercio(this.comercioId)));
+      this.fijarDetalle(await firstValueFrom(this.api.getDetalleComercio(this.comercioId)));
       if (this.pestana() === 'reservas') await this.cargarReservas();
     } catch (error) {
       this.detalle.set(null);

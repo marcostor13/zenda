@@ -641,7 +641,7 @@ describe('CatalogService', () => {
 
       await service.actualizarDisponibilidad('serv-1', 'comercio-1', { unidadesDisponibles: 3 });
 
-      expect(repo.actualizarCampos).toHaveBeenCalledWith('serv-1', { unidadesDisponibles: 3 });
+      expect(repo.actualizarCampos).toHaveBeenCalledWith('serv-1', { unidadesDisponibles: 3 }, 'transporte');
     });
 
     it('debería ignorar campos que no corresponden al vertical del servicio', async () => {
@@ -652,7 +652,33 @@ describe('CatalogService', () => {
         citasDisponibles: 8, unidadesDisponibles: 99,
       } as never);
 
-      expect(repo.actualizarCampos).toHaveBeenCalledWith('serv-1', { citasDisponibles: 8 });
+      expect(repo.actualizarCampos).toHaveBeenCalledWith('serv-1', { citasDisponibles: 8 }, 'veterinaria');
+    });
+
+    it('debería recalcular las plazas del buscador al cambiar los espacios de un alojamiento', async () => {
+      repo.obtenerPorId.mockResolvedValue({
+        ...hotelDoc, vertical: 'alojamiento', comercioId: 'comercio-1', espaciosDisponibles: 3,
+      } as never);
+      repo.actualizarCampos.mockResolvedValue({ ...hotelDoc, vertical: 'alojamiento' } as never);
+      const espacios = [{ tipo: 'suite', cantidad: 2 }, { tipo: 'estandar', cantidad: 3 }];
+
+      await service.actualizarDisponibilidad('serv-1', 'comercio-1', { espacios });
+
+      expect(repo.actualizarCampos).toHaveBeenCalledWith(
+        'serv-1', { espacios, espaciosDisponibles: 5 }, 'alojamiento',
+      );
+    });
+
+    it('debería aceptar las habitaciones de un hotel y sumar sus unidades', async () => {
+      repo.obtenerPorId.mockResolvedValue({ ...hotelDoc, vertical: 'hoteles', comercioId: 'comercio-1' } as never);
+      repo.actualizarCampos.mockResolvedValue({ ...hotelDoc, vertical: 'hoteles' } as never);
+      const espacios = [{ tipo: 'Doble', cantidad: 4 }];
+
+      await service.actualizarDisponibilidad('serv-1', 'comercio-1', { espacios });
+
+      expect(repo.actualizarCampos).toHaveBeenCalledWith(
+        'serv-1', { espacios, unidadesDisponibles: 4 }, 'hoteles',
+      );
     });
 
     it('debería lanzar 403 si el servicio no pertenece al comercio', async () => {

@@ -470,6 +470,13 @@ const admin: Diccionario = {
   'Suspender': 'Opschorten',
   'Adherir a Alpha': 'Deelnemen aan Alpha',
   'Salir de Alpha': 'Alpha verlaten',
+  'Comisión propia del comercio (%)': 'Eigen commissie van het bedrijf (%)',
+  'En blanco: la comisión de cada vertical': 'Leeg: de commissie van elke categorie',
+  'Escribe el porcentaje: 12 es un 12 %. Gana sobre la comisión del vertical.': 'Vul het percentage in: 12 betekent 12 %. Het gaat voor op de commissie van de categorie.',
+  'En blanco: la de cada vertical': 'Leeg: die van elke categorie',
+  'Usar la del vertical': 'Die van de categorie gebruiken',
+  'Escribe el porcentaje: 12 es un 12 %. Se aplica a las reservas nuevas de todas sus categorías.': 'Vul het percentage in: 12 betekent 12 %. Het geldt voor nieuwe boekingen in al zijn categorieën.',
+  'Mientras siga vigente su comisión congelada de socio fundador, manda esa.': 'Zolang de bevroren commissie als oprichtende partner geldt, is die van toepassing.',
 };
 
 export default admin;

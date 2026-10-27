@@ -1,3 +1,5 @@
+import { UnidadReservable, localizarUnidad } from './unidad-reservable';
+
 /**
  * Plazas libres de un servicio, derivadas de la capacidad que declara el comercio.
  *
@@ -27,6 +29,12 @@ interface ReglaDisponibilidad {
    * listado quedaba con 0 plazas e invisible en el buscador.
    */
   readonly respaldo?: readonly [string, string];
+  /**
+   * Cada reserva elige una unidad concreta (suite estándar, suite premium) y el
+   * calendario se cuenta por unidad. Un cierre parcial tiene que decir de qué
+   * unidad es: uno sin unidad resta esa cantidad de **cada** tipo.
+   */
+  readonly porUnidad?: true;
 }
 
 /**
@@ -38,7 +46,7 @@ interface ReglaDisponibilidad {
 export const CONTADOR_DISPONIBILIDAD: Record<string, ReglaDisponibilidad> = {
   alojamiento:    {
     contador: 'espaciosDisponibles', origen: 'espacios', sumaCantidades: true,
-    respaldo: ['guarderia', 'plazasPorDia'],
+    respaldo: ['guarderia', 'plazasPorDia'], porUnidad: true,
   },
   // El hotel declara sus tipos de habitación; las plazas son la suma de todos.
   hoteles:        { contador: 'unidadesDisponibles',  origen: 'espacios', sumaCantidades: true },
@@ -77,6 +85,53 @@ function plazasDeRespaldo(regla: ReglaDisponibilidad, datos: Record<string, unkn
   const [objeto, campo] = regla.respaldo;
   const plazas = Number((datos[objeto] as Record<string, unknown> | undefined)?.[campo]);
   return Number.isFinite(plazas) && plazas > 0 ? plazas : undefined;
+}
+
+/**
+ * `true` si `datos` trae la lista de unidades de la que sale el contador
+ * (espacios de la residencia, habitaciones del hotel).
+ *
+ * En esos verticales el contador no es un número aparte que lleve el comercio:
+ * es la suma de lo que declara. Si cambia la lista y el contador no se
+ * recalcula, el comercio sube de 3 a 5 suites y el buscador sigue con 3.
+ */
+export function cambiaCapacidadPorUnidades(vertical: string, datos: Record<string, unknown>): boolean {
+  const regla = CONTADOR_DISPONIBILIDAD[vertical];
+  return regla?.sumaCantidades === true && Array.isArray(datos[regla.origen]);
+}
+
+/** Capacidad de un servicio tal y como la ve la agenda al cerrar plazas. */
+export interface CapacidadServicio {
+  /** Plazas del servicio, o de la unidad pedida. */
+  plazas: number;
+  /** Cuando es `true` el calendario se cuenta por unidad (ver `porUnidad`). */
+  porUnidad: boolean;
+  /** Unidades declaradas del servicio (tipos de suite, de habitación…). */
+  unidades: number;
+}
+
+/**
+ * Plazas que tiene un servicio en la plataforma, o una de sus unidades si se
+ * pide `unidadId`. `undefined` si el vertical no se vende por inventario o la
+ * unidad no existe.
+ */
+export function capacidadServicio(
+  vertical: string,
+  datos: Record<string, unknown>,
+  unidadId?: string,
+): CapacidadServicio | undefined {
+  const regla = CONTADOR_DISPONIBILIDAD[vertical];
+  if (!regla?.sumaCantidades) return undefined;
+
+  const unidades = (Array.isArray(datos[regla.origen]) ? datos[regla.origen] : []) as UnidadReservable[];
+  const base = { porUnidad: regla.porUnidad === true, unidades: unidades.length };
+  if (!unidadId) {
+    const plazas = plazasDeclaradas(vertical, datos) ?? (Number(datos[regla.contador]) || 0);
+    return { ...base, plazas };
+  }
+
+  const localizada = localizarUnidad(unidades, unidadId);
+  return localizada ? { ...base, plazas: Number(localizada.unidad.cantidad) || 0 } : undefined;
 }
 
 /** `true` si ese contador no ofrece plazas (ausente, 0 o valor no numérico). */

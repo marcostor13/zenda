@@ -470,6 +470,13 @@ const admin: Diccionario = {
   'Suspender': 'Suspender',
   'Adherir a Alpha': 'Aderir ao Alpha',
   'Salir de Alpha': 'Sair do Alpha',
+  'Comisión propia del comercio (%)': 'Comissão própria do negócio (%)',
+  'En blanco: la comisión de cada vertical': 'Em branco: a comissão de cada categoria',
+  'Escribe el porcentaje: 12 es un 12 %. Gana sobre la comisión del vertical.': 'Escreve a percentagem: 12 é 12 %. Prevalece sobre a comissão da categoria.',
+  'En blanco: la de cada vertical': 'Em branco: a de cada categoria',
+  'Usar la del vertical': 'Usar a da categoria',
+  'Escribe el porcentaje: 12 es un 12 %. Se aplica a las reservas nuevas de todas sus categorías.': 'Escreve a percentagem: 12 é 12 %. Aplica-se às novas reservas de todas as suas categorias.',
+  'Mientras siga vigente su comisión congelada de socio fundador, manda esa.': 'Enquanto estiver em vigor a sua comissão congelada de sócio fundador, é essa que se aplica.',
 };
 
 export default admin;

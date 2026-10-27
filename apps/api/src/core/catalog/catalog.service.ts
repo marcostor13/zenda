@@ -13,7 +13,7 @@ import { GeoService } from '../geo/geo.service';
 import { CentrosPoblacionService } from '../geo/centros-poblacion.service';
 import { AptitudPerro } from './servicio.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { campoContador, plazasDeclaradas, sinPlazas } from './disponibilidad';
+import { cambiaCapacidadPorUnidades, campoContador, plazasDeclaradas, sinPlazas } from './disponibilidad';
 import {
   CrearServicioDto, ActualizarServicioDto, ActualizarDisponibilidadDto,
   ServicioClinicoTipo, esEspecialidadSuelta, HorarioDiaDto, ExcepcionHorarioDto, MIN_FOTOS_SERVICIO,
@@ -34,7 +34,8 @@ const CAMPOS_DISPONIBILIDAD_POR_VERTICAL: Record<string, Array<keyof ActualizarD
   veterinaria: ['citasDisponibles'],
   peluqueria: ['cuposDisponibles'],
   adiestramiento: ['cuposDisponibles'],
-  hoteles: ['unidadesDisponibles'],
+  // El hotel declara sus habitaciones por tipo; el contador sale de su suma.
+  hoteles: ['espacios', 'unidadesDisponibles'],
   funerarios: ['cuposDisponibles'],
 };
 
@@ -659,15 +660,18 @@ export class CatalogService {
     const filtrado = dto.extra ? this.filtrarExtraPorVertical(vertical, dto.extra) : undefined;
     if (filtrado) this.validarServiciosClinicos(vertical, filtrado);
 
-    // Al editar solo se recalcula si el contador está a cero o no existe: así se
-    // rescatan los listados que quedaron invisibles, pero no se pisa un contador
-    // vivo que las reservas ya han ido descontando.
+    // Se recalcula si el contador está a cero (rescata listados que quedaron
+    // invisibles) o si cambia la lista de unidades de la que sale: en alojamiento
+    // y hoteles el contador es la suma de espacios/habitaciones, y dejarlo como
+    // estaba hacía que editar las plazas no cambiase nada en el buscador.
     const contadorActual = (existente as unknown as Record<string, unknown>)[campoContador(vertical) ?? ''];
-    const extra = filtrado && sinPlazas(contadorActual)
-      ? this.conDisponibilidad(vertical, filtrado)
+    const porUnidades = filtrado ? cambiaCapacidadPorUnidades(vertical, filtrado) : false;
+    const extra = filtrado && (sinPlazas(contadorActual) || porUnidades)
+      ? this.conDisponibilidad(vertical, filtrado, porUnidades)
       : filtrado;
 
     const actualizado = await this.repo.actualizar(id, comercioId, {
+      vertical,
       titulo: dto.titulo,
       descripcion: dto.descripcion,
       ciudad: dto.ciudad,
@@ -748,9 +752,13 @@ export class CatalogService {
    * Rellena el contador de plazas libres a partir de la capacidad declarada.
    * Si el comercio ya envió un contador propio se respeta: manda lo que él diga.
    */
-  private conDisponibilidad(vertical: string, extra: Record<string, unknown>): Record<string, unknown> {
+  private conDisponibilidad(
+    vertical: string,
+    extra: Record<string, unknown>,
+    forzar = false,
+  ): Record<string, unknown> {
     const contador = campoContador(vertical);
-    if (!contador || extra[contador] !== undefined) return extra;
+    if (!contador || (!forzar && extra[contador] !== undefined)) return extra;
 
     const plazas = plazasDeclaradas(vertical, extra);
     return plazas === undefined ? extra : { ...extra, [contador]: plazas };
@@ -889,11 +897,28 @@ export class CatalogService {
       );
     }
 
-    const actualizado = await this.repo.actualizarCampos(servicioId, campos);
+    this.recalcularContadorPorUnidades(vertical, servicio as unknown as Record<string, unknown>, campos);
+
+    const actualizado = await this.repo.actualizarCampos(servicioId, campos, vertical);
     if (!actualizado) {
       throw new DomainException('Servicio no encontrado', 404);
     }
     return this.toCard(actualizado as unknown as ServicioLean);
+  }
+
+  /**
+   * Si llega la lista de espacios/habitaciones, el contador del buscador pasa a
+   * ser su suma. Se mezcla con lo guardado para que un centro sólo de guardería
+   * conserve sus plazas de respaldo.
+   */
+  private recalcularContadorPorUnidades(
+    vertical: string,
+    existente: Record<string, unknown>,
+    campos: Record<string, unknown>,
+  ): void {
+    const contador = campoContador(vertical);
+    if (!contador || !cambiaCapacidadPorUnidades(vertical, campos)) return;
+    campos[contador] = plazasDeclaradas(vertical, { ...existente, ...campos }) ?? 0;
   }
 
   /**

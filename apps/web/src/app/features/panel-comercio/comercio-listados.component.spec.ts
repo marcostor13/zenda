@@ -61,8 +61,11 @@ describe('ComercioListadosComponent', () => {
   });
 
   it('debería guardar la disponibilidad de un vertical simple con el campo correcto', async () => {
-    comercioApi.actualizarDisponibilidad.mockReturnValue(
-      of({ ...servicioTransporte, unidadesDisponibles: 5 }),
+    comercioApi.actualizarDisponibilidad.mockReturnValue(of({} as MiServicio));
+    // Tras guardar se vuelve a pedir el servicio: la respuesta del PATCH es la
+    // tarjeta pública y no trae los campos de «Mis servicios».
+    comercioApi.getMisServicios.mockReturnValue(
+      of([{ ...servicioTransporte, unidadesDisponibles: 5 }, servicioAlojamiento]),
     );
     component.toggleDisponibilidad(servicioTransporte);
     component.numeroCtrl.setValue(5);
@@ -72,6 +75,21 @@ describe('ComercioListadosComponent', () => {
     expect(comercioApi.actualizarDisponibilidad).toHaveBeenCalledWith('serv-1', { unidadesDisponibles: 5 });
     expect(component.servicios().find((s) => s._id === 'serv-1')?.unidadesDisponibles).toBe(5);
     expect(component.disponibilidadAbiertaId()).toBeNull();
+  });
+
+  it('debería editar las habitaciones de un hotel como lista de unidades', async () => {
+    const hotel: MiServicio = {
+      _id: 'serv-3', titulo: 'Hotel', vertical: 'hoteles', precioBase: 90, estado: 'publicado',
+      espacios: [{ tipo: 'estandar', tamanoMaxPerro: '', precioNoche: 90, cantidad: 4, disponible: true }],
+    };
+    comercioApi.actualizarDisponibilidad.mockReturnValue(of({} as MiServicio));
+    component.toggleDisponibilidad(hotel);
+
+    await component.guardarDisponibilidad(hotel);
+
+    expect(comercioApi.actualizarDisponibilidad).toHaveBeenCalledWith(
+      'serv-3', { espacios: [expect.objectContaining({ cantidad: 4 })] },
+    );
   });
 
   it('debería guardar la lista completa de espacios para alojamiento', async () => {

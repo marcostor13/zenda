@@ -685,6 +685,14 @@ const comercio: Diccionario = {
   'Escribe el nombre de la calle, no sólo el número.': 'Vul de straatnaam in, niet alleen het nummer.',
   'El número no es válido (ej.: 24, 2ºB o s/n).': 'Het nummer is ongeldig (bijv. 24, 2ºB of s/n).',
   'Si publicas espacios o servicios con precio, las tarjetas y la ficha muestran «desde» el más barato; este precio sólo se usa si no hay ninguno.': 'Als je ruimtes of diensten met een prijs publiceert, tonen de kaarten en de pagina „vanaf” de goedkoopste; deze prijs wordt alleen gebruikt als er geen zijn.',
+  '¿Qué tipo de plaza cierras?': 'Welk type plek sluit je?',
+  'Elige un tipo (obligatorio si cierras sólo una parte)': 'Kies een type (verplicht als je maar een deel sluit)',
+  'plazas': 'plekken',
+  'Tienes': 'Je hebt',
+  'plazas de este tipo publicadas en Doogking.': 'plekken van dit type gepubliceerd op Doogking.',
+  'plazas publicadas en Doogking.': 'plekken gepubliceerd op Doogking.',
+  'Pon un número para cerrar sólo esa parte. Vacío cierra el servicio entero esos días.': 'Vul een getal in om alleen dat deel te sluiten. Leeg sluit de hele dienst op die dagen.',
+  'Habitaciones reservables': 'Boekbare kamers',
 };
 
 export default comercio;

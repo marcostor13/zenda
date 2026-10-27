@@ -187,8 +187,9 @@ describe('AdminComerciosComponent', () => {
 
       // El VAT identifica fiscalmente al comercio: cambiarlo sería otro contribuyente.
       expect(componente.form.get('vatNumber')!.disabled).toBe(true);
+      // Se guarda como fracción y se edita como porcentaje: 0.12 se ve como 12.
       expect(componente.form.getRawValue()).toMatchObject({
-        nombreComercial: 'Canes', comisionPctOverride: 0.12,
+        nombreComercial: 'Canes', comisionPctOverride: 12,
       });
       expect(componente.verticalesSeleccionadas()).toEqual([VerticalKey.ALOJAMIENTO]);
     });

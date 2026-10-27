@@ -470,6 +470,13 @@ const admin: Diccionario = {
   'Suspender': 'Suspend',
   'Adherir a Alpha': 'Join Alpha',
   'Salir de Alpha': 'Leave Alpha',
+  'Comisión propia del comercio (%)': 'Business’s own commission (%)',
+  'En blanco: la comisión de cada vertical': 'Blank: each category’s commission',
+  'Escribe el porcentaje: 12 es un 12 %. Gana sobre la comisión del vertical.': 'Enter the percentage: 12 means 12 %. It overrides the category commission.',
+  'En blanco: la de cada vertical': 'Blank: each category’s',
+  'Usar la del vertical': 'Use the category’s',
+  'Escribe el porcentaje: 12 es un 12 %. Se aplica a las reservas nuevas de todas sus categorías.': 'Enter the percentage: 12 means 12 %. It applies to new bookings in all its categories.',
+  'Mientras siga vigente su comisión congelada de socio fundador, manda esa.': 'While its frozen founding-partner commission is in force, that one applies.',
 };
 
 export default admin;

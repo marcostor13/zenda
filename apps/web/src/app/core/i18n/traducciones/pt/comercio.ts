@@ -685,6 +685,14 @@ const comercio: Diccionario = {
   'Escribe el nombre de la calle, no sólo el número.': 'Escreva o nome da rua, não só o número.',
   'El número no es válido (ej.: 24, 2ºB o s/n).': 'O número não é válido (ex.: 24, 2ºB ou s/n).',
   'Si publicas espacios o servicios con precio, las tarjetas y la ficha muestran «desde» el más barato; este precio sólo se usa si no hay ninguno.': 'Se publicar espaços ou serviços com preço, os cartões e a ficha mostram «desde» o mais barato; este preço só é usado se não houver nenhum.',
+  '¿Qué tipo de plaza cierras?': 'Que tipo de vaga fechas?',
+  'Elige un tipo (obligatorio si cierras sólo una parte)': 'Escolhe um tipo (obrigatório se fechares só uma parte)',
+  'plazas': 'vagas',
+  'Tienes': 'Tens',
+  'plazas de este tipo publicadas en Doogking.': 'vagas deste tipo publicadas na Doogking.',
+  'plazas publicadas en Doogking.': 'vagas publicadas na Doogking.',
+  'Pon un número para cerrar sólo esa parte. Vacío cierra el servicio entero esos días.': 'Indica um número para fechar só essa parte. Vazio fecha o serviço inteiro nesses dias.',
+  'Habitaciones reservables': 'Quartos reserváveis',
 };
 
 export default comercio;

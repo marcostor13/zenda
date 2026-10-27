@@ -109,6 +109,65 @@ describe('BloqueosService', () => {
     });
   });
 
+  describe('stock de plazas al cerrar parcialmente', () => {
+    const dto = {
+      servicioId: SERVICIO, desde: '2026-09-01T22:00:00.000Z', hasta: '2026-09-03T22:00:00.000Z', motivo: 'Teléfono',
+    };
+    const residencia = (espacios: Array<Record<string, unknown>>) =>
+      servicioModel['findOne'].mockReturnValue(cadena({ _id: SERVICIO, vertical: 'alojamiento', espacios }));
+
+    it('debería rechazar cerrar más plazas de las que tiene el servicio', async () => {
+      residencia([{ tipo: 'suite', cantidad: 5 }]);
+
+      await expect(service.crear(COMERCIO, { ...dto, cantidad: 8 })).rejects.toThrow('tiene 5 plazas');
+      expect(bloqueoModel['create']).not.toHaveBeenCalled();
+    });
+
+    it('debería exigir el tipo de plaza cuando el servicio tiene varios', async () => {
+      residencia([{ tipo: 'suite', cantidad: 2 }, { tipo: 'estandar', cantidad: 3 }]);
+
+      await expect(service.crear(COMERCIO, { ...dto, cantidad: 1 })).rejects.toThrow('tipo de plaza');
+    });
+
+    it('debería medir el tope con las plazas del tipo elegido', async () => {
+      residencia([{ tipo: 'suite', cantidad: 2 }, { tipo: 'estandar', cantidad: 3 }]);
+
+      await expect(service.crear(COMERCIO, { ...dto, cantidad: 3, espacioTipo: 'esp-0' }))
+        .rejects.toThrow('tiene 2 plazas');
+      await expect(service.crear(COMERCIO, { ...dto, cantidad: 3, espacioTipo: 'esp-1' })).resolves.toBeDefined();
+    });
+
+    it('debería rechazar cerrar más de las que quedan libres alguna noche', async () => {
+      residencia([{ tipo: 'suite', cantidad: 3 }]);
+      reservaModel['find'].mockReturnValue(cadena([
+        { fechaInicio: new Date('2026-09-01T22:00:00.000Z'), fechaFin: new Date('2026-09-02T22:00:00.000Z') },
+        { fechaInicio: new Date('2026-09-01T22:00:00.000Z'), fechaFin: new Date('2026-09-02T22:00:00.000Z') },
+      ]));
+
+      await expect(service.crear(COMERCIO, { ...dto, cantidad: 2 }))
+        .rejects.toThrow('El 2 de septiembre sólo te quedan 1 de 3');
+    });
+
+    it('debería descontar los otros cierres parciales pero no el que se edita', async () => {
+      residencia([{ tipo: 'suite', cantidad: 3 }]);
+      const guardado = { ...bloqueoGuardado({ cantidad: 2, ...dto }), desde: new Date(dto.desde), hasta: new Date(dto.hasta), save: jest.fn() };
+      bloqueoModel['findOne'].mockReturnValue(cadena(guardado));
+
+      await service.actualizar(COMERCIO, BLOQUEO, { cantidad: 3 });
+
+      const filtro = bloqueoModel['find'].mock.calls.at(-1)![0] as Record<string, unknown>;
+      expect(filtro['_id']).toEqual({ $ne: new Types.ObjectId(BLOQUEO) });
+      expect(guardado.save).toHaveBeenCalled();
+    });
+
+    it('no debería mirar el stock en un cierre total', async () => {
+      residencia([{ tipo: 'suite', cantidad: 1 }]);
+
+      await expect(service.crear(COMERCIO, dto)).resolves.toBeDefined();
+      expect(reservaModel['find']).not.toHaveBeenCalled();
+    });
+  });
+
   describe('listar', () => {
     it('debería acotar al comercio de la sesión', async () => {
       await service.listar(COMERCIO);

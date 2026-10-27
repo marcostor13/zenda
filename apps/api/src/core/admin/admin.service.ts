@@ -481,7 +481,8 @@ export class AdminService {
       verticales?: VerticalKey[];
       plan?: PlanComercio;
       estado?: EstadoComercio;
-      comisionPctOverride?: number;
+      /** Fracción (0.12 = 12 %). `null` quita la comisión propia y vuelve a la del vertical. */
+      comisionPctOverride?: number | null;
       /** Obligatorio para suspender, como en la acción dedicada (TCK-8034). */
       motivo?: string;
     },
@@ -492,6 +493,7 @@ export class AdminService {
     if (datos.estado === 'eliminado') {
       throw new BadRequestException('Para dar de baja un comercio usa DELETE /admin/comercios/:id');
     }
+    this.validarComisionComercio(datos.comisionPctOverride);
 
     const { estado, motivo, ...campos } = datos;
 
@@ -504,6 +506,17 @@ export class AdminService {
       return this.comerciosService.cambiarEstado(id, estado, motivo, adminId);
     }
     return actualizado;
+  }
+
+  /**
+   * La comisión propia se guarda como fracción. Sin este control, un «12»
+   * escrito pensando en porcentaje se guardaba como un 1200 % y se cobraba así.
+   */
+  private validarComisionComercio(comision: number | null | undefined): void {
+    if (comision === undefined || comision === null) return;
+    if (typeof comision !== 'number' || !Number.isFinite(comision) || comision < 0 || comision > 1) {
+      throw new BadRequestException('La comisión del comercio tiene que estar entre 0 % y 100 %.');
+    }
   }
 
   /**

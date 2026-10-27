@@ -17,6 +17,7 @@ import { RsAdminFiltrosComponent, GrupoFiltro, ValoresFiltro } from '../../share
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { MenuAncladoDirective } from '../../shared/directives/menu-anclado.directive';
 import { FechaPipe } from '../../shared/pipes/fecha.pipe';
+import { comisionDesdePorcentaje, porcentajeDesdeComision } from './comision-comercio';
 const FILTROS = [
   { label: 'Todos', valor: '' },
   { label: 'Pendientes', valor: 'pendiente' },
@@ -275,9 +276,10 @@ const LIMITE = 20;
         </div>
 
         <div class="rs-form-group">
-          <label class="rs-label">{{ 'Comisión override (%)' | t }}</label>
-          <input formControlName="comisionPctOverride" type="number" step="0.01" min="0" max="1" class="rs-input"
-            [placeholder]="'Dejar en blanco para usar el default del vertical' | t" inputmode="decimal" />
+          <label class="rs-label">{{ 'Comisión propia del comercio (%)' | t }}</label>
+          <input formControlName="comisionPctOverride" type="number" step="0.1" min="0" max="100" class="rs-input"
+            [placeholder]="'En blanco: la comisión de cada vertical' | t" inputmode="decimal" />
+          <span class="rs-field-hint">{{ 'Escribe el porcentaje: 12 es un 12 %. Gana sobre la comisión del vertical.' | t }}</span>
         </div>
 
         <div class="rs-form-group">
@@ -779,7 +781,7 @@ export class AdminComerciosComponent implements OnInit {
     vatNumber: ['', Validators.required],
     plan: ['basico'],
     estado: ['activo'],
-    comisionPctOverride: [null as number | null],
+    comisionPctOverride: [null as number | null, [Validators.min(0), Validators.max(100)]],
   });
 
   constructor() {
@@ -928,7 +930,7 @@ export class AdminComerciosComponent implements OnInit {
       vatNumber: c.vatNumber,
       plan: c.plan,
       estado: c.estado,
-      comisionPctOverride: c.comisionPctOverride ?? null,
+      comisionPctOverride: porcentajeDesdeComision(c.comisionPctOverride),
     });
     this.form.get('vatNumber')!.disable();
     this.modalError.set('');
@@ -962,7 +964,9 @@ export class AdminComerciosComponent implements OnInit {
           verticales: this.verticalesSeleccionadas(),
           plan: v.plan!,
           estado: v.estado!,
-          comisionPctOverride: v.comisionPctOverride ?? undefined,
+          // Vacío manda `null`: así se quita la comisión propia. Con `undefined`
+          // el campo no viajaba y el comercio se quedaba con la anterior.
+          comisionPctOverride: comisionDesdePorcentaje(v.comisionPctOverride),
         };
         await firstValueFrom(this.adminApi.actualizarComercio(this.editandoId()!, dto));
       } else {

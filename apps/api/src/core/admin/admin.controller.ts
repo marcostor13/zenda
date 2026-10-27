@@ -157,7 +157,7 @@ export class AdminController {
       verticales?: string[];
       plan?: string;
       estado?: string;
-      comisionPctOverride?: number;
+      comisionPctOverride?: number | null;
       motivo?: string;
     },
     @Req() req: RequestConAdmin,

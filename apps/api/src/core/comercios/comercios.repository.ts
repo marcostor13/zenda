@@ -20,7 +20,8 @@ export interface ActualizarComercioParams {
   verticales?: VerticalKey[];
   plan?: PlanComercio;
   estado?: EstadoComercio;
-  comisionPctOverride?: number;
+  /** `null` vuelve a la comisión del vertical. */
+  comisionPctOverride?: number | null;
   [key: string]: unknown;
 }
 

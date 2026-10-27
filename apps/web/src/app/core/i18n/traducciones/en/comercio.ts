@@ -685,6 +685,14 @@ const comercio: Diccionario = {
   'Escribe el nombre de la calle, no sólo el número.': 'Enter the street name, not just the number.',
   'El número no es válido (ej.: 24, 2ºB o s/n).': 'The number is not valid (e.g. 24, 2ºB or s/n).',
   'Si publicas espacios o servicios con precio, las tarjetas y la ficha muestran «desde» el más barato; este precio sólo se usa si no hay ninguno.': 'If you publish spaces or services with a price, cards and the listing show “from” the cheapest one; this price is only used if there are none.',
+  '¿Qué tipo de plaza cierras?': 'Which type of space are you closing?',
+  'Elige un tipo (obligatorio si cierras sólo una parte)': 'Choose a type (required if you only close part)',
+  'plazas': 'spaces',
+  'Tienes': 'You have',
+  'plazas de este tipo publicadas en Doogking.': 'spaces of this type published on Doogking.',
+  'plazas publicadas en Doogking.': 'spaces published on Doogking.',
+  'Pon un número para cerrar sólo esa parte. Vacío cierra el servicio entero esos días.': 'Enter a number to close only that part. Leave it empty to close the whole service on those days.',
+  'Habitaciones reservables': 'Bookable rooms',
 };
 
 export default comercio;

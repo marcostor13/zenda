@@ -236,6 +236,8 @@ export interface CrearServicioParams {
 }
 
 export interface ActualizarServicioParams {
+  /** Vertical del servicio: sin él no se persisten los campos propios del vertical. */
+  vertical?: string;
   titulo?: string;
   descripcion?: string;
   ciudad?: string;
@@ -554,9 +556,31 @@ export class CatalogRepository {
     return this.servicioModel.estimatedDocumentCount().exec();
   }
 
-  /** Actualiza sólo los campos de disponibilidad/cupos de un servicio (D1), sin tocar el resto. */
-  async actualizarCampos(id: string, campos: Record<string, unknown>): Promise<ServicioDocument | null> {
-    return this.servicioModel.findByIdAndUpdate(id, campos, { new: true }).lean().exec() as Promise<ServicioDocument | null>;
+  /**
+   * Actualiza sólo los campos indicados de un servicio, sin tocar el resto.
+   *
+   * Con `vertical` el filtro lleva la clave del discriminador: sin ella Mongoose
+   * castea contra el schema base y descarta en silencio los campos propios del
+   * vertical (espacios, cupos, unidades…), así que la edición "se guardaba" sin
+   * cambiar nada.
+   */
+  async actualizarCampos(
+    id: string,
+    campos: Record<string, unknown>,
+    vertical?: string,
+  ): Promise<ServicioDocument | null> {
+    return this.servicioModel
+      .findOneAndUpdate(this.filtroConVertical({ _id: new Types.ObjectId(id) }, vertical), { $set: campos }, { new: true })
+      .lean()
+      .exec() as Promise<ServicioDocument | null>;
+  }
+
+  /** Añade la clave del discriminador al filtro para que el update respete el schema del vertical. */
+  private filtroConVertical(
+    filtro: Record<string, unknown>,
+    vertical?: string,
+  ): Record<string, unknown> {
+    return vertical ? { ...filtro, vertical } : filtro;
   }
 
   async crear(data: CrearServicioParams): Promise<ServicioDocument> {
@@ -628,7 +652,10 @@ export class CatalogRepository {
 
     return this.servicioModel
       .findOneAndUpdate(
-        { _id: new Types.ObjectId(id), comercioId: new Types.ObjectId(comercioId) },
+        this.filtroConVertical(
+          { _id: new Types.ObjectId(id), comercioId: new Types.ObjectId(comercioId) },
+          data.vertical,
+        ),
         { $set: set },
         { new: true },
       )

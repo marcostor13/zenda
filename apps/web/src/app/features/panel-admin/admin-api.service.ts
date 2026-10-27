@@ -388,7 +388,8 @@ export interface ActualizarComercioDto {
   verticales?: string[];
   plan?: string;
   estado?: string;
-  comisionPctOverride?: number;
+  /** Fracción (0.12 = 12 %); `null` vuelve a la comisión del vertical. */
+  comisionPctOverride?: number | null;
 }
 
 export interface CrearUsuarioDto {

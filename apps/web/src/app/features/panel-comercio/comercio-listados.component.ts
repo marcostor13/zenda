@@ -30,6 +30,7 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
   veterinaria: 'citasDisponibles',
   peluqueria: 'cuposDisponibles',
   adiestramiento: 'cuposDisponibles',
+  funerarios: 'cuposDisponibles',
 };
 
 @Component({
@@ -168,8 +169,8 @@ const CAMPO_DISPONIBILIDAD: Record<string, 'unidadesDisponibles' | 'citasDisponi
 
           @if (disponibilidadAbiertaId() === s._id) {
             <div class="rs-card disponibilidad-panel">
-              @if (s.vertical === 'alojamiento') {
-                <label class="rs-label">{{ 'Espacios reservables' | t }}</label>
+              @if (porUnidades(s.vertical)) {
+                <label class="rs-label">{{ (s.vertical === 'hoteles' ? 'Habitaciones reservables' : 'Espacios reservables') | t }}</label>
                 @for (e of espaciosEdit(); track $index) {
                   <div class="espacio-row">
                     <input class="rs-input" type="number" min="0" [value]="e.cantidad"
@@ -444,6 +445,7 @@ export class ComercioListadosComponent implements OnInit {
       veterinaria: 'Citas disponibles',
       peluqueria: 'Cupos disponibles',
       adiestramiento: 'Cupos disponibles',
+      funerarios: 'Cupos disponibles',
     };
     return labels[vertical] ?? 'Disponibilidad';
   }
@@ -458,6 +460,13 @@ export class ComercioListadosComponent implements OnInit {
     this.espaciosEdit.set(servicio.espacios ? servicio.espacios.map((e) => ({ ...e })) : []);
     const campo = CAMPO_DISPONIBILIDAD[servicio.vertical];
     this.numeroCtrl.setValue(campo ? (servicio[campo] ?? 0) : 0);
+  }
+
+  private async recargarServicio(id: string): Promise<void> {
+    const todos = await firstValueFrom(this.comercioApi.getMisServicios());
+    const fresco = todos.find((s) => s._id === id);
+    if (!fresco) return;
+    this.servicios.update((lista) => lista.map((s) => (s._id === id ? fresco : s)));
   }
 
   cerrarDisponibilidad(): void {
@@ -482,19 +491,29 @@ export class ComercioListadosComponent implements OnInit {
     );
   }
 
+  /** Alojamiento y hoteles se venden por unidades (suites, habitaciones), no por un número suelto. */
+  porUnidades(vertical: string): boolean {
+    return vertical === 'alojamiento' || vertical === 'hoteles';
+  }
+
   async guardarDisponibilidad(servicio: MiServicio): Promise<void> {
     this.disponibilidadError.set('');
-    const payload: Record<string, unknown> =
-      servicio.vertical === 'alojamiento'
-        ? { espacios: this.espaciosEdit() }
-        : { [CAMPO_DISPONIBILIDAD[servicio.vertical]]: this.numeroCtrl.value };
+    const campo = CAMPO_DISPONIBILIDAD[servicio.vertical];
+    if (!this.porUnidades(servicio.vertical) && !campo) {
+      this.disponibilidadError.set('La disponibilidad de este servicio se edita desde «Editar».');
+      return;
+    }
+    const payload: Record<string, unknown> = this.porUnidades(servicio.vertical)
+      ? { espacios: this.espaciosEdit() }
+      : { [campo]: this.numeroCtrl.value };
 
     this.guardandoDisponibilidad.set(true);
     try {
-      const actualizado = await firstValueFrom(this.comercioApi.actualizarDisponibilidad(servicio._id, payload));
-      this.servicios.update((lista) =>
-        lista.map((s) => (s._id === servicio._id ? { ...s, ...actualizado } : s)),
-      );
+      await firstValueFrom(this.comercioApi.actualizarDisponibilidad(servicio._id, payload));
+      // La respuesta es la tarjeta pública (las plazas van dentro de `extra`),
+      // no el documento de «Mis servicios»: mezclarla dejaba a la vista las
+      // plazas de antes y parecía que no se había guardado nada.
+      await this.recargarServicio(servicio._id);
       this.cerrarDisponibilidad();
     } catch {
       this.disponibilidadError.set('No se pudo guardar la disponibilidad. Inténtalo de nuevo.');

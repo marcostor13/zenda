@@ -470,6 +470,13 @@ const admin: Diccionario = {
   'Suspender': 'Sperren',
   'Adherir a Alpha': 'Alpha beitreten',
   'Salir de Alpha': 'Alpha verlassen',
+  'Comisión propia del comercio (%)': 'Eigene Provision des Unternehmens (%)',
+  'En blanco: la comisión de cada vertical': 'Leer: die Provision jeder Kategorie',
+  'Escribe el porcentaje: 12 es un 12 %. Gana sobre la comisión del vertical.': 'Gib den Prozentsatz ein: 12 bedeutet 12 %. Er hat Vorrang vor der Kategorieprovision.',
+  'En blanco: la de cada vertical': 'Leer: die jeder Kategorie',
+  'Usar la del vertical': 'Die der Kategorie verwenden',
+  'Escribe el porcentaje: 12 es un 12 %. Se aplica a las reservas nuevas de todas sus categorías.': 'Gib den Prozentsatz ein: 12 bedeutet 12 %. Er gilt für neue Buchungen in allen Kategorien.',
+  'Mientras siga vigente su comisión congelada de socio fundador, manda esa.': 'Solange die eingefrorene Gründungspartner-Provision gilt, hat diese Vorrang.',
 };
 
 export default admin;
