@@ -7,11 +7,6 @@ import { AlojamientoDetalleComponent } from './alojamiento-detalle.component';
 import { AlojamientoService, AlojamientoDetalle, Espacio } from '../services/alojamiento.service';
 import { PerrosService, PerroApi } from '../../perros/perros.service';
 
-// jsdom no implementa scrollIntoView; lo usa irAEspacios() de la barra fija de móvil.
-if (!Element.prototype.scrollIntoView) {
-  Element.prototype.scrollIntoView = jest.fn();
-}
-
 describe('AlojamientoDetalleComponent', () => {
   let fixture: ComponentFixture<AlojamientoDetalleComponent>;
   let component: AlojamientoDetalleComponent;
@@ -64,6 +59,12 @@ describe('AlojamientoDetalleComponent', () => {
     serviciosAdicionales: [],
   };
 
+  /** Con varios tipos de espacio libres, «Reservar» lleva a elegir uno. */
+  const conDosEspacios: AlojamientoDetalle = {
+    ...detalleMock,
+    espacios: [espacioMock, { ...espacioMock, id: 'e2', tipo: 'estandar' }],
+  };
+
   beforeEach(async () => {
     alojamientoService = { buscar: jest.fn(), obtener: jest.fn() } as any;
     alojamientoService.obtener.mockResolvedValue(detalleMock);
@@ -88,7 +89,7 @@ describe('AlojamientoDetalleComponent', () => {
   });
 
   describe('políticas en acordeón (PDF 27/07 §13)', () => {
-    it('debería agrupar las políticas en Horario, Cancelación y Vacunas', async () => {
+    it('debería agrupar las políticas en Cancelación y Vacunas, sin horario de entrada y salida', async () => {
       fixture.detectChanges();
       await fixture.whenStable();
       fixture.detectChanges();
@@ -96,40 +97,17 @@ describe('AlojamientoDetalleComponent', () => {
       const acordeones: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('.policy-acc'));
       const titulos = acordeones.map((a) => a.querySelector('summary')?.textContent?.trim() ?? '');
 
-      expect(titulos).toEqual([
-        'Horario de entrada y salida',
-        'Cancelación',
-        'Vacunas y requisitos sanitarios',
-      ]);
+      expect(titulos).toEqual(['Cancelación', 'Vacunas y requisitos sanitarios']);
+      expect(fixture.nativeElement.textContent).not.toContain('Horario de entrada y salida');
     });
 
-    it('debería dejar el horario abierto y el resto plegadas al llegar', async () => {
+    it('debería seguir avisando de los perfiles que no admite el centro', async () => {
+      alojamientoService.obtener.mockResolvedValue({ ...detalleMock, compatibilidadSocialNoAdmitida: ['reactivo'] });
       fixture.detectChanges();
       await fixture.whenStable();
       fixture.detectChanges();
 
-      const acordeones: HTMLDetailsElement[] =
-        Array.from(fixture.nativeElement.querySelectorAll('.policy-acc'));
-
-      expect(acordeones.map((a) => a.open)).toEqual([true, false, false]);
-    });
-
-    /**
-     * Entrada y salida son las dos mitades del mismo dato. En acordeones
-     * separados había que abrir el de abajo para saber la otra mitad, y salía
-     * plegado.
-     */
-    it('debería enseñar la entrada y la salida en la misma tarjeta', async () => {
-      fixture.detectChanges();
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      const tarjetas: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('details.policy-acc'));
-      const conHoras = tarjetas.filter((t) => t.textContent?.includes('10:00') || t.textContent?.includes('19:00'));
-
-      expect(conHoras).toHaveLength(1);
-      expect(conHoras[0].textContent).toContain('Entrada');
-      expect(conHoras[0].textContent).toContain('Salida');
+      expect(fixture.nativeElement.querySelector('[data-testid="perfiles-no-admitidos"]')).not.toBeNull();
     });
   });
 
@@ -230,12 +208,13 @@ describe('AlojamientoDetalleComponent', () => {
       const espacios = document.createElement('div');
       espacios.id = 'espacios';
       document.body.appendChild(espacios);
-      const scrollSpy = jest.spyOn(espacios, 'scrollIntoView').mockImplementation(() => {});
+      const scrollSpy = jest.spyOn(window, 'scrollTo').mockImplementation(() => {});
 
       component.irAEspacios();
 
-      expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' });
+      expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }));
       espacios.remove();
+      scrollSpy.mockRestore();
     });
 
     it('no debería fallar si el ancla de espacios no está en el DOM', async () => {
@@ -265,15 +244,50 @@ describe('AlojamientoDetalleComponent', () => {
       expect(barra().textContent).toContain('Reservar');
     });
 
-    it('debería llevar a elegir espacio mientras no haya ninguno', async () => {
+    it('debería llevar a elegir espacio mientras no haya ninguno y haya varios', async () => {
+      alojamientoService.obtener.mockResolvedValue(conDosEspacios);
       fixture.detectChanges();
       await fixture.whenStable();
       fixture.detectChanges();
-      const irA = jest.spyOn(component, 'irAEspacios');
+      const irA = jest.spyOn(component, 'irAEspacios').mockImplementation(() => {});
 
       fixture.nativeElement.querySelector('.mobile-cta .rs-btn').click();
 
       expect(irA).toHaveBeenCalled();
+    });
+
+    it('debería ir directo a reservar si sólo hay un espacio libre', async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const navigateSpy = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      const irA = jest.spyOn(component, 'irAEspacios');
+
+      fixture.nativeElement.querySelector('.mobile-cta .rs-btn').click();
+
+      expect(irA).not.toHaveBeenCalled();
+      expect(navigateSpy).toHaveBeenCalledWith(
+        ['/reservas', 'alojamiento', 'a1'],
+        expect.objectContaining({ queryParams: expect.objectContaining({ espacioId: 'e1' }) }),
+      );
+    });
+
+    it('debería ir directo a reservar si de varios espacios sólo uno está libre', async () => {
+      alojamientoService.obtener.mockResolvedValue({
+        ...detalleMock,
+        espacios: [espacioMock, { ...espacioMock, id: 'e2', disponible: false }],
+      });
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      const navigateSpy = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+      component.reservarDesdeFicha();
+
+      expect(navigateSpy).toHaveBeenCalledWith(
+        ['/reservas', 'alojamiento', 'a1'],
+        expect.objectContaining({ queryParams: expect.objectContaining({ espacioId: 'e1' }) }),
+      );
     });
 
     it('debería mostrar el precio del espacio en cuanto se elige uno', async () => {
@@ -683,13 +697,13 @@ describe('AlojamientoDetalleComponent', () => {
     };
 
     it('debería llevar a elegir espacio en vez de dejar el botón muerto', async () => {
-      const el = await montar();
+      const el = await montar(conDosEspacios);
       const boton = el.querySelector<HTMLButtonElement>('.booking-panel__card .rs-btn--gold')!;
 
       expect(boton.disabled).toBe(false);
       expect(boton.textContent).toContain('Reservar');
 
-      const irA = jest.spyOn(component, 'irAEspacios');
+      const irA = jest.spyOn(component, 'irAEspacios').mockImplementation(() => {});
       boton.click();
       expect(irA).toHaveBeenCalled();
     });

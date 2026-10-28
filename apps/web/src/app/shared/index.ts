@@ -47,6 +47,7 @@ export { ImgFallbackDirective } from './directives/img-fallback.directive';
 export * from './media/images';
 export { EurosPipe, EurosFijosPipe, euros } from './pipes/euros.pipe';
 export { mensajeDeError } from './mensaje-error';
+export { desplazarASeccion } from './desplazar-a-seccion';
 export { RsAdminFiltrosComponent } from './components/admin-filtros/rs-admin-filtros.component';
 export type { GrupoFiltro, OpcionFiltro, ValoresFiltro } from './components/admin-filtros/rs-admin-filtros.component';
 // Flujo de transporte (docs/PLAN-TRANSPORTE-FLUJO-CLIENTE.md §2.4)

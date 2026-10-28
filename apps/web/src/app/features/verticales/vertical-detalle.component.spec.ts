@@ -281,6 +281,55 @@ describe('VerticalDetalleComponent', () => {
     });
   });
 
+  describe('reservar desde la ficha', () => {
+    const conPantalla = (movil: boolean): void => {
+      window.matchMedia = jest.fn().mockReturnValue({ matches: movil }) as unknown as typeof window.matchMedia;
+    };
+
+    it('con un solo servicio debería ir directo al asistente con él elegido', async () => {
+      conPantalla(true);
+      await crearComponente('veterinaria', servicio({ serviciosClinicos: [{ nombre: 'Consulta', precio: 35 }] }));
+      const navigateSpy = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+      fixture.nativeElement.querySelector('.mobile-cta .rs-btn').click();
+
+      expect(navigateSpy).toHaveBeenCalledWith(
+        ['/reservas', 'veterinaria', 's1'],
+        expect.objectContaining({ queryParams: expect.objectContaining({ servicio: 'Consulta' }) }),
+      );
+    });
+
+    it('con varios servicios en móvil debería llevar a la lista en vez de al asistente', async () => {
+      conPantalla(true);
+      await crearComponente('veterinaria', servicio({
+        serviciosClinicos: [{ nombre: 'Consulta', precio: 35 }, { nombre: 'Vacuna', precio: 20 }],
+      }));
+      const navigateSpy = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+      const scrollSpy = jest.spyOn(window, 'scrollTo').mockImplementation(() => {});
+
+      fixture.nativeElement.querySelector('.mobile-cta .rs-btn').click();
+
+      expect(navigateSpy).not.toHaveBeenCalled();
+      expect(scrollSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'smooth' }));
+      scrollSpy.mockRestore();
+    });
+
+    it('con varios servicios en escritorio debería abrir el asistente para elegir allí', async () => {
+      conPantalla(false);
+      await crearComponente('veterinaria', servicio({
+        serviciosClinicos: [{ nombre: 'Consulta', precio: 35 }, { nombre: 'Vacuna', precio: 20 }],
+      }));
+      const navigateSpy = jest.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+
+      component.reservarDesdeFicha(component.servicio()!);
+
+      expect(navigateSpy).toHaveBeenCalledWith(
+        ['/reservas', 'veterinaria', 's1'],
+        expect.objectContaining({ queryParams: expect.objectContaining({ servicio: null }) }),
+      );
+    });
+  });
+
   describe('galería a pantalla completa (HU-4.1.1)', () => {
     it('debería mostrar el contador de fotografías sobre la galería', async () => {
       await crearComponente('transporte');

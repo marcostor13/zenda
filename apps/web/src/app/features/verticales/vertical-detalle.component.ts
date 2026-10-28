@@ -28,6 +28,7 @@ import { migasDePan, negocioLocal } from '../../core/seo/json-ld';
 import { FechaPipe } from '../../shared/pipes/fecha.pipe';
 import { CotizacionFichaComponent } from '../transporte/viaje/componentes/cotizacion-ficha.component';
 import { PuntoMapa, RsMapaComponent } from '../../shared/components/mapa/rs-mapa.component';
+import { desplazarASeccion } from '../../shared/desplazar-a-seccion';
 
 /**
  * Huecos de la fila de miniaturas y fotos del costado del mosaico. Mismos
@@ -41,6 +42,9 @@ const MINIATURAS_VISIBLES = 6;
  * el catálogo y el resto está a un toque.
  */
 const TARIFAS_VISIBLES = 5;
+
+/** Ancho por debajo del cual la ficha va a una columna y aparece la barra fija. */
+const CORTE_MOVIL_PX = 1024;
 
 const DIAS_CORTOS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -455,7 +459,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
           precio, sin duración y sin forma de reservar uno concreto.
         -->
         @if (tarifas().length) {
-          <div class="tarifas" data-testid="tarifas">
+          <div class="tarifas" id="tarifas" data-testid="tarifas">
             <h2>{{ cfg().tituloChips | t }}</h2>
             <ul class="tarifas__lista">
               <!-- Toda la fila lleva a reservar ese servicio ya elegido, no sólo el botón. -->
@@ -621,7 +625,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
             </p>
           }
 
-          <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg" (click)="solicitar(s)">
+          <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg" (click)="reservarDesdeFicha(s)">
             {{ cfg().cta }}
           </button>
           <p class="rs-bp-nota">{{ 'No se cobra nada hasta confirmar' | t }}</p>
@@ -669,7 +673,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
         <strong>{{ cfg().price(s) | euros }}</strong>
         @if (unidadPrecio(); as unidad) { <span class="mobile-cta__unidad">{{ unidad }}</span> }
       </div>
-      <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="solicitar(s)">{{ cfg().cta }}</button>
+      <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="reservarDesdeFicha(s)">{{ cfg().cta }}</button>
     </div>
     }
   </div>
@@ -1237,6 +1241,32 @@ export class VerticalDetalleComponent implements OnInit {
         espacioId: tarifa?.id ?? null,
       },
     });
+  }
+
+  /**
+   * El botón principal de la ficha (panel y barra fija de móvil).
+   *
+   * Con un solo servicio en la lista va directo al asistente con él elegido:
+   * no tiene sentido volver a escoger la única opción. Con varios, en móvil
+   * lleva a la lista (el asistente obligaba a elegir a ciegas y la barra fija
+   * no enseñaba los servicios); en escritorio la lista ya está a la vista y el
+   * asistente trae su propio selector.
+   */
+  reservarDesdeFicha(s: ServicioDetalle): void {
+    const tarifas = this.tarifas();
+    if (tarifas.length === 1) {
+      this.solicitar(s, tarifas[0]);
+      return;
+    }
+    if (tarifas.length > 1 && this.esPantallaMovil() && desplazarASeccion('tarifas')) return;
+    this.solicitar(s);
+  }
+
+  /** Mismo corte que la barra fija de móvil (1024px), que es donde el panel cae al final. */
+  private esPantallaMovil(): boolean {
+    return typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia(`(max-width: ${CORTE_MOVIL_PX}px)`).matches;
   }
 
   /**

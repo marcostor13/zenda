@@ -32,6 +32,7 @@ import { seoFichaServicio, seoPrivada } from '../../../core/seo/plantillas-seo';
 import { migasDePan, negocioLocal } from '../../../core/seo/json-ld';
 import { verticalUi } from '../../../shared/verticales/verticales.config';
 import { FechaPipe } from '../../../shared/pipes/fecha.pipe';
+import { desplazarASeccion } from '../../../shared/desplazar-a-seccion';
 const PLACEHOLDER_IMG = IMG_FALLBACK;
 
 /**
@@ -355,42 +356,17 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
              accesibles y operables con teclado sin JavaScript. -->
         <div class="section-block" rsAnim>
           <h2>{{ 'Políticas del alojamiento' | t }}</h2>
+          <!-- Sin horario de entrada y salida: el cliente pidió quitarlo de la
+               ficha (el horario de atención ya va en su propio bloque). -->
+          @if (alojamiento()!.compatibilidadSocialNoAdmitida.length) {
+            <p class="policy-perfiles" data-testid="perfiles-no-admitidos">
+              <strong>{{ 'Perfiles que no admite este centro:' | t }}</strong>
+              @for (p of alojamiento()!.compatibilidadSocialNoAdmitida; track p; let ultimo = $last) {
+                {{ etiquetaPerfilSocial(p) | t }}{{ ultimo ? '' : ', ' }}
+              }
+            </p>
+          }
           <div class="policies-acc">
-            <!--
-              Entrada y salida en la misma tarjeta: son las dos mitades del
-              mismo dato («de qué hora a qué hora») y separadas en dos
-              acordeones obligaban a abrir uno para saber la mitad de la
-              respuesta, con la salida además plegada por defecto.
-            -->
-            <details class="policy-acc" open>
-              <summary class="policy-acc__head">
-                <rs-icon name="clock" [size]="16" [stroke]="2" /> {{ 'Horario de entrada y salida' | t }}
-              </summary>
-              <div class="policy-acc__body">
-                <div class="policy-horas">
-                  <div class="policy-horas__item">
-                    <span class="policy-horas__label">
-                      <rs-icon name="home" [size]="14" [stroke]="2" /> {{ 'Entrada' | t }}
-                    </span>
-                    <strong class="policy-horas__hora">{{ alojamiento()!.checkIn }}</strong>
-                  </div>
-                  <div class="policy-horas__item">
-                    <span class="policy-horas__label">
-                      <rs-icon name="log-out" [size]="14" [stroke]="2" /> {{ 'Salida' | t }}
-                    </span>
-                    <strong class="policy-horas__hora">{{ alojamiento()!.checkOut }}</strong>
-                  </div>
-                </div>
-                @if (alojamiento()!.compatibilidadSocialNoAdmitida.length) {
-                  <p><strong>{{ 'Perfiles que no admite este centro:' | t }}</strong>
-                    @for (p of alojamiento()!.compatibilidadSocialNoAdmitida; track p; let ultimo = $last) {
-                      {{ etiquetaPerfilSocial(p) | t }}{{ ultimo ? '' : ', ' }}
-                    }
-                  </p>
-                }
-              </div>
-            </details>
-
             <details class="policy-acc">
               <summary class="policy-acc__head">
                 <rs-icon name="shield-check" [size]="16" [stroke]="2" /> {{ 'Cancelación' | t }}
@@ -561,7 +537,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
             mitad de camino hacía dudar de si eran dos cosas distintas.
           -->
           <button class="rs-btn rs-btn--gold rs-btn--block rs-btn--lg"
-                  (click)="!ofreceResidenciaFicha() ? irAReservaGuarderia() : espacioSelec() ? irAReserva() : irAEspacios()">
+                  (click)="reservarDesdeFicha()">
             {{ 'Reservar' | t }}
           </button>
           <p class="rs-bp-nota">{{ 'No se cobra nada hasta confirmar' | t }}</p>
@@ -620,7 +596,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
         @if (ofreceResidenciaFicha()) { <span class="mobile-cta__unidad">/ noche</span> }
       </div>
       <button class="rs-btn rs-btn--gold rs-btn--lg"
-              (click)="!ofreceResidenciaFicha() ? irAReservaGuarderia() : espacioSelec() ? irAReserva() : irAEspacios()">{{ 'Reservar' | t }}</button>
+              (click)="reservarDesdeFicha()">{{ 'Reservar' | t }}</button>
     </div>
   </div>
   }
@@ -1045,36 +1021,11 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
       p { margin: 0 0 var(--sp-2); &:last-child { margin-bottom: 0; } }
       strong { color: var(--t-200); }
     }
-    /* Entrada y salida, las dos mitades del mismo dato, una al lado de la otra. */
-    .policy-horas {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--sp-2);
-      margin-bottom: var(--sp-3);
-      &:last-child { margin-bottom: 0; }
-    }
-    .policy-horas__item {
-      display: flex;
-      flex-direction: column;
-      gap: var(--sp-1);
-      padding: var(--sp-3);
-      border: 1px solid var(--b-1);
-      border-radius: var(--r-md);
-      background: var(--c-raised);
-    }
-    .policy-horas__label {
-      display: flex;
-      align-items: center;
-      gap: var(--sp-2);
-      font-size: var(--f-xs);
+    .policy-perfiles {
+      margin: 0 0 var(--sp-4);
+      font-size: var(--f-sm);
       color: var(--t-300);
-      rs-icon { color: var(--dk-blue); }
-    }
-    /* Con la clase sola ganaba el "strong" del cuerpo del acordeón. */
-    .policy-acc__body .policy-horas__hora {
-      font-size: var(--f-lg);
-      font-weight: var(--w-7);
-      color: var(--t-100);
+      strong { color: var(--t-200); }
     }
 
     .rules-list { display: flex; flex-direction: column; gap: var(--sp-2); }
@@ -1508,9 +1459,35 @@ export class AlojamientoDetalleComponent implements OnInit {
     return quedan === 1 ? 'Queda 1 espacio libre' : `Quedan ${quedan} espacios libres`;
   }
 
-  /** Lleva a la lista de espacios: lo usa la barra fija de móvil cuando aún no hay ninguno elegido. */
+  /**
+   * El «Reservar» del panel y de la barra fija de móvil.
+   *
+   * Si sólo hay una cosa que reservar —un único tipo de espacio libre, o un
+   * único tramo de guardería— se va directo al asistente con ella elegida:
+   * mandar a la lista para pulsar «Reservar» otra vez en la única opción era
+   * un paso de más. Con varias, lleva a la lista para elegir.
+   */
+  reservarDesdeFicha(): void {
+    if (!this.ofreceResidenciaFicha()) {
+      const tramos = this.tramosGuarderia();
+      this.irAReservaGuarderia(tramos.length === 1 ? tramos[0].tramo : undefined);
+      return;
+    }
+    if (this.espacioSelec()) {
+      this.irAReserva();
+      return;
+    }
+    const reservables = (this.alojamiento()?.espacios ?? []).filter((esp) => esp.disponible);
+    if (reservables.length === 1) {
+      this.reservarEspacio(reservables[0]);
+      return;
+    }
+    this.irAEspacios();
+  }
+
+  /** Lleva a la lista de espacios cuando hay varios entre los que elegir. */
   irAEspacios(): void {
-    document.getElementById('espacios')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    desplazarASeccion('espacios');
   }
 
   /**
