@@ -1215,14 +1215,17 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 @if (errorPago()) {
                   <div class="rs-alert rs-alert--error" style="margin-top:var(--sp-4)">{{ errorPago() }}</div>
                 }
+
+                <!-- Dentro del bloque de la tarjeta y no como aviso aparte: era un
+                     recuadro más que alargaba el paso sin añadir nada nuevo. -->
+                <p class="stripe-placeholder__nota" data-testid="nota-pago-seguro">
+                  <rs-icon name="lock" [size]="13" [stroke]="2" />
+                  <span>{{ 'Tu pago está protegido por' | t }}</span>
+                  <rs-brand-icon name="stripe" [size]="15" />
+                  <span>{{ '· Nunca almacenamos datos de tarjeta.' | t }}</span>
+                </p>
               </div>
             }
-
-            <div class="rs-alert rs-alert--info" style="margin-block:var(--sp-5);display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap">
-              <span><rs-icon name="lock" [size]="14" [stroke]="2" /> {{ 'Tu pago está protegido por' | t }}</span>
-              <rs-brand-icon name="stripe" [size]="17" />
-              <span>{{ '· Nunca almacenamos datos de tarjeta.' | t }}</span>
-            </div>
 
             <!--
               Los precios se enseñan en la divisa que el usuario haya elegido en
@@ -1687,7 +1690,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       }
     }
 
-    .wizard-steps { justify-content: center; margin-bottom: var(--sp-10); padding: var(--sp-6); background: var(--c-raised); border-radius: var(--r-xl); border: 1px solid var(--b-1); }
+    .wizard-steps { justify-content: center; margin-bottom: var(--sp-6); padding: var(--sp-6); background: var(--c-raised); border-radius: var(--r-xl); border: 1px solid var(--b-1); }
     @media (max-width: 640px) {
       .wizard-steps { padding: var(--sp-4) var(--sp-3); margin-bottom: var(--sp-6); }
     }
@@ -1777,7 +1780,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       background: var(--c-card);
       border: 1px solid var(--b-1);
       border-radius: var(--r-2xl);
-      padding: var(--sp-8);
+      padding: var(--sp-6);
       animation: scaleIn var(--d-3) ease;
 
       /* 32px de margen interior a cada lado se comen un tercio de un móvil
@@ -1789,7 +1792,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
       font-size: var(--f-2xl);
       font-weight: var(--w-8);
       color: var(--t-100);
-      margin-bottom: var(--sp-8);
+      margin-bottom: var(--sp-6);
       letter-spacing: -.02em;
     }
 
@@ -1863,11 +1866,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .extra-item__name { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-100); }
     .extra-item__price { font-size: var(--f-xs); color: var(--t-400); }
 
-    .wizard-nav { display: flex; justify-content: space-between; align-items: center; margin-top: var(--sp-8); gap: var(--sp-4); flex-wrap: wrap; }
+    .wizard-nav { display: flex; justify-content: space-between; align-items: center; margin-top: var(--sp-6); gap: var(--sp-4); flex-wrap: wrap; }
 
     .consent-box { margin-block: var(--sp-5); font-size: var(--f-sm); color: var(--t-300); label { display: flex; align-items: flex-start; gap: var(--sp-3); input { margin-top: 2px; accent-color: var(--c-accent); } } }
 
-    .payment-options { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-6); }
+    .payment-options { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-4); }
     .payment-option {
       display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4) var(--sp-5);
       background: var(--c-raised); border: 1px solid var(--b-2); border-radius: var(--r-lg);
@@ -1880,8 +1883,12 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .payment-option__brands { display: flex; align-items: center; gap: var(--sp-1); margin-top: 2px; }
     .payment-option__secure { margin-left: auto; font-size: var(--f-xs); color: var(--t-400); }
 
-    .stripe-placeholder { background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-xl); padding: var(--sp-6); margin-bottom: var(--sp-5); }
-    .stripe-placeholder__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-5); font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); }
+    .stripe-placeholder { background: var(--c-raised); border: 1px solid var(--b-1); border-radius: var(--r-xl); padding: var(--sp-5); margin-bottom: var(--sp-4); }
+    .stripe-placeholder__nota {
+      display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-2);
+      margin-top: var(--sp-4); font-size: var(--f-xs); color: var(--t-400);
+    }
+    .stripe-placeholder__header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-4); font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-200); }
 
     .confirmation {
       text-align: center;
