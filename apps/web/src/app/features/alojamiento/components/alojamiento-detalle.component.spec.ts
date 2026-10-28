@@ -88,6 +88,32 @@ describe('AlojamientoDetalleComponent', () => {
     expect(component).toBeTruthy();
   });
 
+  /*
+   * En escritorio, arriba van dos columnas de alto parecido y lo demás debajo a
+   * todo el ancho: con todo en la columna izquierda, la derecha se quedaba
+   * vacía durante media ficha.
+   */
+  describe('reparto de la ficha', () => {
+    beforeEach(async () => {
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+    });
+
+    it('debería sacar políticas, opiniones y garantía de la columna izquierda', () => {
+      const raiz: HTMLElement = fixture.nativeElement;
+      expect(raiz.querySelector('.info-col .policy-acc')).toBeNull();
+      expect(raiz.querySelector('.ficha-resto .policy-acc')).not.toBeNull();
+      expect(raiz.querySelector('.ficha-resto rs-trust-block')).not.toBeNull();
+    });
+
+    it('debería poner los servicios para el perro también en la columna derecha', () => {
+      const raiz: HTMLElement = fixture.nativeElement;
+      expect(raiz.querySelector('.booking-panel [data-testid="servicios-lateral"]')).not.toBeNull();
+      expect(raiz.querySelector('.info-col .lateral--movil .amenities-grid')).not.toBeNull();
+    });
+  });
+
   describe('políticas en acordeón (PDF 27/07 §13)', () => {
     it('debería agrupar las políticas en Cancelación y Vacunas, sin horario de entrada y salida', async () => {
       fixture.detectChanges();

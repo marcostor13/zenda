@@ -380,6 +380,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       </div>
     }
 
+    <div class="ficha-cuerpo">
     <div class="vd-body">
       <div class="info-col">
       <!--
@@ -514,16 +515,6 @@ const CONFIGS: Record<string, DetalleConfig> = {
           </div>
         }
 
-        <div class="section-block">
-          <h2>{{ cfg().tituloBloque }}</h2>
-          <ul class="puntos-list">
-            @for (p of cfg().puntos(s); track p) {
-              <li><rs-icon name="check" [size]="15" [stroke]="2.5" /> {{ p }}</li>
-            }
-            @empty { <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Sin datos adicionales de este profesional.' | t }}</p> }
-          </ul>
-        </div>
-
         @if (trayectoHabitual().length > 1) {
           <div class="section-block">
             <h2>{{ 'Ruta habitual' | t }}</h2>
@@ -535,65 +526,10 @@ const CONFIGS: Record<string, DetalleConfig> = {
         }
 
         <!-- Cuándo atienden: el horario es de este servicio, no del negocio. -->
-        <div class="section-block horario--movil">
+        <div class="section-block lateral--movil">
           <rs-horario-publico [horario]="s.horario" [excepciones]="s.excepcionesHorario" />
         </div>
 
-        <div class="section-block">
-          <h2>{{ 'Lo que opinan otros dueños' | t }}</h2>
-
-          <!--
-            La nota, delante de los comentarios. Antes el bloque abría con
-            "Reseñas (3)" y para saber si el sitio era bueno había que leerlas
-            una a una; el desglose por criterios ya lo puntuaba cada cliente al
-            valorar y no se enseñaba en ninguna parte.
-          -->
-          @if (s.numResenas) {
-            <div class="resumen-nota" data-testid="resumen-nota">
-              <div class="resumen-nota__cifra">
-                <strong>{{ s.score }}</strong>
-                <span>
-                  <em>{{ s.scoreLabel | t }}</em>
-                  {{ s.numResenas }} {{ s.numResenas === 1 ? ('reseña' | t) : ('reseñas' | t) }}
-                </span>
-              </div>
-              @if (aspectosMedios().length) {
-                <ul class="resumen-nota__aspectos">
-                  @for (a of aspectosMedios(); track a.label) {
-                    <li>
-                      <span class="resumen-nota__label">{{ a.label | t }}</span>
-                      <span class="resumen-nota__barra"><i [style.width.%]="a.media * 20"></i></span>
-                      <span class="resumen-nota__valor">{{ a.media }}</span>
-                    </li>
-                  }
-                </ul>
-              }
-            </div>
-          }
-
-          @for (r of s.resenas; track r.id) {
-            <div class="resena-card">
-              <div class="resena-card__head">
-                <strong>{{ r.autorNombre }}</strong>
-                <span class="resena-card__score">{{ r.puntuacion }}/5</span>
-                <span class="resena-card__fecha">{{ r.fecha | date:'d MMM yyyy' }}</span>
-              </div>
-              <p>{{ r.comentario }}</p>
-              @if (r.respuesta) {
-                <p class="resena-card__respuesta">↳ {{ r.respuesta | t }}</p>
-              }
-            </div>
-          } @empty {
-            <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Aún no hay reseñas de este profesional.' | t }}</p>
-          }
-        </div>
-
-        <!-- La garantía, entera y una sola vez: es lo mismo en toda la web, así
-             que cierra la ficha en vez de abrirla por duplicado. -->
-        <div class="section-block">
-          <h2><rs-icon name="shield-check" [size]="18" [stroke]="2" /> {{ 'Garantía Doogking' | t }}</h2>
-          <rs-trust-block></rs-trust-block>
-        </div>
       </div>
 
       <!--
@@ -660,7 +596,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
           columna cae al final, así que ahí se queda con el resto del contenido.
         -->
         @if (tieneHorario(s.horario)) {
-          <div class="side-horario rs-card horario--escritorio" data-testid="horario-lateral">
+          <div class="side-horario rs-card lateral--escritorio" data-testid="horario-lateral">
             <rs-horario-publico [horario]="s.horario" [excepciones]="s.excepcionesHorario" />
           </div>
         }
@@ -670,6 +606,87 @@ const CONFIGS: Record<string, DetalleConfig> = {
         </div>
       </div>
       }
+    </div>
+
+    <!--
+      RESTO DE LA FICHA, a todo el ancho. Arriba van en dos columnas lo que se
+      mira para decidir (fotos, qué ofrece, precios) junto al panel de reserva,
+      que miden más o menos lo mismo. Si políticas, opiniones y garantía seguían
+      en la columna izquierda, la derecha se quedaba vacía durante media página.
+
+      En móvil .ficha-cuerpo es una columna flex y la rejilla de arriba se
+      deshace (display: contents): el panel se manda al final con «order», como
+      estaba, y esto queda justo después del contenido.
+    -->
+    <div class="ficha-resto">
+    <!-- Lo que ofrece, ya a todo el ancho: arriba alargaba la columna izquierda
+         muy por debajo del panel de reserva. -->
+    <div class="section-block">
+      <h2>{{ cfg().tituloBloque }}</h2>
+      <ul class="puntos-list">
+        @for (p of cfg().puntos(s); track p) {
+          <li><rs-icon name="check" [size]="15" [stroke]="2.5" /> {{ p }}</li>
+        }
+        @empty { <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Sin datos adicionales de este profesional.' | t }}</p> }
+      </ul>
+    </div>
+
+    <div class="section-block">
+      <h2>{{ 'Lo que opinan otros dueños' | t }}</h2>
+
+      <!--
+        La nota, delante de los comentarios. Antes el bloque abría con
+        "Reseñas (3)" y para saber si el sitio era bueno había que leerlas
+        una a una; el desglose por criterios ya lo puntuaba cada cliente al
+        valorar y no se enseñaba en ninguna parte.
+      -->
+      @if (s.numResenas) {
+        <div class="resumen-nota" data-testid="resumen-nota">
+          <div class="resumen-nota__cifra">
+            <strong>{{ s.score }}</strong>
+            <span>
+              <em>{{ s.scoreLabel | t }}</em>
+              {{ s.numResenas }} {{ s.numResenas === 1 ? ('reseña' | t) : ('reseñas' | t) }}
+            </span>
+          </div>
+          @if (aspectosMedios().length) {
+            <ul class="resumen-nota__aspectos">
+              @for (a of aspectosMedios(); track a.label) {
+                <li>
+                  <span class="resumen-nota__label">{{ a.label | t }}</span>
+                  <span class="resumen-nota__barra"><i [style.width.%]="a.media * 20"></i></span>
+                  <span class="resumen-nota__valor">{{ a.media }}</span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+
+      @for (r of s.resenas; track r.id) {
+        <div class="resena-card">
+          <div class="resena-card__head">
+            <strong>{{ r.autorNombre }}</strong>
+            <span class="resena-card__score">{{ r.puntuacion }}/5</span>
+            <span class="resena-card__fecha">{{ r.fecha | date:'d MMM yyyy' }}</span>
+          </div>
+          <p>{{ r.comentario }}</p>
+          @if (r.respuesta) {
+            <p class="resena-card__respuesta">↳ {{ r.respuesta | t }}</p>
+          }
+        </div>
+      } @empty {
+        <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Aún no hay reseñas de este profesional.' | t }}</p>
+      }
+    </div>
+
+    <!-- La garantía, entera y una sola vez: es lo mismo en toda la web, así
+         que cierra la ficha en vez de abrirla por duplicado. -->
+    <div class="section-block">
+      <h2><rs-icon name="shield-check" [size]="18" [stroke]="2" /> {{ 'Garantía Doogking' | t }}</h2>
+      <rs-trust-block></rs-trust-block>
+    </div>
+    </div>
     </div>
 
     <!--
@@ -909,8 +926,17 @@ const CONFIGS: Record<string, DetalleConfig> = {
     .side-mapa { margin-top: var(--sp-4); padding: var(--sp-4); }
     /* El horario va en una columna u otra según el ancho (ver plantilla). */
     .side-horario { margin-top: var(--sp-4); padding: var(--sp-4); }
-    .horario--escritorio { @media (max-width: 1024px) { display: none; } }
-    .horario--movil { @media (min-width: 1025px) { display: none; } }
+    /* Ver RESTO DE LA FICHA en la plantilla. */
+    .ficha-resto > .section-block:first-child { margin-top: 0; }
+    @media (max-width: 1024px) {
+      .ficha-cuerpo { display: flex; flex-direction: column; }
+      .ficha-cuerpo > .vd-body { display: contents; }
+      .info-col { order: 1; }
+      .ficha-resto { order: 2; }
+      .side-col { order: 3; }
+    }
+    .lateral--escritorio { @media (max-width: 1024px) { display: none; } }
+    .lateral--movil { @media (min-width: 1025px) { display: none; } }
 
     /* ── Servicios con su tarifa ──────────────────────────────────── */
     .tarifas {

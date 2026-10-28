@@ -1,6 +1,6 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, NgTemplateOutlet } from '@angular/common';
 import { RsNavbarComponent } from '../../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../../shared/components/icon/rs-icon.component';
 import { AnimateOnScrollDirective } from '../../../shared/directives/animate-on-scroll.directive';
@@ -59,7 +59,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
   selector: 'app-alojamiento-detalle',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, DecimalPipe, FechaPipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
+    TraducirPipe, RouterLink, DecimalPipe, NgTemplateOutlet, FechaPipe, RsNavbarComponent, RsIconComponent, AnimateOnScrollDirective, ImgFallbackDirective,
     RsRatingComponent, RsTrustBlockComponent, RsStarsComponent, RsUbicacionComponent, RsHorarioPublicoComponent, EurosPipe,
     PanelLateralDirective,
   ],
@@ -111,7 +111,8 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
     }
 
     <!-- CUERPO: info + booking panel -->
-    <div class="detalle-body rs-wrap">
+    <div class="ficha-cuerpo rs-wrap">
+    <div class="detalle-body">
 
       <!-- INFO COLUMN -->
       <div class="info-col">
@@ -241,14 +242,17 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
         </div>
 
         <!-- Cuándo atienden: el horario es de este servicio, no del negocio. -->
-        <div class="section-block horario--movil" rsAnim>
+        <div class="section-block lateral--movil" rsAnim>
           <rs-horario-publico [horario]="alojamiento()!.horario"
                               [excepciones]="alojamiento()!.excepcionesHorario" />
         </div>
 
-        <!-- Amenidades caninas -->
-        <div class="section-block" rsAnim>
+        <!-- Amenidades caninas. En escritorio van en la columna derecha (ver side-servicios). -->
+        <div class="section-block lateral--movil" rsAnim>
           <h2>{{ 'Servicios para tu perro' | t }}</h2>
+          <ng-container [ngTemplateOutlet]="listaServicios" />
+        </div>
+        <ng-template #listaServicios>
           <div class="amenities-grid">
             @for (a of alojamiento()!.amenities; track a) {
               <div class="amenity-item"><rs-icon name="paw" size="16" /> {{ a }}</div>
@@ -256,7 +260,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
               <p style="color:var(--t-400);font-size:var(--f-sm)">{{ 'Servicios no especificados.' | t }}</p>
             }
           </div>
-        </div>
+        </ng-template>
 
         <!-- Espacios -->
         <!-- id de anclaje: la barra fija de móvil salta aquí cuando aún no hay
@@ -352,142 +356,6 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
           </div>
         }
 
-        <!-- Políticas en acordeón (PDF 27/07 §13) con details/summary nativos:
-             accesibles y operables con teclado sin JavaScript. -->
-        <div class="section-block" rsAnim>
-          <h2>{{ 'Políticas del alojamiento' | t }}</h2>
-          <!-- Sin horario de entrada y salida: el cliente pidió quitarlo de la
-               ficha (el horario de atención ya va en su propio bloque). -->
-          @if (alojamiento()!.compatibilidadSocialNoAdmitida.length) {
-            <p class="policy-perfiles" data-testid="perfiles-no-admitidos">
-              <strong>{{ 'Perfiles que no admite este centro:' | t }}</strong>
-              @for (p of alojamiento()!.compatibilidadSocialNoAdmitida; track p; let ultimo = $last) {
-                {{ etiquetaPerfilSocial(p) | t }}{{ ultimo ? '' : ', ' }}
-              }
-            </p>
-          }
-          <div class="policies-acc">
-            <details class="policy-acc">
-              <summary class="policy-acc__head">
-                <rs-icon name="shield-check" [size]="16" [stroke]="2" /> {{ 'Cancelación' | t }}
-              </summary>
-              <div class="policy-acc__body">
-                <p><strong>{{ tituloCancelacion() }}</strong></p>
-                <p>{{ descripcionCancelacion() | t }}</p>
-              </div>
-            </details>
-
-            <details class="policy-acc">
-              <summary class="policy-acc__head">
-                <rs-icon name="syringe" [size]="16" [stroke]="2" /> {{ 'Vacunas y requisitos sanitarios' | t }}
-              </summary>
-              <div class="policy-acc__body">
-                <p>{{ alojamiento()!.requisitoVacunas ? 'Cartilla de vacunación obligatoria' : 'Sin requisito de vacunas' }}</p>
-                @if (alojamiento()!.requisitoMicrochip) { <p><strong>{{ 'Microchip:' | t }}</strong> {{ 'obligatorio' | t }}</p> }
-                @if (alojamiento()!.requiereDesparasitacionInterna || alojamiento()!.requiereDesparasitacionExterna) {
-                  <p><strong>{{ 'Desparasitación:' | t }}</strong> {{ desparasitacionLabel() }}</p>
-                }
-                @if (alojamiento()!.requiereVacunaTosPerreras) {
-                  <p><strong>{{ 'Vacuna tos de las perreras:' | t }}</strong> {{ 'requerida' | t }}</p>
-                }
-              </div>
-            </details>
-          </div>
-          @if (alojamiento()!.serviciosAdicionales.length) {
-            <div class="section-block">
-              <h3>{{ 'Servicios adicionales' | t }}</h3>
-              <div class="room-card__amenities">
-                @for (s of alojamiento()!.serviciosAdicionales; track s.nombre) {
-                  <span class="rs-amenity">{{ s.nombre }} ({{ s.precio | euros }})</span>
-                }
-              </div>
-            </div>
-          }
-          <div class="rules-list">
-            @for (r of (alojamiento()!.reglas ?? []); track r) {
-              <div class="rule-item">• {{ r }}</div>
-            }
-          </div>
-        </div>
-
-        <!-- Reseñas -->
-        <div class="section-block" rsAnim>
-          <h2>{{ 'Lo que opinan otros dueños' | t }}</h2>
-
-          <!--
-            La nota y su desglose, delante de los comentarios. Estaban arriba
-            del todo, entre el nombre y la descripción, empujando casi 200 px
-            los tipos de espacio —que es lo que decide la reserva— y lejos de
-            las reseñas de las que salen.
-          -->
-        @if (alojamiento()!.numResenas) {
-        <div class="rating-summary rs-card" rsAnim>
-          <div class="rating-summary__score">
-            <div class="rating-big">{{ alojamiento()!.score }}</div>
-            <div>
-              <div class="rating-big-label">{{ alojamiento()!.scoreLabel | t }}</div>
-              <div style="font-size:var(--f-xs);color:var(--t-400)">{{ '{n} reseñas verificadas' | t: { n: (alojamiento()!.numResenas | number) ?? '' } }}</div>
-            </div>
-          </div>
-          <!-- "Índice Doogking" con barras (PDF 27/07 §13): son las medias
-               reales por aspecto de las reseñas, no una puntuación aparte. -->
-          @if (ratingItems().length > 0) {
-            <div class="rating-breakdown">
-              <p class="rating-breakdown__titulo">
-                <rs-icon name="crown" [size]="15" [stroke]="2" /> {{ 'Índice Doogking' | t }}
-              </p>
-              @for (item of ratingItems(); track item.label) {
-                <div class="rating-bar">
-                  <span>{{ item.label | t }}</span>
-                  <div class="rating-bar__track"><div class="rating-bar__fill" [style.width.%]="item.pct"></div></div>
-                  <strong>{{ item.val }}</strong>
-                </div>
-              }
-            </div>
-          }
-        </div>
-        }
-
-
-          <div class="resenas-list">
-            @for (r of alojamiento()!.resenas; track r.id) {
-              <div class="resena-card rs-card" rsAnim>
-                <div class="resena-card__header">
-                  <div class="resena-card__avatar">{{ r.autorNombre.charAt(0) }}</div>
-                  <div>
-                    <div class="resena-card__autor">{{ r.autorNombre }}</div>
-                    <div class="resena-card__meta">{{ r.fecha | date:'d MMM yyyy' }}</div>
-                  </div>
-                  <div class="resena-card__score rs-badge rs-badge--accent">{{ r.puntuacion }}/5</div>
-                </div>
-                <p class="resena-card__texto">{{ r.comentario }}</p>
-                @if (r.fotos?.length) {
-                  <div class="resena-card__fotos">
-                    @for (foto of r.fotos; track foto) {
-                      <img [src]="foto" [alt]="'Foto de la reseña de ' + r.autorNombre" rsImg />
-                    }
-                  </div>
-                }
-                @if (r.respuesta) {
-                  <div class="resena-respuesta">
-                    <strong>{{ 'Respuesta del alojamiento:' | t }}</strong>
-                    <p>{{ r.respuesta | t }}</p>
-                  </div>
-                }
-              </div>
-            }
-            @if (alojamiento()!.resenas.length === 0) {
-              <p style="color:var(--t-400)">{{ 'Todavía no hay reseñas para este alojamiento.' | t }}</p>
-            }
-          </div>
-        </div>
-
-        <!-- La garantía, entera y una sola vez: es lo mismo en toda la web,
-             así que cierra la ficha en vez de abrirla por duplicado. -->
-        <div class="section-block" rsAnim>
-          <h2><rs-icon name="shield-check" [size]="18" [stroke]="2" /> {{ 'Garantía Doogking' | t }}</h2>
-          <rs-trust-block [items]="extrasTrust()"></rs-trust-block>
-        </div>
 
       </div>
 
@@ -578,17 +446,172 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
           columna cae al final, así que ahí se queda con el resto del contenido.
         -->
         @if (tieneHorario(alojamiento()!.horario)) {
-          <div class="side-horario rs-card horario--escritorio" data-testid="horario-lateral">
+          <div class="side-horario rs-card lateral--escritorio" data-testid="horario-lateral">
             <rs-horario-publico [horario]="alojamiento()!.horario"
                                 [excepciones]="alojamiento()!.excepcionesHorario" />
           </div>
         }
+
+        <div class="side-servicios rs-card lateral--escritorio" data-testid="servicios-lateral">
+          <h3>{{ 'Servicios para tu perro' | t }}</h3>
+          <ng-container [ngTemplateOutlet]="listaServicios" />
+        </div>
 
         <div class="side-mapa rs-card">
           <rs-ubicacion [lugar]="ubicacion()" [compacto]="true" />
         </div>
       </div>
 
+    </div>
+
+    <!--
+      RESTO DE LA FICHA, a todo el ancho. Arriba van en dos columnas lo que se
+      mira para decidir (fotos, qué ofrece, precios) junto al panel de reserva,
+      que miden más o menos lo mismo. Si políticas, opiniones y garantía seguían
+      en la columna izquierda, la derecha se quedaba vacía durante media página.
+
+      En móvil .ficha-cuerpo es una columna flex y la rejilla de arriba se
+      deshace (display: contents): el panel se manda al final con «order», como
+      estaba, y esto queda justo después del contenido.
+    -->
+    <div class="ficha-resto">
+    <!-- Políticas en acordeón (PDF 27/07 §13) con details/summary nativos:
+         accesibles y operables con teclado sin JavaScript. -->
+    <div class="section-block" rsAnim>
+      <h2>{{ 'Políticas del alojamiento' | t }}</h2>
+      <!-- Sin horario de entrada y salida: el cliente pidió quitarlo de la
+           ficha (el horario de atención ya va en su propio bloque). -->
+      @if (alojamiento()!.compatibilidadSocialNoAdmitida.length) {
+        <p class="policy-perfiles" data-testid="perfiles-no-admitidos">
+          <strong>{{ 'Perfiles que no admite este centro:' | t }}</strong>
+          @for (p of alojamiento()!.compatibilidadSocialNoAdmitida; track p; let ultimo = $last) {
+            {{ etiquetaPerfilSocial(p) | t }}{{ ultimo ? '' : ', ' }}
+          }
+        </p>
+      }
+      <div class="policies-acc">
+        <details class="policy-acc">
+          <summary class="policy-acc__head">
+            <rs-icon name="shield-check" [size]="16" [stroke]="2" /> {{ 'Cancelación' | t }}
+          </summary>
+          <div class="policy-acc__body">
+            <p><strong>{{ tituloCancelacion() }}</strong></p>
+            <p>{{ descripcionCancelacion() | t }}</p>
+          </div>
+        </details>
+
+        <details class="policy-acc">
+          <summary class="policy-acc__head">
+            <rs-icon name="syringe" [size]="16" [stroke]="2" /> {{ 'Vacunas y requisitos sanitarios' | t }}
+          </summary>
+          <div class="policy-acc__body">
+            <p>{{ alojamiento()!.requisitoVacunas ? 'Cartilla de vacunación obligatoria' : 'Sin requisito de vacunas' }}</p>
+            @if (alojamiento()!.requisitoMicrochip) { <p><strong>{{ 'Microchip:' | t }}</strong> {{ 'obligatorio' | t }}</p> }
+            @if (alojamiento()!.requiereDesparasitacionInterna || alojamiento()!.requiereDesparasitacionExterna) {
+              <p><strong>{{ 'Desparasitación:' | t }}</strong> {{ desparasitacionLabel() }}</p>
+            }
+            @if (alojamiento()!.requiereVacunaTosPerreras) {
+              <p><strong>{{ 'Vacuna tos de las perreras:' | t }}</strong> {{ 'requerida' | t }}</p>
+            }
+          </div>
+        </details>
+      </div>
+      @if (alojamiento()!.serviciosAdicionales.length) {
+        <div class="section-block">
+          <h3>{{ 'Servicios adicionales' | t }}</h3>
+          <div class="room-card__amenities">
+            @for (s of alojamiento()!.serviciosAdicionales; track s.nombre) {
+              <span class="rs-amenity">{{ s.nombre }} ({{ s.precio | euros }})</span>
+            }
+          </div>
+        </div>
+      }
+      <div class="rules-list">
+        @for (r of (alojamiento()!.reglas ?? []); track r) {
+          <div class="rule-item">• {{ r }}</div>
+        }
+      </div>
+    </div>
+
+    <!-- Reseñas -->
+    <div class="section-block" rsAnim>
+      <h2>{{ 'Lo que opinan otros dueños' | t }}</h2>
+
+      <!--
+        La nota y su desglose, delante de los comentarios. Estaban arriba
+        del todo, entre el nombre y la descripción, empujando casi 200 px
+        los tipos de espacio —que es lo que decide la reserva— y lejos de
+        las reseñas de las que salen.
+      -->
+    @if (alojamiento()!.numResenas) {
+    <div class="rating-summary rs-card" rsAnim>
+      <div class="rating-summary__score">
+        <div class="rating-big">{{ alojamiento()!.score }}</div>
+        <div>
+          <div class="rating-big-label">{{ alojamiento()!.scoreLabel | t }}</div>
+          <div style="font-size:var(--f-xs);color:var(--t-400)">{{ '{n} reseñas verificadas' | t: { n: (alojamiento()!.numResenas | number) ?? '' } }}</div>
+        </div>
+      </div>
+      <!-- "Índice Doogking" con barras (PDF 27/07 §13): son las medias
+           reales por aspecto de las reseñas, no una puntuación aparte. -->
+      @if (ratingItems().length > 0) {
+        <div class="rating-breakdown">
+          <p class="rating-breakdown__titulo">
+            <rs-icon name="crown" [size]="15" [stroke]="2" /> {{ 'Índice Doogking' | t }}
+          </p>
+          @for (item of ratingItems(); track item.label) {
+            <div class="rating-bar">
+              <span>{{ item.label | t }}</span>
+              <div class="rating-bar__track"><div class="rating-bar__fill" [style.width.%]="item.pct"></div></div>
+              <strong>{{ item.val }}</strong>
+            </div>
+          }
+        </div>
+      }
+    </div>
+    }
+
+
+      <div class="resenas-list">
+        @for (r of alojamiento()!.resenas; track r.id) {
+          <div class="resena-card rs-card" rsAnim>
+            <div class="resena-card__header">
+              <div class="resena-card__avatar">{{ r.autorNombre.charAt(0) }}</div>
+              <div>
+                <div class="resena-card__autor">{{ r.autorNombre }}</div>
+                <div class="resena-card__meta">{{ r.fecha | date:'d MMM yyyy' }}</div>
+              </div>
+              <div class="resena-card__score rs-badge rs-badge--accent">{{ r.puntuacion }}/5</div>
+            </div>
+            <p class="resena-card__texto">{{ r.comentario }}</p>
+            @if (r.fotos?.length) {
+              <div class="resena-card__fotos">
+                @for (foto of r.fotos; track foto) {
+                  <img [src]="foto" [alt]="'Foto de la reseña de ' + r.autorNombre" rsImg />
+                }
+              </div>
+            }
+            @if (r.respuesta) {
+              <div class="resena-respuesta">
+                <strong>{{ 'Respuesta del alojamiento:' | t }}</strong>
+                <p>{{ r.respuesta | t }}</p>
+              </div>
+            }
+          </div>
+        }
+        @if (alojamiento()!.resenas.length === 0) {
+          <p style="color:var(--t-400)">{{ 'Todavía no hay reseñas para este alojamiento.' | t }}</p>
+        }
+      </div>
+    </div>
+
+    <!-- La garantía, entera y una sola vez: es lo mismo en toda la web,
+         así que cierra la ficha en vez de abrirla por duplicado. -->
+    <div class="section-block" rsAnim>
+      <h2><rs-icon name="shield-check" [size]="18" [stroke]="2" /> {{ 'Garantía Doogking' | t }}</h2>
+      <rs-trust-block [items]="extrasTrust()"></rs-trust-block>
+    </div>
+    </div>
     </div>
 
     <!--
@@ -914,10 +937,24 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
 
     /* La tarjeta del mapa, separada del panel de reserva pero en su columna. */
     .side-mapa { margin-top: var(--sp-4); padding: var(--sp-4); }
-    /* El horario va en una columna u otra según el ancho (ver plantilla). */
+    /* Horario y servicios van en una columna u otra según el ancho (ver plantilla). */
     .side-horario { margin-top: var(--sp-4); padding: var(--sp-4); }
-    .horario--escritorio { @media (max-width: 1024px) { display: none; } }
-    .horario--movil { @media (min-width: 1025px) { display: none; } }
+    .side-servicios {
+      margin-top: var(--sp-4); padding: var(--sp-4);
+      h3 { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-3); }
+      .amenities-grid { grid-template-columns: 1fr 1fr; }
+    }
+    /* Ver RESTO DE LA FICHA en la plantilla. */
+    .ficha-resto > .section-block:first-child { margin-top: 0; }
+    @media (max-width: 1024px) {
+      .ficha-cuerpo { display: flex; flex-direction: column; }
+      .ficha-cuerpo > .detalle-body { display: contents; }
+      .info-col { order: 1; }
+      .ficha-resto { order: 2; }
+      .booking-panel { order: 3; }
+    }
+    .lateral--escritorio { @media (max-width: 1024px) { display: none; } }
+    .lateral--movil { @media (min-width: 1025px) { display: none; } }
 
     .compromiso-block {
       margin-top: var(--sp-5);
