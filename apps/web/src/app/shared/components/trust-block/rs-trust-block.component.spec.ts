@@ -9,6 +9,16 @@ describe('RsTrustBlockComponent', () => {
     fixture = TestBed.createComponent(RsTrustBlockComponent);
   });
 
+  it('debería pintarse en lista salvo que se pida en rejilla', () => {
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.classList.contains('rs-trust-block--rejilla')).toBe(false);
+
+    fixture.componentRef.setInput('rejilla', true);
+    fixture.detectChanges();
+    expect(host.classList.contains('rs-trust-block--rejilla')).toBe(true);
+  });
+
   it('muestra los checks por defecto de la variante "reserva"', () => {
     fixture.detectChanges();
     const texto = (fixture.nativeElement as HTMLElement).textContent ?? '';

@@ -631,6 +631,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
       </ul>
     </div>
 
+    <div class="ficha-pie" [class.ficha-pie--dos]="!s.numResenas">
     <div class="section-block">
       <h2>{{ 'Lo que opinan otros dueños' | t }}</h2>
 
@@ -682,9 +683,10 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
     <!-- La garantía, entera y una sola vez: es lo mismo en toda la web, así
          que cierra la ficha en vez de abrirla por duplicado. -->
-    <div class="section-block">
+    <div class="section-block garantia-card">
       <h2><rs-icon name="shield-check" [size]="18" [stroke]="2" /> {{ 'Garantía Doogking' | t }}</h2>
-      <rs-trust-block></rs-trust-block>
+      <rs-trust-block [rejilla]="true"></rs-trust-block>
+    </div>
     </div>
     </div>
     </div>
@@ -926,6 +928,32 @@ const CONFIGS: Record<string, DetalleConfig> = {
     .side-mapa { margin-top: var(--sp-4); padding: var(--sp-4); }
     /* El horario va en una columna u otra según el ancho (ver plantilla). */
     .side-horario { margin-top: var(--sp-4); padding: var(--sp-4); }
+    /*
+      Pie de la ficha. Opiniones y garantía eran dos listas estrechas pegadas a
+      la izquierda de un bloque a todo el ancho: media pantalla en blanco. Sin
+      reseñas van lado a lado, en tarjetas de la misma altura; con reseñas, las
+      opiniones a todo el ancho y la garantía en rejilla debajo.
+    */
+    .ficha-resto .section-block { margin-block: var(--sp-8); }
+    .garantia-card {
+      background: var(--c-card); border: 1px solid var(--b-1);
+      border-radius: var(--r-2xl); padding: var(--sp-6);
+    }
+    .ficha-pie--dos {
+      @media (min-width: 1025px) {
+        display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+        gap: var(--sp-6); align-items: stretch; margin-block: var(--sp-8);
+        > .section-block {
+          margin: 0; background: var(--c-card); border: 1px solid var(--b-1);
+          border-radius: var(--r-2xl); padding: var(--sp-6);
+        }
+      }
+    }
+    /* «Qué ofrece», a todo el ancho: en rejilla, no una columna estrecha. */
+    .ficha-resto .puntos-list {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: var(--sp-3) var(--sp-6);
+    }
     /* Ver RESTO DE LA FICHA en la plantilla. */
     .ficha-resto > .section-block:first-child { margin-top: 0; }
     @media (max-width: 1024px) {

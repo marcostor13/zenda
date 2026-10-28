@@ -107,6 +107,16 @@ describe('AlojamientoDetalleComponent', () => {
       expect(raiz.querySelector('.ficha-resto rs-trust-block')).not.toBeNull();
     });
 
+    it('debería poner la garantía en tarjeta y en rejilla al final de la ficha', () => {
+      const garantia = (fixture.nativeElement as HTMLElement).querySelector('.ficha-pie .garantia-card rs-trust-block');
+      expect(garantia?.classList.contains('rs-trust-block--rejilla')).toBe(true);
+    });
+
+    it('debería dejar las opiniones a todo el ancho cuando hay reseñas', () => {
+      // El alojamiento de prueba tiene 128 reseñas: no van lado a lado.
+      expect((fixture.nativeElement as HTMLElement).querySelector('.ficha-pie--dos')).toBeNull();
+    });
+
     it('debería poner los servicios para el perro también en la columna derecha', () => {
       const raiz: HTMLElement = fixture.nativeElement;
       expect(raiz.querySelector('.booking-panel [data-testid="servicios-lateral"]')).not.toBeNull();

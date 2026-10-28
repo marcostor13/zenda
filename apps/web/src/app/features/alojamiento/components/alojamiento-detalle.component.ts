@@ -533,6 +533,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
       </div>
     </div>
 
+    <div class="ficha-pie" [class.ficha-pie--dos]="!alojamiento()!.numResenas">
     <!-- Reseñas -->
     <div class="section-block" rsAnim>
       <h2>{{ 'Lo que opinan otros dueños' | t }}</h2>
@@ -607,9 +608,10 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
 
     <!-- La garantía, entera y una sola vez: es lo mismo en toda la web,
          así que cierra la ficha en vez de abrirla por duplicado. -->
-    <div class="section-block" rsAnim>
+    <div class="section-block garantia-card" rsAnim>
       <h2><rs-icon name="shield-check" [size]="18" [stroke]="2" /> {{ 'Garantía Doogking' | t }}</h2>
-      <rs-trust-block [items]="extrasTrust()"></rs-trust-block>
+      <rs-trust-block [items]="extrasTrust()" [rejilla]="true"></rs-trust-block>
+    </div>
     </div>
     </div>
     </div>
@@ -939,6 +941,27 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
     .side-mapa { margin-top: var(--sp-4); padding: var(--sp-4); }
     /* Horario y servicios van en una columna u otra según el ancho (ver plantilla). */
     .side-horario { margin-top: var(--sp-4); padding: var(--sp-4); }
+    /*
+      Pie de la ficha. Opiniones y garantía eran dos listas estrechas pegadas a
+      la izquierda de un bloque a todo el ancho: media pantalla en blanco. Sin
+      reseñas van lado a lado, en tarjetas de la misma altura; con reseñas, las
+      opiniones a todo el ancho y la garantía en rejilla debajo.
+    */
+    .ficha-resto .section-block { margin-block: var(--sp-8); }
+    .garantia-card {
+      background: var(--c-card); border: 1px solid var(--b-1);
+      border-radius: var(--r-2xl); padding: var(--sp-6);
+    }
+    .ficha-pie--dos {
+      @media (min-width: 1025px) {
+        display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+        gap: var(--sp-6); align-items: stretch; margin-block: var(--sp-8);
+        > .section-block {
+          margin: 0; background: var(--c-card); border: 1px solid var(--b-1);
+          border-radius: var(--r-2xl); padding: var(--sp-6);
+        }
+      }
+    }
     .side-servicios {
       margin-top: var(--sp-4); padding: var(--sp-4);
       h3 { font-size: var(--f-lg); font-weight: var(--w-7); color: var(--t-100); margin-bottom: var(--sp-3); }

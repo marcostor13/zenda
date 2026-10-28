@@ -44,6 +44,7 @@ const ITEMS_PROTECCION: readonly TrustItem[] = [
     TraducirPipe, RsIconComponent
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.rs-trust-block--rejilla]': 'rejilla()' },
   template: `
     <ul class="rs-trust-block">
       @for (item of itemsFinales(); track item.label) {
@@ -76,6 +77,20 @@ const ITEMS_PROTECCION: readonly TrustItem[] = [
       color: var(--t-400);
     }
 
+    /*
+     * En rejilla, para un bloque a todo el ancho: en una sola columna, nueve
+     * líneas cortas dejaban vacía toda la mitad derecha de la pantalla.
+     */
+    :host(.rs-trust-block--rejilla) .rs-trust-block {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: var(--sp-3) var(--sp-6);
+    }
+    :host(.rs-trust-block--rejilla) .rs-trust-block__item {
+      font-size: var(--f-sm);
+      color: var(--t-300);
+    }
+
     /* El icono no debe encogerse cuando la etiqueta ocupa dos líneas. */
     .rs-trust-block__icon {
       flex: 0 0 auto;
@@ -87,6 +102,8 @@ const ITEMS_PROTECCION: readonly TrustItem[] = [
 export class RsTrustBlockComponent {
   readonly variant = input<'reserva' | 'proteccion'>('reserva');
   readonly items = input<TrustItem[]>([]);
+  /** Varias columnas en lugar de una lista vertical. */
+  readonly rejilla = input(false);
 
   readonly itemsFinales = computed<TrustItem[]>(() => {
     const base = this.variant() === 'proteccion' ? ITEMS_PROTECCION : ITEMS_RESERVA;
