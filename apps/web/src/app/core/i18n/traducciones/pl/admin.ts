@@ -477,6 +477,13 @@ const admin: Diccionario = {
   'Usar la del vertical': 'Użyj prowizji kategorii',
   'Escribe el porcentaje: 12 es un 12 %. Se aplica a las reservas nuevas de todas sus categorías.': 'Wpisz procent: 12 oznacza 12 %. Dotyczy nowych rezerwacji we wszystkich kategoriach.',
   'Mientras siga vigente su comisión congelada de socio fundador, manda esa.': 'Dopóki obowiązuje zamrożona prowizja partnera założyciela, stosuje się właśnie ją.',
+  // Reserva como invitado (sin cuenta).
+  'Tipo de cliente': 'Typ klienta',
+  'Invitados (sin cuenta)': 'Goście (bez konta)',
+  'Con cuenta': 'Z kontem',
+  'Invitado': 'Gość',
+  'invitado, sin cuenta': 'gość, bez konta',
+  'Teléfono': 'Telefon',
 };
 
 export default admin;

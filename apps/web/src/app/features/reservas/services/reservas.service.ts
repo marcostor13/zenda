@@ -30,6 +30,8 @@ export interface CrearReservaPayload {
   perroIdsAdicionales?: string[];
   /** Presupuesto aceptado que se convierte en esta reserva. */
   presupuestoId?: string;
+  /** Sólo reservas de invitado: a quién atender (el email va en su sesión). */
+  contacto?: { nombre: string; telefono?: string };
 }
 
 export interface ConsultaHuecos {

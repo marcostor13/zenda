@@ -112,6 +112,14 @@ const ALTO_MENU_ACCIONES = 210;
             </select>
           </label>
           <label class="campo">
+            <span>{{ 'Tipo de cliente' | t }}</span>
+            <select class="rs-inp" [(ngModel)]="fTipoCliente" data-testid="filtro-tipo-cliente">
+              <option value="">{{ 'Todos' | t }}</option>
+              <option value="invitado">{{ 'Invitados (sin cuenta)' | t }}</option>
+              <option value="registrado">{{ 'Con cuenta' | t }}</option>
+            </select>
+          </label>
+          <label class="campo">
             <span>{{ 'Importe mínimo (€)' | t }}</span>
             <input type="number" min="0" class="rs-inp" [placeholder]="'Sin mínimo' | t" [(ngModel)]="fImporteMin" inputmode="numeric" />
           </label>
@@ -223,6 +231,7 @@ const ALTO_MENU_ACCIONES = 210;
               <span class="cell-txt" data-col="Fecha">{{ (r.fechaInicio || r.createdAt) | date:'d MMM yyyy' }}</span>
               <span class="cell-txt" data-col="Cliente" [title]="r.cliente + (r.clienteEmail ? ' · ' + r.clienteEmail : '')">
                 {{ r.cliente }}
+                @if (r.esInvitado) { <span class="rs-badge rs-badge--warning badge-invitado" data-testid="badge-invitado">{{ 'Invitado' | t }}</span> }
                 @if (r.clienteEmail) { <span class="cell-sub">{{ r.clienteEmail }}</span> }
               </span>
               <span class="cell-txt" data-col="Comercio" [title]="r.comercio">{{ r.comercio }}</span>
@@ -290,7 +299,8 @@ const ALTO_MENU_ACCIONES = 210;
                 <!-- Ficha administrativa completa (TCK-8036 §6) -->
                 <h4><rs-icon name="eye" [size]="15" [stroke]="2"></rs-icon> Reserva {{ r.codigo }}</h4>
                 <dl class="ficha">
-                  <div><dt>{{ 'Cliente' | t }}</dt><dd>{{ r.cliente }}@if (r.clienteEmail) { · {{ r.clienteEmail }} }</dd></div>
+                  <div><dt>{{ 'Cliente' | t }}</dt><dd>{{ r.cliente }}@if (r.esInvitado) { ({{ 'invitado, sin cuenta' | t }}) }@if (r.clienteEmail) { · {{ r.clienteEmail }} }</dd></div>
+                  <div><dt>{{ 'Teléfono' | t }}</dt><dd>{{ r.clienteTelefono || '—' }}</dd></div>
                   <div><dt>{{ 'Mascota' | t }}</dt><dd>{{ r.perroNombre || '—' }}</dd></div>
                   <div><dt>{{ 'Comercio' | t }}</dt><dd>{{ r.comercio }}</dd></div>
                   <div><dt>{{ 'Servicio' | t }}</dt><dd>{{ r.servicio || r.vertical }}</dd></div>
@@ -436,6 +446,7 @@ const ALTO_MENU_ACCIONES = 210;
       color: var(--c-accent); font-family: monospace; text-decoration: underline dotted;
     }
     .cell-sub { display: block; font-size: var(--f-xs); color: var(--t-400); }
+    .badge-invitado { margin-left: var(--sp-2); font-size: var(--f-xs); vertical-align: middle; }
 
     .ficha {
       display: grid; grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
@@ -636,6 +647,7 @@ export class AdminReservasComponent implements OnInit {
   fVertical = '';
   fCiudad = '';
   fEstadoPago = '';
+  fTipoCliente = '';
   fImporteMin: number | null = null;
   fImporteMax: number | null = null;
   private readonly avanzados = signal<FiltrosReservasAdmin>({});
@@ -681,6 +693,7 @@ export class AdminReservasComponent implements OnInit {
       vertical: this.fVertical || undefined,
       ciudad: this.fCiudad.trim() || undefined,
       estadoPago: this.fEstadoPago || undefined,
+      tipoCliente: this.fTipoCliente || undefined,
       importeMin: this.fImporteMin ?? undefined,
       importeMax: this.fImporteMax ?? undefined,
     });
@@ -689,7 +702,7 @@ export class AdminReservasComponent implements OnInit {
   }
 
   async limpiarFiltrosAvanzados(): Promise<void> {
-    this.fDesde = this.fHasta = this.fVertical = this.fCiudad = this.fEstadoPago = '';
+    this.fDesde = this.fHasta = this.fVertical = this.fCiudad = this.fEstadoPago = this.fTipoCliente = '';
     this.fImporteMin = this.fImporteMax = null;
     this.avanzados.set({});
     this.paginaActual.set(1);
@@ -715,7 +728,7 @@ export class AdminReservasComponent implements OnInit {
         this.adminApi.getReservas(1, this.filtrosActuales(), MAX_EXPORTACION),
       );
       const cabecera = [
-        'Código', 'Fecha', 'Cliente', 'Email', 'Comercio', 'Servicio',
+        'Código', 'Fecha', 'Cliente', 'Tipo de cliente', 'Email', 'Teléfono', 'Comercio', 'Servicio',
         'Importe', 'Comisión Doogking', 'Coste pasarela', 'Neto comercio',
         'Estado reserva', 'Estado pago',
       ];
@@ -723,7 +736,9 @@ export class AdminReservasComponent implements OnInit {
         r.codigo,
         new Date(r.fechaInicio || r.createdAt).toLocaleDateString('es-ES', { timeZone: ZONA_HORARIA_PLATAFORMA }),
         r.cliente,
+        r.esInvitado ? 'Invitado' : 'Con cuenta',
         r.clienteEmail ?? '',
+        r.clienteTelefono ?? '',
         r.comercio,
         r.servicio ?? r.vertical,
         (r.montoAjustado ?? r.montoTotal).toFixed(2),

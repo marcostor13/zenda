@@ -3,6 +3,7 @@ import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, throwError } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
+import { SesionInvitadoService } from '../auth/sesion-invitado.service';
 
 /**
  * Rutas de `auth` donde un 401 es la respuesta normal y no una sesión caducada.
@@ -12,7 +13,7 @@ import { AuthService } from '../auth/auth.service';
  */
 const SIN_SESION = ['/auth/login', '/auth/registro', '/auth/google', '/auth/facebook',
   '/auth/recuperar-password', '/auth/restablecer-password', '/auth/verificar-email',
-  '/auth/reenviar-verificacion', '/comercios/registro'];
+  '/auth/reenviar-verificacion', '/auth/invitado', '/comercios/registro'];
 
 /**
  * Cierra la sesión cuando el API deja de reconocer el token.
@@ -26,6 +27,7 @@ const SIN_SESION = ['/auth/login', '/auth/registro', '/auth/google', '/auth/face
  */
 export const sesionInterceptor: HttpInterceptorFn = (peticion, siguiente) => {
   const auth = inject(AuthService);
+  const invitado = inject(SesionInvitadoService);
   const router = inject(Router);
 
   return siguiente(peticion).pipe(
@@ -41,6 +43,12 @@ export const sesionInterceptor: HttpInterceptorFn = (peticion, siguiente) => {
         void router.navigate(['/auth/login'], {
           queryParams: { motivo: 'sesion', volverA: destino === '/auth/login' ? null : destino },
         });
+      }
+
+      // La sesión de invitado caducada se suelta sin más: el asistente pedirá
+      // otra al volver a pasar al pago.
+      if (es401 && !esPublica && !auth.estaAutenticado() && invitado.activa()) {
+        invitado.cerrar();
       }
 
       return throwError(() => error);

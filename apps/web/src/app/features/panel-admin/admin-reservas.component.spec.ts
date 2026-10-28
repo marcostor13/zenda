@@ -56,6 +56,33 @@ describe('AdminReservasComponent', () => {
     jest.clearAllMocks();
   });
 
+  describe('reservas de invitado', () => {
+    it('debería marcar la reserva hecha sin cuenta y enseñar su teléfono', async () => {
+      await crear([reserva({ esInvitado: true, clienteTelefono: '600111222' }), reserva({ _id: 'r2' })], 2);
+
+      const etiquetas = fixture.nativeElement.querySelectorAll('[data-testid="badge-invitado"]');
+      expect(etiquetas).toHaveLength(1);
+    });
+
+    it('debería filtrar por tipo de cliente', async () => {
+      await crear();
+      componente.fTipoCliente = 'invitado';
+
+      await componente.aplicarFiltrosAvanzados();
+
+      expect(ultimosFiltros()).toMatchObject({ tipoCliente: 'invitado' });
+    });
+
+    it('debería olvidar el tipo de cliente al limpiar', async () => {
+      await crear();
+      componente.fTipoCliente = 'invitado';
+
+      await componente.limpiarFiltrosAvanzados();
+
+      expect(componente.fTipoCliente).toBe('');
+    });
+  });
+
   describe('listado', () => {
     it('debería cargar las reservas al entrar', async () => {
       await crear([reserva(), reserva({ _id: 'r2', codigo: 'RES-BBBB2222' })], 2);

@@ -47,6 +47,7 @@ describe('AuthService', () => {
             establecerTokenRecuperacion: jest.fn(),
             findByRecuperacionTokenHash: jest.fn(),
             restablecerPassword: jest.fn(),
+            prepararRegistroDeInvitado: jest.fn(),
           },
         },
         {
@@ -445,6 +446,71 @@ describe('AuthService', () => {
         expect(usersRepository.confirmarVerificacion).toHaveBeenCalled();
         expect(resultado.usuario.verificado).toBe(true);
       });
+    });
+  });
+
+  describe('reserva como invitado', () => {
+    const dto = { nombre: ' Ana Pérez ', email: 'ana@correo.com', telefono: ' 600111222 ', aceptaCondiciones: true };
+    const invitadoMock = { ...usuarioMock, id: 'inv-1', email: 'ana@correo.com', passwordHash: undefined, invitado: true };
+
+    it('debería crear una cuenta de invitado y devolver una sesión corta marcada como invitado', async () => {
+      usersRepository.findByEmail.mockResolvedValue(null);
+      usersRepository.crear.mockResolvedValue(invitadoMock as any);
+
+      const respuesta = await service.iniciarComoInvitado(dto);
+
+      expect(usersRepository.crear).toHaveBeenCalledWith({
+        nombre: 'Ana Pérez', email: 'ana@correo.com', telefono: '600111222', invitado: true,
+      });
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'inv-1', invitado: true }),
+        { expiresIn: '6h' },
+      );
+      expect(respuesta.usuario.invitado).toBe(true);
+    });
+
+    it('debería reutilizar la cuenta de invitado del mismo email sin pisar sus datos', async () => {
+      usersRepository.findByEmail.mockResolvedValue(invitadoMock as any);
+
+      await service.iniciarComoInvitado(dto);
+
+      expect(usersRepository.crear).not.toHaveBeenCalled();
+    });
+
+    it('no debería abrir sesión sobre una cuenta registrada', async () => {
+      usersRepository.findByEmail.mockResolvedValue(usuarioMock as any);
+
+      await expect(service.iniciarComoInvitado(dto)).rejects.toThrow(DomainException);
+      expect(jwtService.sign).not.toHaveBeenCalled();
+    });
+
+    it('no debería abrir sesión sobre una cuenta de invitado desactivada', async () => {
+      usersRepository.findByEmail.mockResolvedValue({ ...invitadoMock, activo: false } as any);
+
+      await expect(service.iniciarComoInvitado(dto)).rejects.toThrow(DomainException);
+    });
+
+    it('debería dejar registrarse con el email de un invitado, pendiente de verificar', async () => {
+      usersRepository.findByEmail.mockResolvedValue(invitadoMock as any);
+      usersRepository.prepararRegistroDeInvitado.mockResolvedValue(invitadoMock as any);
+      (bcryptMock.hash as jest.Mock).mockResolvedValue('hash-nuevo');
+
+      const resultado = await service.registro({ nombre: 'Ana', email: 'ana@correo.com', password: 'password123' });
+
+      expect(resultado).toEqual({ requiereVerificacion: true, email: 'ana@correo.com' });
+      expect(usersRepository.prepararRegistroDeInvitado).toHaveBeenCalledWith('inv-1', {
+        nombre: 'Ana', passwordHash: 'hash-nuevo', telefono: undefined,
+      });
+      expect(usersRepository.establecerTokenVerificacion).toHaveBeenCalled();
+    });
+
+    it('debería mandar al invitado el enlace para crear contraseña, no el aviso de cuenta social', async () => {
+      usersRepository.findByEmail.mockResolvedValue(invitadoMock as any);
+
+      await service.solicitarRecuperacionPassword('ana@correo.com');
+
+      expect(notificationsService.enviarAvisoCuentaSocial).not.toHaveBeenCalled();
+      expect(notificationsService.enviarRecuperacionPassword).toHaveBeenCalled();
     });
   });
 });

@@ -18,6 +18,7 @@ export interface CrearUsuarioParams {
   proveedores?: string[];
   avatarUrl?: string;
   verificado?: boolean;
+  invitado?: boolean;
 }
 
 @Injectable()
@@ -99,6 +100,29 @@ export class UsersRepository {
     return this.usuarioModel.findByIdAndUpdate(id, datos, { new: true }).exec();
   }
 
+  /**
+   * Alta sobre una cuenta de invitado con el mismo email: se le pone contraseña
+   * pero **sigue siendo invitada** hasta que se verifique el correo. Si no, quien
+   * escribiera el email de otro invitado se quedaría con sus reservas.
+   */
+  async prepararRegistroDeInvitado(
+    id: string,
+    datos: { nombre: string; passwordHash: string; telefono?: string },
+  ): Promise<UsuarioDocument | null> {
+    return this.usuarioModel
+      .findByIdAndUpdate(
+        id,
+        {
+          nombre: datos.nombre,
+          passwordHash: datos.passwordHash,
+          ...(datos.telefono ? { telefono: datos.telefono } : {}),
+          $addToSet: { proveedores: 'local' },
+        },
+        { new: true },
+      )
+      .exec();
+  }
+
   async actualizarPassword(id: string, passwordHash: string): Promise<void> {
     await this.usuarioModel.findByIdAndUpdate(id, { passwordHash }).exec();
   }
@@ -106,7 +130,7 @@ export class UsersRepository {
   /** Vincula un proveedor social a la cuenta (idempotente) y marca el email como verificado. */
   async vincularProveedor(id: string, proveedor: string): Promise<UsuarioDocument | null> {
     return this.usuarioModel
-      .findByIdAndUpdate(id, { $addToSet: { proveedores: proveedor }, verificado: true }, { new: true })
+      .findByIdAndUpdate(id, { $addToSet: { proveedores: proveedor }, verificado: true, invitado: false }, { new: true })
       .exec();
   }
 
@@ -148,6 +172,10 @@ export class UsersRepository {
         id,
         {
           passwordHash,
+          // Quien abre el enlace del correo demuestra que el email es suyo: un
+          // invitado que fija contraseña pasa a tener cuenta.
+          invitado: false,
+          $addToSet: { proveedores: 'local' },
           $unset: { recuperacionTokenHash: 1, recuperacionExpira: 1 },
         },
         { new: true },
@@ -163,6 +191,7 @@ export class UsersRepository {
         {
           verificado: true,
           requiereVerificacionEmail: false,
+          invitado: false,
           $unset: { verificacionToken: 1, verificacionExpira: 1 },
         },
         { new: true },

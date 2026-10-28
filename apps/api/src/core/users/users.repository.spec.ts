@@ -190,14 +190,23 @@ describe('UsersRepository', () => {
 
     it('debería vincular el proveedor sin duplicarlo y dar el email por verificado', async () => {
       // `$addToSet` hace la operación idempotente: entrar diez veces con Google
-      // no debe dejar diez entradas en `proveedores`.
+      // no debe dejar diez entradas en `proveedores`. Entrar con el proveedor
+      // demuestra el email, así que una cuenta de invitado pasa a ser normal.
       await repository.vincularProveedor('user-1', 'google');
 
       expect(mockModel.findByIdAndUpdate).toHaveBeenCalledWith(
         'user-1',
-        { $addToSet: { proveedores: 'google' }, verificado: true },
+        { $addToSet: { proveedores: 'google' }, verificado: true, invitado: false },
         { new: true },
       );
+    });
+
+    it('debería poner contraseña a un invitado sin quitarle aún la marca de invitado', async () => {
+      await repository.prepararRegistroDeInvitado('user-1', { nombre: 'Ana', passwordHash: 'h', telefono: '600' });
+
+      const [, cambios] = mockModel.findByIdAndUpdate.mock.calls.at(-1)!;
+      expect(cambios).toMatchObject({ nombre: 'Ana', passwordHash: 'h', telefono: '600' });
+      expect(cambios).not.toHaveProperty('invitado');
     });
   });
 

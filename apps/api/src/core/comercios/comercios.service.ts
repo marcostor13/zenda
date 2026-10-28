@@ -320,11 +320,13 @@ export class ComerciosService {
 
     return reservas.map((reserva) => {
       const cliente = porCliente.get(String(reserva.usuarioId));
+      // Reserva de invitado: el contacto de esta reserva va en ella misma.
+      const invitado = reserva.contactoInvitado;
       return {
         ...conHoraReal(reserva),
-        clienteNombre: cliente?.nombre,
-        clienteEmail: cliente?.email,
-        clienteTelefono: cliente?.telefono,
+        clienteNombre: invitado?.nombre || cliente?.nombre,
+        clienteEmail: invitado?.email ?? cliente?.email,
+        clienteTelefono: invitado?.telefono ?? cliente?.telefono,
         servicioTitulo: porServicio.get(String(reserva.servicioId)),
         // El nombre viaja en la copia congelada del perro: no hace falta ir a
         // su ficha, y sigue estando aunque el cliente la borre después.

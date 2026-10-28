@@ -3,7 +3,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CambiosCupon, CuponesService, DescuentoAplicado } from './cupones.service';
 import { CuponesRepository } from './cupones.repository';
 import { CuponDocument } from './cupon.schema';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard, PermiteInvitado } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { ValidarCuponDto, CrearCuponDto, Rol } from 'shared';
 
@@ -17,6 +17,7 @@ export class CuponesController {
 
   @Post('validar')
   @UseGuards(JwtAuthGuard)
+  @PermiteInvitado()
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Validar un cupón y previsualizar el descuento' })

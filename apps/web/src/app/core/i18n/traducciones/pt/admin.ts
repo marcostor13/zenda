@@ -477,6 +477,13 @@ const admin: Diccionario = {
   'Usar la del vertical': 'Usar a da categoria',
   'Escribe el porcentaje: 12 es un 12 %. Se aplica a las reservas nuevas de todas sus categorías.': 'Escreve a percentagem: 12 é 12 %. Aplica-se às novas reservas de todas as suas categorias.',
   'Mientras siga vigente su comisión congelada de socio fundador, manda esa.': 'Enquanto estiver em vigor a sua comissão congelada de sócio fundador, é essa que se aplica.',
+  // Reserva como invitado (sin cuenta).
+  'Tipo de cliente': 'Tipo de cliente',
+  'Invitados (sin cuenta)': 'Convidados (sem conta)',
+  'Con cuenta': 'Com conta',
+  'Invitado': 'Convidado',
+  'invitado, sin cuenta': 'convidado, sem conta',
+  'Teléfono': 'Telefone',
 };
 
 export default admin;

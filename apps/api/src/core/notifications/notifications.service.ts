@@ -72,7 +72,9 @@ export class NotificationsService {
           .exec(),
       ]);
 
-      const datos = this.datosDeConfirmacion(reserva, servicio, cliente?.nombre, comercio);
+      // El invitado reutiliza su cuenta por email: el nombre de esta reserva es el suyo.
+      const nombreCliente = reserva.contactoInvitado?.nombre || cliente?.nombre;
+      const datos = this.datosDeConfirmacion(reserva, servicio, nombreCliente, comercio);
 
       if (cliente) {
         await this.enviarYRegistrar(

@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
-import { VerticalKey, ReservaEstado, MONEDA_DEFAULT } from 'shared';
+import { VerticalKey, ReservaEstado, MONEDA_DEFAULT, ContactoInvitado } from 'shared';
 
 export type ReservaDocument = HydratedDocument<Reserva>;
 
@@ -73,6 +73,14 @@ export class Reserva {
 
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Usuario', required: true })
   usuarioId!: Types.ObjectId;
+
+  /**
+   * Reserva hecha sin cuenta: el contacto que dio el cliente, congelado. La
+   * cuenta de invitado se reutiliza por email y no se le pisan los datos, así
+   * que el nombre y el teléfono de *esta* reserva sólo están aquí.
+   */
+  @Prop({ type: Object })
+  contactoInvitado?: ContactoInvitado;
 
   @Prop({ type: SchemaTypes.ObjectId, ref: 'Comercio', required: true })
   comercioId!: Types.ObjectId;

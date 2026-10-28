@@ -329,6 +329,47 @@ describe('AdminService', () => {
       expect(filtroUsado()['montoTotal']).toEqual({ $gte: 50 });
     });
 
+    it('debería filtrar las reservas de invitado y las de cuenta', async () => {
+      await service.listarReservas(1, 20, { tipoCliente: 'invitado' });
+      expect(filtroUsado()['contactoInvitado']).toEqual({ $exists: true });
+
+      await service.listarReservas(1, 20, { tipoCliente: 'registrado' });
+      expect(filtroUsado()['contactoInvitado']).toEqual({ $exists: false });
+    });
+
+    it('debería enseñar el contacto de la reserva del invitado, no el de su cuenta', async () => {
+      reservaModel.find.mockReturnValue({
+        sort: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        populate: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([
+          {
+            _id: 'r1', codigo: 'RES-1', vertical: VerticalKey.ALOJAMIENTO,
+            usuarioId: { nombre: 'Nombre antiguo', email: 'ana@correo.com' },
+            contactoInvitado: { nombre: 'Ana Pérez', email: 'ana@correo.com', telefono: '600111222' },
+          },
+          {
+            _id: 'r2', codigo: 'RES-2', vertical: VerticalKey.ALOJAMIENTO,
+            usuarioId: { nombre: 'Luis', email: 'luis@correo.com', telefono: '611' },
+          },
+        ]),
+      });
+      pagoModel.find.mockReturnValue({
+        select: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([]),
+      });
+
+      const { items } = await service.listarReservas(1, 20);
+
+      expect(items[0]).toMatchObject({
+        cliente: 'Ana Pérez', clienteEmail: 'ana@correo.com', clienteTelefono: '600111222', esInvitado: true,
+      });
+      expect(items[1]).toMatchObject({ cliente: 'Luis', clienteTelefono: '611', esInvitado: false });
+    });
+
     it('debería resolver la ciudad por el servicio, que es donde vive la ubicación', async () => {
       servicioModel.find.mockReturnValue({
         select: jest.fn().mockReturnThis(),
@@ -369,7 +410,9 @@ describe('AdminService', () => {
       await service.listarReservas(1, 20, { buscar: 'ana.perez@correo.com' });
 
       const condiciones = filtroUsado()['$or'];
-      expect(condiciones).toHaveLength(2); // código + usuarios encontrados
+      // código + nombre, email y teléfono del invitado + usuarios encontrados
+      expect(condiciones).toHaveLength(5);
+      expect(condiciones).toContainEqual({ 'contactoInvitado.email': expect.any(RegExp) });
       expect(condiciones[0].codigo.source).toContain('ana\\.perez');
     });
 

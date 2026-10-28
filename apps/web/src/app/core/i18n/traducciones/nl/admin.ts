@@ -477,6 +477,13 @@ const admin: Diccionario = {
   'Usar la del vertical': 'Die van de categorie gebruiken',
   'Escribe el porcentaje: 12 es un 12 %. Se aplica a las reservas nuevas de todas sus categorías.': 'Vul het percentage in: 12 betekent 12 %. Het geldt voor nieuwe boekingen in al zijn categorieën.',
   'Mientras siga vigente su comisión congelada de socio fundador, manda esa.': 'Zolang de bevroren commissie als oprichtende partner geldt, is die van toepassing.',
+  // Reserva como invitado (sin cuenta).
+  'Tipo de cliente': 'Type klant',
+  'Invitados (sin cuenta)': 'Gasten (zonder account)',
+  'Con cuenta': 'Met account',
+  'Invitado': 'Gast',
+  'invitado, sin cuenta': 'gast, zonder account',
+  'Teléfono': 'Telefoon',
 };
 
 export default admin;

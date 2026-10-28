@@ -347,6 +347,7 @@ export class AdminController {
   @ApiQuery({ name: 'estadoPago', required: false })
   @ApiQuery({ name: 'importeMin', required: false })
   @ApiQuery({ name: 'importeMax', required: false })
+  @ApiQuery({ name: 'tipoCliente', required: false, description: "'invitado' | 'registrado'" })
   listarReservas(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limite', new DefaultValuePipe(20), ParseIntPipe) limite: number,
@@ -364,6 +365,7 @@ export class AdminController {
       estadoPago: filtros['estadoPago'],
       importeMin: numeroOpcional(filtros['importeMin']),
       importeMax: numeroOpcional(filtros['importeMax']),
+      tipoCliente: filtros['tipoCliente'],
     });
   }
 

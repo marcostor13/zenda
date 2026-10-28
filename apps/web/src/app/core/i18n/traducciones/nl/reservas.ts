@@ -352,6 +352,20 @@ const reservas: Diccionario = {
   'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'Je kunt tot 24 uur voor de dienst gratis annuleren en krijgt het volledige bedrag terug.',
   'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'Je kunt tot 3 dagen voor de dienst gratis annuleren en krijgt het volledige bedrag terug.',
   'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'Deze boeking is niet restitueerbaar: bij annulering wordt het bedrag niet terugbetaald.',
+  // Reserva como invitado (sin cuenta).
+  'Estás reservando sin cuenta. Cuéntanos cómo es tu perro (raza, tamaño, edad) en «Peticiones especiales» del siguiente paso.': 'Je boekt zonder account. Vertel ons over je hond (ras, grootte, leeftijd) bij „Speciale verzoeken” in de volgende stap.',
+  'Puedes reservar sin crear una cuenta: sólo necesitamos tus datos de contacto.': 'Je kunt boeken zonder account: we hebben alleen je contactgegevens nodig.',
+  'Ese email ya tiene una cuenta en Doogking. Inicia sesión para reservar con ella.': 'Dit e-mailadres heeft al een Doogking-account. Log in om ermee te boeken.',
+  'No hemos podido continuar sin cuenta. Inténtalo de nuevo o inicia sesión.': 'We konden niet doorgaan zonder account. Probeer het opnieuw of log in.',
+  'No se puede reservar con este email. Contacta con soporte.': 'Met dit e-mailadres kun je niet boeken. Neem contact op met support.',
+  'tu reserva': 'je boeking',
+  'Has reservado sin cuenta. Crea tu cuenta con este mismo correo para ver, cambiar o cancelar tus reservas.': 'Je hebt zonder account geboekt. Maak een account aan met hetzelfde e-mailadres om je boekingen te bekijken, wijzigen of annuleren.',
+  'Crear mi cuenta': 'Mijn account aanmaken',
+  'Ver mi reserva': 'Mijn boeking bekijken',
+  'Has reservado sin cuenta. Guarda tu código de reserva: la confirmación ya está en tu correo.': 'Je hebt zonder account geboekt. Bewaar je boekingscode: de bevestiging staat al in je mailbox.',
+  'Crea tu cuenta con ese mismo correo': 'Maak een account aan met hetzelfde e-mailadres',
+  'para ver y gestionar tus reservas.': 'om je boekingen te bekijken en te beheren.',
+  'Para esto necesitas una cuenta. Regístrate o inicia sesión.': 'Hiervoor heb je een account nodig. Registreer je of log in.',
 };
 
 export default reservas;

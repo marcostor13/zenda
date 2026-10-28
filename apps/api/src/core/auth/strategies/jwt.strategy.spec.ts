@@ -89,4 +89,18 @@ describe('JwtStrategy', () => {
 
     expect(usersRepository.findById).toHaveBeenCalledTimes(2);
   });
+
+  it('debería marcar la sesión como de invitado según la cuenta', async () => {
+    usersRepository.findById.mockResolvedValue({ ...usuarioEnBd, invitado: true } as never);
+
+    const resultado = await strategy.validate(payloadDelToken);
+
+    expect(resultado.invitado).toBe(true);
+  });
+
+  it('no debería marcar como invitado una cuenta normal', async () => {
+    const resultado = await strategy.validate(payloadDelToken);
+
+    expect(resultado.invitado).toBeUndefined();
+  });
 });

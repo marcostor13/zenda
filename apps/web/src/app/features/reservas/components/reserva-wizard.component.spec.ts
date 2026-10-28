@@ -19,6 +19,7 @@ import { StripeService } from '../../../core/stripe/stripe.service';
 import { GeoService } from '../../../core/geo/geo.service';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { SesionInvitadoService } from '../../../core/auth/sesion-invitado.service';
 import { MonedaService } from '../../../core/moneda/moneda.service';
 import { claveDiaEnZona, fechaYHoraEnZona } from 'shared';
 
@@ -32,6 +33,7 @@ interface Dobles {
   stripe: { getStripe: jest.Mock };
   geo: { trayecto: jest.Mock };
   eventos: { registrar: jest.Mock; cerrarEmbudo: jest.Mock };
+  invitado: { iniciar: jest.Mock; email: () => string | null; token: () => string | null; activa: () => boolean };
   auth: {
     usuario: () => unknown;
     estaAutenticado: () => boolean;
@@ -121,6 +123,7 @@ describe('ReservaWizardComponent', () => {
         tiposDeCambio: jest.fn().mockReturnValue(of({ base: 'EUR', fecha: '', tasas: { EUR: 1, GBP: 0.84 } })),
       },
       eventos: { registrar: jest.fn(), cerrarEmbudo: jest.fn() },
+      invitado: { iniciar: jest.fn().mockResolvedValue(undefined), email: () => null, token: () => null, activa: () => false },
       // Sin sesion por defecto: el wizard admite invitados.
       auth: sinSesion(),
       ...ajustes,
@@ -141,6 +144,7 @@ describe('ReservaWizardComponent', () => {
         { provide: GeoService, useValue: dobles.geo },
         { provide: EventosService, useValue: dobles.eventos },
         { provide: AuthService, useValue: dobles.auth },
+        { provide: SesionInvitadoService, useValue: dobles.invitado },
         {
           provide: ActivatedRoute,
           useValue: {
@@ -554,7 +558,7 @@ describe('ReservaWizardComponent', () => {
       await crear(params, query);
       componente.irPaso(2);
 
-      componente.continuarPaso2();
+      await componente.continuarPaso2();
 
       expect(componente.paso()).toBe(2);
       expect(componente.paso2Form.touched).toBe(true);
@@ -568,9 +572,81 @@ describe('ReservaWizardComponent', () => {
         pais: 'ES', peticiones: '', confirmaDatosMascota: true, aceptaTerminos: true,
       });
 
-      componente.continuarPaso2();
+      await componente.continuarPaso2();
 
       expect(componente.paso()).toBe(3);
+    });
+  });
+
+  /*
+   * Reserva sin cuenta: el paso 2 ya pide nombre, correo y teléfono, y con
+   * ellos se abre una sesión corta de invitado antes de crear la reserva.
+   */
+  describe('reserva como invitado', () => {
+    const datosContacto = {
+      nombre: 'Ana', apellidos: 'Ruiz', email: 'ana@ruiz.com', telefono: '600000000',
+      pais: 'ES', peticiones: '', confirmaDatosMascota: true, aceptaTerminos: true,
+    };
+
+    it('debería abrir la sesión de invitado con los datos del paso 2 y pasar al pago', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      componente.paso2Form.setValue(datosContacto);
+
+      await componente.continuarPaso2();
+
+      expect(dobles.invitado.iniciar).toHaveBeenCalledWith({
+        nombre: 'Ana Ruiz', email: 'ana@ruiz.com', telefono: '600000000', aceptaCondiciones: true,
+      });
+      expect(componente.paso()).toBe(3);
+    });
+
+    it('debería quedarse en el paso 2 y explicar el motivo si el correo ya tiene cuenta', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      dobles.invitado.iniciar.mockRejectedValue(new HttpErrorResponse({
+        status: 409, error: { message: 'Ese email ya tiene una cuenta en Doogking.' },
+      }));
+      componente.irPaso(2);
+      componente.paso2Form.setValue(datosContacto);
+
+      await componente.continuarPaso2();
+
+      expect(componente.paso()).toBe(2);
+      expect(componente.errorInvitado()).toContain('ya tiene una cuenta');
+    });
+
+    it('no debería abrir sesión de invitado si ya hay sesión normal', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, { auth: autenticacion({ nombre: 'Ana Ruiz', email: 'ana@ruiz.com' }) });
+      componente.paso2Form.setValue(datosContacto);
+
+      await componente.continuarPaso2();
+
+      expect(dobles.invitado.iniciar).not.toHaveBeenCalled();
+      expect(componente.paso()).toBe(3);
+    });
+
+    it('debería mandar el contacto en la reserva del invitado', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      componente.paso2Form.setValue(datosContacto);
+
+      await componente.continuarPaso2();
+      await fixture.whenStable();
+
+      expect(dobles.reservas.crear).toHaveBeenCalledWith(expect.objectContaining({
+        contacto: { nombre: 'Ana Ruiz', telefono: '600000000' },
+      }));
+    });
+
+    it('debería avisar en el paso 2 de que se puede reservar sin cuenta', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      componente.irPaso(2);
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('[data-testid="aviso-invitado"]')).not.toBeNull();
     });
 
     it('debería registrar cada paso alcanzado para medir el embudo', async () => {
@@ -953,7 +1029,7 @@ describe('ReservaWizardComponent', () => {
      */
     it('debería dar a Stripe una url de retorno para el 3-D Secure', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
-      await crear(params, query);
+      await crear(params, query, { auth: autenticacion({ nombre: 'Ana', email: 'ana@ruiz.com' }) });
       await irAPago();
 
       await componente.procesarPago();
@@ -961,6 +1037,17 @@ describe('ReservaWizardComponent', () => {
       const opciones = stripeFake.confirmPayment.mock.calls[0][0];
       expect(opciones.confirmParams.return_url).toContain('/reservas/mis-reservas');
       expect(opciones.redirect).toBe('if_required');
+    });
+
+    it('debería devolver al invitado a la ficha de su reserva tras el 3-D Secure', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      await irAPago();
+
+      await componente.procesarPago();
+
+      const opciones = stripeFake.confirmPayment.mock.calls[0][0];
+      expect(opciones.confirmParams.return_url).toContain('/reservas/RES-AAAA1111');
     });
 
     it('debería avisar de que la confirmación va con retraso si el servidor no la cierra', async () => {

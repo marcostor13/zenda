@@ -110,6 +110,9 @@ export interface ReservaAdmin {
   cliente: string;
   comercio: string;
   clienteEmail?: string;
+  clienteTelefono?: string;
+  /** Reserva hecha sin cuenta: los datos de contacto son los de la propia reserva. */
+  esInvitado?: boolean;
   servicio?: string;
   /** Estado del pago, distinto del estado de la reserva (TCK-8036). */
   estadoPago?: string;
@@ -254,6 +257,8 @@ export interface FiltrosReservasAdmin {
   estadoPago?: string;
   importeMin?: number | null;
   importeMax?: number | null;
+  /** 'invitado' = reservas sin cuenta; 'registrado' = con cuenta. */
+  tipoCliente?: string;
 }
 
 export interface UsuarioAdmin {
@@ -262,6 +267,8 @@ export interface UsuarioAdmin {
   email: string;
   rol: string;
   verificado: boolean;
+  /** Cuenta creada al reservar sin registrarse. */
+  invitado?: boolean;
   telefono?: string;
   comercioId?: string;
   createdAt: string;
@@ -635,6 +642,7 @@ export class AdminApiService {
     if (filtros.estadoPago) params = params.set('estadoPago', filtros.estadoPago);
     if (filtros.importeMin != null) params = params.set('importeMin', String(filtros.importeMin));
     if (filtros.importeMax != null) params = params.set('importeMax', String(filtros.importeMax));
+    if (filtros.tipoCliente) params = params.set('tipoCliente', filtros.tipoCliente);
     return this.http.get<PaginatedResult<ReservaAdmin>>(`${this.adminUrl}/reservas`, { params });
   }
 

@@ -130,4 +130,42 @@ describe('BookingsController', () => {
     await controller.cancelar('r1', req);
     expect(service.cancelar).toHaveBeenCalledWith('r1', 'user-1');
   });
+
+  describe('reservas de invitado', () => {
+    const dto = {
+      servicioId: 's1',
+      fechaInicio: '2026-07-15',
+      contacto: { nombre: '  Ana Pérez ', telefono: ' 600111222 ' },
+    };
+
+    it('debería congelar el contacto con el email de la sesión, no el del cuerpo', async () => {
+      service.crear.mockResolvedValue({ id: 'r1' } as never);
+      const reqInvitado = { user: { sub: 'inv-1', email: 'ana@correo.com', invitado: true } } as never;
+
+      await controller.crear(dto as never, reqInvitado);
+
+      expect(service.crear.mock.calls[0][0].contactoInvitado).toEqual({
+        nombre: 'Ana Pérez', email: 'ana@correo.com', telefono: '600111222',
+      });
+    });
+
+    it('debería ignorar el contacto en una reserva con cuenta', async () => {
+      service.crear.mockResolvedValue({ id: 'r1' } as never);
+
+      await controller.crear(dto as never, req);
+
+      expect(service.crear.mock.calls[0][0].contactoInvitado).toBeUndefined();
+    });
+  });
+
+  it('debería consultar la disponibilidad sin sesión', async () => {
+    service.comprobarDisponibilidad.mockResolvedValue({ disponible: true } as never);
+
+    await controller.comprobarDisponibilidad(
+      { servicioId: 's1', fechaInicio: '2026-07-15' } as never,
+      {} as never,
+    );
+
+    expect(service.comprobarDisponibilidad.mock.calls[0][0].usuarioId).toBeUndefined();
+  });
 });

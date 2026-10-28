@@ -352,6 +352,20 @@ const reservas: Diccionario = {
   'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'Du kannst bis 24 Std. vor der Leistung kostenlos stornieren und erhältst den vollen Betrag zurück.',
   'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'Du kannst bis 3 Tage vor der Leistung kostenlos stornieren und erhältst den vollen Betrag zurück.',
   'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'Diese Buchung ist nicht erstattungsfähig: Bei Stornierung wird der Betrag nicht zurückgezahlt.',
+  // Reserva como invitado (sin cuenta).
+  'Estás reservando sin cuenta. Cuéntanos cómo es tu perro (raza, tamaño, edad) en «Peticiones especiales» del siguiente paso.': 'Du buchst ohne Konto. Erzähl uns im nächsten Schritt unter „Besondere Wünsche“, wie dein Hund ist (Rasse, Größe, Alter).',
+  'Puedes reservar sin crear una cuenta: sólo necesitamos tus datos de contacto.': 'Du kannst ohne Konto buchen: Wir brauchen nur deine Kontaktdaten.',
+  'Ese email ya tiene una cuenta en Doogking. Inicia sesión para reservar con ella.': 'Für diese E-Mail gibt es bereits ein Doogking-Konto. Melde dich an, um damit zu buchen.',
+  'No hemos podido continuar sin cuenta. Inténtalo de nuevo o inicia sesión.': 'Ohne Konto konnten wir nicht fortfahren. Versuche es erneut oder melde dich an.',
+  'No se puede reservar con este email. Contacta con soporte.': 'Mit dieser E-Mail ist keine Buchung möglich. Wende dich an den Support.',
+  'tu reserva': 'deiner Buchung',
+  'Has reservado sin cuenta. Crea tu cuenta con este mismo correo para ver, cambiar o cancelar tus reservas.': 'Du hast ohne Konto gebucht. Erstelle mit derselben E-Mail ein Konto, um deine Buchungen zu sehen, zu ändern oder zu stornieren.',
+  'Crear mi cuenta': 'Mein Konto erstellen',
+  'Ver mi reserva': 'Meine Buchung ansehen',
+  'Has reservado sin cuenta. Guarda tu código de reserva: la confirmación ya está en tu correo.': 'Du hast ohne Konto gebucht. Bewahre deinen Buchungscode auf: Die Bestätigung ist bereits in deinem Postfach.',
+  'Crea tu cuenta con ese mismo correo': 'Erstelle ein Konto mit derselben E-Mail',
+  'para ver y gestionar tus reservas.': 'um deine Buchungen zu sehen und zu verwalten.',
+  'Para esto necesitas una cuenta. Regístrate o inicia sesión.': 'Dafür brauchst du ein Konto. Registriere dich oder melde dich an.',
 };
 
 export default reservas;

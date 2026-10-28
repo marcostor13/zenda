@@ -352,6 +352,20 @@ const reservas: Diccionario = {
   'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'You can cancel free of charge up to 24 h before the service and get a full refund.',
   'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'You can cancel free of charge up to 3 days before the service and get a full refund.',
   'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'This booking is non-refundable: if you cancel, the amount is not refunded.',
+  // Reserva como invitado (sin cuenta).
+  'Estás reservando sin cuenta. Cuéntanos cómo es tu perro (raza, tamaño, edad) en «Peticiones especiales» del siguiente paso.': 'You are booking without an account. Tell us about your dog (breed, size, age) under “Special requests” in the next step.',
+  'Puedes reservar sin crear una cuenta: sólo necesitamos tus datos de contacto.': 'You can book without creating an account: we only need your contact details.',
+  'Ese email ya tiene una cuenta en Doogking. Inicia sesión para reservar con ella.': 'That email already has a Doogking account. Log in to book with it.',
+  'No hemos podido continuar sin cuenta. Inténtalo de nuevo o inicia sesión.': 'We could not continue without an account. Try again or log in.',
+  'No se puede reservar con este email. Contacta con soporte.': 'You cannot book with this email. Please contact support.',
+  'tu reserva': 'your booking',
+  'Has reservado sin cuenta. Crea tu cuenta con este mismo correo para ver, cambiar o cancelar tus reservas.': 'You booked without an account. Create your account with this same email to view, change or cancel your bookings.',
+  'Crear mi cuenta': 'Create my account',
+  'Ver mi reserva': 'View my booking',
+  'Has reservado sin cuenta. Guarda tu código de reserva: la confirmación ya está en tu correo.': 'You booked without an account. Keep your booking code: the confirmation is already in your inbox.',
+  'Crea tu cuenta con ese mismo correo': 'Create your account with that same email',
+  'para ver y gestionar tus reservas.': 'to view and manage your bookings.',
+  'Para esto necesitas una cuenta. Regístrate o inicia sesión.': 'You need an account for this. Sign up or log in.',
 };
 
 export default reservas;

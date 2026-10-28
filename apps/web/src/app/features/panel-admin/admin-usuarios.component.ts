@@ -161,6 +161,10 @@ function labelRolDe(rol: string): string {
             <span class="cell-email" data-col="Email">{{ u.email }}</span>
             <span data-col="Rol">
               <span class="rs-badge {{ badgeRol(u.rol) }}">{{ labelRol(u.rol) }}</span>
+              <!-- Cuenta creada al reservar sin registrarse: no puede entrar. -->
+              @if (u.invitado) {
+                <span class="rs-badge rs-badge--warning" data-testid="badge-invitado">{{ 'Invitado' | t }}</span>
+              }
             </span>
             <span data-col="Verificado">
               @if (u.verificado) {

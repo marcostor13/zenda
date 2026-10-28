@@ -4,19 +4,23 @@ import { Router } from '@angular/router';
 import { firstValueFrom, of, throwError } from 'rxjs';
 import { sesionInterceptor } from './sesion.interceptor';
 import { AuthService } from '../auth/auth.service';
+import { SesionInvitadoService } from '../auth/sesion-invitado.service';
 
 describe('sesionInterceptor', () => {
   let auth: { estaAutenticado: jest.Mock; cerrarSesionLocal: jest.Mock };
   let router: { navigate: jest.Mock; url: string };
+  let invitado: { activa: jest.Mock; cerrar: jest.Mock };
 
   beforeEach(() => {
     auth = { estaAutenticado: jest.fn().mockReturnValue(true), cerrarSesionLocal: jest.fn() };
     router = { navigate: jest.fn(), url: '/reservas/abc' };
+    invitado = { activa: jest.fn().mockReturnValue(false), cerrar: jest.fn() };
 
     TestBed.configureTestingModule({
       providers: [
         { provide: AuthService, useValue: auth },
         { provide: Router, useValue: router },
+        { provide: SesionInvitadoService, useValue: invitado },
       ],
     });
   });
@@ -83,5 +87,15 @@ describe('sesionInterceptor', () => {
     expect(router.navigate).toHaveBeenCalledWith(['/auth/login'], {
       queryParams: { motivo: 'sesion', volverA: null },
     });
+  });
+
+  it('debería soltar la sesión de invitado caducada sin llevar al acceso', async () => {
+    auth.estaAutenticado.mockReturnValue(false);
+    invitado.activa.mockReturnValue(true);
+
+    await expect(ejecutar('/api/reservas', error401)).rejects.toBe(error401);
+
+    expect(invitado.cerrar).toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 });

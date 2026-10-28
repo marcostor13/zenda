@@ -84,6 +84,15 @@ export class Usuario {
   @Prop({ default: false })
   verificado!: boolean;
 
+  /**
+   * Cuenta creada al reservar sin registrarse. No tiene contraseña ni puede
+   * entrar: su sesión es de horas y sólo sirve para reservar y pagar. Deja de
+   * ser invitada cuando su dueño demuestra tener el correo (verificando un
+   * registro, restableciendo contraseña o entrando con Google/Meta).
+   */
+  @Prop({ default: false })
+  invitado!: boolean;
+
   // Bloquea el acceso hasta confirmar el email; solo se activa en registros
   // locales (email/contraseña). Google/Meta ya llegan verificados.
   @Prop({ default: false })

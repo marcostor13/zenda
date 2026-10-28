@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'crypto';
 import * as bcrypt from 'bcrypt';
-import { LoginDto, RegistroDto, AuthResponseDto, RegistroPendienteDto, Rol } from 'shared';
+import { LoginDto, RegistroDto, AuthResponseDto, RegistroPendienteDto, Rol, IniciarInvitadoDto } from 'shared';
 import { UsersRepository } from '../users/users.repository';
 import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
@@ -25,11 +25,19 @@ const CREDENCIALES_INCORRECTAS = 'Email o contraseña incorrectos';
  */
 const RECUPERACION_VALIDEZ_MS = 60 * 60 * 1000;
 
+/**
+ * Lo que dura una sesión de invitado. Da para elegir, pagar y volver de la
+ * pasarela con calma; no da para usarla como cuenta.
+ */
+const SESION_INVITADO = '6h';
+
 export interface JwtPayload {
   sub: string;
   email: string;
   rol: string;
   comercioId?: string;
+  /** Sesión de invitado: sólo abre las rutas marcadas con `@PermiteInvitado`. */
+  invitado?: boolean;
 }
 
 @Injectable()
@@ -119,6 +127,18 @@ export class AuthService {
   async registro(dto: RegistroDto): Promise<RegistroPendienteDto> {
     const existe = await this.usersRepository.findByEmail(dto.email);
 
+    // Quien reservó como invitado puede crearse la cuenta con ese mismo email y
+    // conservar sus reservas; la cuenta no es suya hasta verificar el correo.
+    if (existe?.invitado) {
+      const preparado = await this.usersRepository.prepararRegistroDeInvitado(existe.id, {
+        nombre: dto.nombre,
+        passwordHash: await bcrypt.hash(dto.password, 10),
+        telefono: dto.telefono,
+      });
+      await this.iniciarVerificacionEmail(preparado ?? existe);
+      return { requiereVerificacion: true, email: existe.email };
+    }
+
     if (existe) {
       throw new DomainException('El email ya está registrado', 409);
     }
@@ -134,6 +154,37 @@ export class AuthService {
 
     await this.iniciarVerificacionEmail(usuario);
     return { requiereVerificacion: true, email: usuario.email };
+  }
+
+  /**
+   * Sesión para reservar sin cuenta.
+   *
+   * Crea (o reutiliza) una cuenta de invitado con ese email. Si el email ya es
+   * de una cuenta de verdad no se emite nada: la sesión se da sin contraseña,
+   * así que darla sobre una cuenta ajena sería entrar en ella con sólo saber el
+   * correo. Por lo mismo, de una cuenta de invitado reutilizada no se tocan el
+   * nombre ni el teléfono: los de esta reserva viajan en la propia reserva.
+   */
+  async iniciarComoInvitado(dto: IniciarInvitadoDto): Promise<AuthResponseDto> {
+    const existente = await this.usersRepository.findByEmail(dto.email);
+
+    if (existente && !existente.invitado) {
+      throw new DomainException(
+        'Ese email ya tiene una cuenta en Doogking. Inicia sesión para reservar con ella.',
+        409,
+      );
+    }
+    if (existente?.activo === false) {
+      throw new DomainException('No se puede reservar con este email. Contacta con soporte.', 403);
+    }
+
+    const usuario = existente ?? await this.usersRepository.crear({
+      nombre: dto.nombre.trim(),
+      email: dto.email,
+      telefono: dto.telefono.trim(),
+      invitado: true,
+    });
+    return this.construirRespuesta(usuario);
   }
 
   /**
@@ -191,7 +242,9 @@ export class AuthService {
     // Sin `passwordHash` la cuenta es sólo social: no hay contraseña que
     // restablecer, y crear una por esta vía permitiría entrar sin pasar por el
     // proveedor que verificó ese email. Se le explica por correo cómo entrar.
-    if (!usuario.passwordHash) {
+    // El invitado tampoco tiene contraseña, pero no entra por ningún proveedor:
+    // el enlace es justo la forma de crearse la cuenta con sus reservas.
+    if (!usuario.passwordHash && !usuario.invitado) {
       await this.notificationsService.enviarAvisoCuentaSocial(usuario.email, usuario.nombre, {
         proveedores: usuario.proveedores ?? [],
         urlLogin: `${this.urlFrontend()}/auth/login`,
@@ -269,10 +322,13 @@ export class AuthService {
       email: usuario.email,
       rol: usuario.rol,
       comercioId: usuario.comercioId?.toString(),
+      ...(usuario.invitado ? { invitado: true } : {}),
     };
 
     return {
-      accessToken: this.jwtService.sign(payload),
+      accessToken: usuario.invitado
+        ? this.jwtService.sign(payload, { expiresIn: SESION_INVITADO })
+        : this.jwtService.sign(payload),
       usuario: {
         id: usuario.id,
         nombre: usuario.nombre,
@@ -280,6 +336,7 @@ export class AuthService {
         rol: usuario.rol,
         comercioId: usuario.comercioId?.toString(),
         verificado: usuario.verificado,
+        ...(usuario.invitado ? { invitado: true } : {}),
       },
     };
   }

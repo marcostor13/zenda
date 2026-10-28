@@ -7,6 +7,8 @@ import { RsIconComponent } from '../../../shared/components/icon/rs-icon.compone
 import { RsBrandIconComponent } from '../../../shared/components/brand-icon/rs-brand-icon.component';
 import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
+import { PagoEnCursoService } from '../services/pago-en-curso.service';
+import { AuthService } from '../../../core/auth/auth.service';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
@@ -90,6 +92,18 @@ const ESTADO_DESCONOCIDO = {
   }
 
   @if (reserva()) {
+    @if (esInvitado()) {
+      <div class="rs-wrap" style="padding-top:var(--sp-5)">
+        <div class="rs-alert rs-alert--info" data-testid="aviso-invitado">
+          <rs-icon name="user" [size]="16" [stroke]="2"></rs-icon>
+          <span>
+            {{ 'Has reservado sin cuenta. Guarda tu código de reserva: la confirmación ya está en tu correo.' | t }}
+            <a routerLink="/auth/registro" style="color:var(--c-accent)">{{ 'Crea tu cuenta con ese mismo correo' | t }}</a>
+            {{ 'para ver y gestionar tus reservas.' | t }}
+          </span>
+        </div>
+      </div>
+    }
     <!-- ── Status header bar ────────────────────────────────────── -->
     <div class="status-bar" [style.background]="estadoMeta().bg">
       <div class="rs-wrap status-bar__inner">
@@ -620,6 +634,11 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
   private readonly reservasService = inject(ReservasService);
   private readonly paymentsService = inject(PaymentsService);
   private readonly viajeApi = inject(TransporteViajeApi);
+  private readonly pagoEnCurso = inject(PagoEnCursoService);
+  private readonly auth = inject(AuthService);
+
+  /** Reserva hecha sin cuenta: se le ofrece crearla para poder gestionarla. */
+  readonly esInvitado = computed(() => !this.auth.estaAutenticado());
 
   private pollId?: ReturnType<typeof setInterval>;
 
@@ -742,6 +761,10 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     const codigo = this.route.snapshot.paramMap.get('codigo') ?? '';
+    // Vuelta de la autenticación del banco (3-D Secure): quien reservó como
+    // invitado vuelve aquí y no a «Mis reservas», así que el cobro se cierra
+    // contra el servidor antes de leer la reserva.
+    if (this.pagoEnCurso.pendiente()) await this.pagoEnCurso.resolverPendiente();
     try {
       const data = await this.reservasService.obtenerPorCodigo(codigo);
       this.reserva.set(data);

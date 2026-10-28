@@ -8,6 +8,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/auth/auth.service';
+import { SesionInvitadoService } from '../../../core/auth/sesion-invitado.service';
 import { DiagnosticoSubidaService } from '../../../core/diagnostico/diagnostico-subida.service';
 import { faqDeConfirmacion } from '../../../shared/catalogos/faq-confirmacion.catalogo';
 import {
@@ -234,7 +235,13 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             <!-- ── SELECCIÓN DE PERRO (Ficha Inteligente) ── -->
             <div class="rs-field perro-picker">
               <label class="rs-lbl">{{ '¿Para qué perro es esta reserva?' | t }}</label>
-              @if (perros().length === 0) {
+              @if (perros().length === 0 && esInvitado()) {
+                <!-- Sin cuenta no hay fichas de perro: lo que el comercio deba
+                     saber de él se cuenta en las peticiones del paso 2. -->
+                <p class="perro-picker__empty" data-testid="perro-invitado">
+                  {{ 'Estás reservando sin cuenta. Cuéntanos cómo es tu perro (raza, tamaño, edad) en «Peticiones especiales» del siguiente paso.' | t }}
+                </p>
+              } @else if (perros().length === 0) {
                 <p class="perro-picker__empty">
                   {{ 'Aún no tienes perros registrados.' | t }}
                   <a routerLink="/perros/nuevo">{{ 'Registra uno' | t }}</a> {{ 'para que el precio y los servicios se adapten a él.' | t }}
@@ -1046,6 +1053,17 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
           <div class="wizard-card">
             <h2 class="wizard-card__title">{{ 'Datos del contacto principal' | t }}</h2>
 
+            @if (esInvitado()) {
+              <div class="rs-alert rs-alert--info" data-testid="aviso-invitado" style="margin-bottom:var(--sp-5)">
+                <rs-icon name="user" [size]="16" [stroke]="2"></rs-icon>
+                <span>
+                  {{ 'Puedes reservar sin crear una cuenta: sólo necesitamos tus datos de contacto.' | t }}
+                  {{ '¿Ya tienes cuenta?' | t }}
+                  <a routerLink="/auth/login" [queryParams]="{ volverA: urlVolver() }">{{ 'Inicia sesión' | t }}</a>
+                </span>
+              </div>
+            }
+
             <form [formGroup]="paso2Form">
               <div class="form-row">
                 <div class="rs-field">
@@ -1136,9 +1154,19 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </div>
             </form>
 
+            @if (errorInvitado(); as error) {
+              <div class="rs-alert rs-alert--error" data-testid="error-invitado" style="margin-block:var(--sp-4)">
+                <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
+                <span>
+                  {{ error | t }}
+                  <a routerLink="/auth/login" [queryParams]="{ volverA: urlVolver() }">{{ 'Inicia sesión' | t }}</a>
+                </span>
+              </div>
+            }
+
             <div class="wizard-nav">
               <button class="rs-btn rs-btn--secondary" (click)="irPaso(1)">{{ '← Atrás' | t }}</button>
-              <button class="rs-btn rs-btn--gold rs-btn--lg" (click)="continuarPaso2()">
+              <button class="rs-btn rs-btn--gold rs-btn--lg" [disabled]="preparandoInvitado()" (click)="continuarPaso2()">
                 {{ 'Continuar → Pago' | t }}
               </button>
             </div>
@@ -1279,7 +1307,11 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                 <rs-icon name="alert-circle" [size]="16" [stroke]="2"></rs-icon>
                 <span>
                   {{ 'El pago se ha realizado correctamente. Estamos terminando de confirmarla con el establecimiento: puede tardar un momento en aparecer como confirmada en' | t }}
-                  <a routerLink="/reservas/mis-reservas">{{ 'mis reservas' | t }}</a>.
+                  @if (esInvitado()) {
+                    <a [routerLink]="['/reservas', codigoReserva()]">{{ 'tu reserva' | t }}</a>.
+                  } @else {
+                    <a routerLink="/reservas/mis-reservas">{{ 'mis reservas' | t }}</a>.
+                  }
                 </span>
               </div>
             }
@@ -1323,10 +1355,28 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
               </div>
             }
 
+            @if (esInvitado()) {
+              <!-- Reservó sin cuenta: crearla con el mismo correo le da acceso a
+                   esta reserva (el API la conserva al verificar el email). -->
+              <div class="rs-alert rs-alert--info" data-testid="invitado-crear-cuenta" style="text-align:left;margin-bottom:var(--sp-6)">
+                <rs-icon name="user" [size]="16" [stroke]="2"></rs-icon>
+                <span>
+                  {{ 'Has reservado sin cuenta. Crea tu cuenta con este mismo correo para ver, cambiar o cancelar tus reservas.' | t }}
+                  <a routerLink="/auth/registro">{{ 'Crear mi cuenta' | t }}</a>
+                </span>
+              </div>
+            }
+
             <div class="confirmation__actions">
-              <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--primary rs-btn--lg">
-                {{ 'Ver mis reservas' | t }}
-              </a>
+              @if (esInvitado()) {
+                <a [routerLink]="['/reservas', codigoReserva()]" class="rs-btn rs-btn--primary rs-btn--lg">
+                  {{ 'Ver mi reserva' | t }}
+                </a>
+              } @else {
+                <a routerLink="/reservas/mis-reservas" class="rs-btn rs-btn--primary rs-btn--lg">
+                  {{ 'Ver mis reservas' | t }}
+                </a>
+              }
               <a routerLink="/" class="rs-btn rs-btn--secondary rs-btn--lg">
                 {{ 'Seguir explorando' | t }}
               </a>
@@ -2027,6 +2077,21 @@ export class ReservaWizardComponent implements OnInit {
   private readonly geoService = inject(GeoService);
   private readonly eventosService = inject(EventosService);
   private readonly auth = inject(AuthService);
+  private readonly invitado = inject(SesionInvitadoService);
+
+  /**
+   * Sin sesión se reserva como invitado: el paso 2 ya pide nombre, correo y
+   * teléfono, y con ellos se abre una sesión corta al pasar al pago.
+   */
+  readonly esInvitado = computed(() => !this.auth.estaAutenticado());
+  /** Error al abrir la sesión de invitado (p. ej. el correo ya tiene cuenta). */
+  readonly errorInvitado = signal<string | null>(null);
+  readonly preparandoInvitado = signal(false);
+
+  /** A dónde volver tras iniciar sesión desde el asistente: a este mismo paso. */
+  urlVolver(): string {
+    return this.router.url;
+  }
   private readonly diagnostico = inject(DiagnosticoSubidaService);
 
   /** Escala de tamaños del dominio; ver `TAMANOS_PERRO` en shared. */
@@ -3826,12 +3891,57 @@ export class ReservaWizardComponent implements OnInit {
     return !!(control && control.invalid && control.touched);
   }
 
-  continuarPaso2(): void {
+  async continuarPaso2(): Promise<void> {
     if (this.paso2Form.invalid) {
       this.paso2Form.markAllAsTouched();
       return;
     }
+    if (this.esInvitado() && !(await this.abrirSesionInvitado())) return;
     this.irPaso(3);
+  }
+
+  /**
+   * Abre la sesión de invitado con los datos del paso 2. Si el correo cambió
+   * respecto a una sesión anterior, la reserva ya creada era de otra cuenta y
+   * se vuelve a crear al llegar al pago.
+   */
+  private async abrirSesionInvitado(): Promise<boolean> {
+    const { nombre, apellidos, email, telefono, aceptaTerminos } = this.paso2Form.getRawValue();
+    const emailAnterior = this.invitado.email();
+    this.errorInvitado.set(null);
+    this.preparandoInvitado.set(true);
+    try {
+      await this.invitado.iniciar({
+        nombre: `${nombre ?? ''} ${apellidos ?? ''}`.trim(),
+        email: email ?? '',
+        telefono: telefono ?? '',
+        aceptaCondiciones: aceptaTerminos === true,
+      });
+      if (emailAnterior && emailAnterior !== this.invitado.email()) {
+        this.stripeListo.set(false);
+        this.reservaIdReal.set(null);
+      }
+      return true;
+    } catch (error) {
+      this.errorInvitado.set(
+        this.mensajeDelApi(error) ?? 'No hemos podido continuar sin cuenta. Inténtalo de nuevo o inicia sesión.',
+      );
+      return false;
+    } finally {
+      this.preparandoInvitado.set(false);
+    }
+  }
+
+  /** Contacto que viaja en la reserva de un invitado: no tiene perfil del que sacarlo. */
+  private contactoInvitado(): { contacto?: { nombre: string; telefono?: string } } {
+    if (!this.esInvitado()) return {};
+    const { nombre, apellidos, telefono } = this.paso2Form.getRawValue();
+    return {
+      contacto: {
+        nombre: `${nombre ?? ''} ${apellidos ?? ''}`.trim(),
+        ...(telefono ? { telefono } : {}),
+      },
+    };
   }
 
   async consultarRecomendacionAdiestramiento(): Promise<void> {
@@ -4086,7 +4196,7 @@ export class ReservaWizardComponent implements OnInit {
     if (!this.servicioId || !this.comercioId) return;
     this.errorPago.set(null);
     try {
-      const payload = this.buildPayload();
+      const payload = { ...this.buildPayload(), ...this.contactoInvitado() };
       const reserva = await this.reservasService.crear(payload);
       const reservaId = reserva._id ?? reserva.id ?? null;
       this.reservaIdReal.set(reservaId);
@@ -4204,6 +4314,12 @@ export class ReservaWizardComponent implements OnInit {
     }
   }
 
+  /** Adonde devuelve el banco tras autenticar la tarjeta. */
+  private rutaTrasPago(): string {
+    const codigo = this.codigoReserva();
+    return this.esInvitado() && codigo ? `/reservas/${codigo}` : '/reservas/mis-reservas';
+  }
+
   async procesarPago(): Promise<void> {
     // Sin Stripe listo no hay pago real: no se simula éxito, se muestra el error.
     if (!this.stripe || !this.elements || !this.clientSecret) {
@@ -4231,7 +4347,8 @@ export class ReservaWizardComponent implements OnInit {
 
     const { error } = await this.stripe.confirmPayment({
       elements: this.elements,
-      confirmParams: { return_url: `${window.location.origin}/reservas/mis-reservas` },
+      // El invitado no tiene «Mis reservas»: vuelve a la ficha de su reserva.
+      confirmParams: { return_url: `${window.location.origin}${this.rutaTrasPago()}` },
       redirect: 'if_required',
     });
     this.procesando.set(false);

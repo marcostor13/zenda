@@ -12,6 +12,7 @@ import {
   ReenviarVerificacionDto,
   RecuperarPasswordDto,
   RestablecerPasswordDto,
+  IniciarInvitadoDto,
 } from 'shared';
 import { AuthService } from './auth.service';
 import { ConfigSocial, SocialAuthService } from './social-auth.service';
@@ -95,6 +96,17 @@ export class AuthController {
   @ApiOperation({ summary: 'Fijar la contraseña nueva con el token del correo; devuelve la sesión' })
   restablecerPassword(@Body() dto: RestablecerPasswordDto): Promise<AuthResponseDto> {
     return this.authService.restablecerPassword(dto.token, dto.nuevaPassword);
+  }
+
+  /**
+   * Sesión corta para reservar sin cuenta. Mismo límite que el resto de `auth`:
+   * crea cuentas, así que no puede quedar abierto al alta masiva.
+   */
+  @Post('invitado')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Sesión de invitado para reservar sin registrarse' })
+  invitado(@Body() dto: IniciarInvitadoDto): Promise<AuthResponseDto> {
+    return this.authService.iniciarComoInvitado(dto);
   }
 
   @Post('google')

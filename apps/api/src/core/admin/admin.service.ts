@@ -103,9 +103,27 @@ export interface UsuarioAdminDto extends Usuario {
 interface ReservaEnriquecidaLean extends ReservaLean {
   fechaInicio?: Date;
   comisionMonto?: number;
-  usuarioId?: { nombre?: string; email?: string };
+  usuarioId?: { nombre?: string; email?: string; telefono?: string };
+  contactoInvitado?: { nombre?: string; email?: string; telefono?: string };
   comercioId?: { nombreComercial?: string; politicaCancelacion?: string };
   servicioId?: { titulo?: string; politicaCancelacion?: string };
+}
+
+/**
+ * Quién reservó, tal como hay que enseñarlo. En una reserva de invitado manda el
+ * contacto congelado en la reserva: la cuenta de invitado se reutiliza por email
+ * y su nombre puede ser el de otra reserva anterior.
+ */
+function datosCliente(r: ReservaEnriquecidaLean): {
+  cliente: string; clienteEmail?: string; clienteTelefono?: string; esInvitado: boolean;
+} {
+  const contacto = r.contactoInvitado;
+  return {
+    cliente: contacto?.nombre || r.usuarioId?.nombre || 'Cliente',
+    clienteEmail: contacto?.email ?? r.usuarioId?.email,
+    clienteTelefono: contacto?.telefono ?? r.usuarioId?.telefono,
+    esInvitado: Boolean(contacto),
+  };
 }
 
 /** Filtros del listado de reservas del admin (TCK-8036 §2). */
@@ -122,6 +140,8 @@ export interface FiltrosReservasAdmin {
   estadoPago?: string;
   importeMin?: number;
   importeMax?: number;
+  /** 'invitado' = reservas hechas sin cuenta; 'registrado' = el resto. */
+  tipoCliente?: string;
 }
 
 export interface FiltrosReporte {
@@ -228,7 +248,7 @@ export class AdminService {
         .find()
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('codigo vertical montoTotal comisionMonto estado createdAt fechaInicio')
+        .select('codigo vertical montoTotal comisionMonto estado createdAt fechaInicio contactoInvitado')
         .populate('usuarioId', 'nombre')
         .populate('comercioId', 'nombreComercial')
         .populate('servicioId', 'titulo')
@@ -300,7 +320,8 @@ export class AdminService {
         estado: r.estado,
         createdAt: r.createdAt,
         fechaServicio: r.fechaInicio ?? null,
-        cliente: r.usuarioId?.nombre ?? 'Cliente',
+        cliente: datosCliente(r).cliente,
+        esInvitado: datosCliente(r).esInvitado,
         comercio: r.comercioId?.nombreComercial ?? 'Comercio',
         servicio: r.servicioId?.titulo ?? r.vertical,
         comisionMonto: r.comisionMonto ?? 0,
@@ -1158,6 +1179,8 @@ export class AdminService {
         servicio: r['servicio'] as string | undefined,
         cliente: String(r['cliente'] ?? ''),
         clienteEmail: r['clienteEmail'] as string | undefined,
+        clienteTelefono: r['clienteTelefono'] as string | undefined,
+        esInvitado: r['esInvitado'] === true,
         perro: r['perroNombre'] as string | undefined,
         estado: String(r['estado'] ?? ''),
         estadoPago: String(r['estadoPago'] ?? 'sin_pago'),
@@ -1439,6 +1462,8 @@ export class AdminService {
     if (filtros.comercioId) filtro['comercioId'] = filtros.comercioId;
     if (filtros.servicioId) filtro['servicioId'] = filtros.servicioId;
     if (filtros.vertical) filtro['vertical'] = filtros.vertical;
+    if (filtros.tipoCliente === 'invitado') filtro['contactoInvitado'] = { $exists: true };
+    if (filtros.tipoCliente === 'registrado') filtro['contactoInvitado'] = { $exists: false };
     if (filtros.buscar) {
       const regex = regexLiteral(filtros.buscar);
       // Buscar sólo por código obligaba a conocer la reserva de antemano; ahora
@@ -1449,6 +1474,10 @@ export class AdminService {
       ]);
       filtro['$or'] = [
         { codigo: regex },
+        // El contacto de un invitado está en la reserva, no en su cuenta.
+        { 'contactoInvitado.nombre': regex },
+        { 'contactoInvitado.email': regex },
+        { 'contactoInvitado.telefono': regex },
         ...(usuarios.length ? [{ usuarioId: { $in: usuarios.map((u) => u._id) } }] : []),
         ...(comercios.length ? [{ comercioId: { $in: comercios.map((c) => c._id) } }] : []),
       ];
@@ -1494,7 +1523,7 @@ export class AdminService {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limite)
-        .populate('usuarioId', 'nombre email')
+        .populate('usuarioId', 'nombre email telefono')
         .populate('comercioId', 'nombreComercial politicaCancelacion')
         .populate('servicioId', 'titulo politicaCancelacion')
         .lean()
@@ -1518,8 +1547,7 @@ export class AdminService {
     const enriquecidas = items.map((r) => ({
       ...r,
       id: String(r._id),
-      cliente: r.usuarioId?.nombre ?? 'Cliente',
-      clienteEmail: r.usuarioId?.email,
+      ...datosCliente(r),
       comercio: r.comercioId?.nombreComercial ?? 'Comercio',
       servicio: r.servicioId?.titulo ?? r.vertical,
       estadoPago: pagoPorReserva.get(String(r._id))?.estado ?? 'sin_pago',

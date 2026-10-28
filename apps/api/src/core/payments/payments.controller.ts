@@ -15,7 +15,7 @@ import { Request } from 'express';
 import { SkipThrottle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { EstadoSincronizacion, PaymentsService } from './payments.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { JwtAuthGuard, PermiteInvitado } from '../auth/guards/jwt-auth.guard';
 import { CrearPaymentIntentDto, PaymentIntentResponseDto } from 'shared';
 
 interface RequestConUsuario extends Request {
@@ -29,6 +29,7 @@ export class PaymentsController {
 
   @Post('intent')
   @UseGuards(JwtAuthGuard)
+  @PermiteInvitado()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Crear PaymentIntent de Stripe para una reserva' })
   crearIntent(
@@ -59,6 +60,7 @@ export class PaymentsController {
    */
   @Post(':pagoId/sincronizar')
   @UseGuards(JwtAuthGuard)
+  @PermiteInvitado()
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Consultar en la pasarela cómo quedó un pago y confirmar si procede' })
@@ -76,6 +78,7 @@ export class PaymentsController {
    */
   @Post('reservas/:id/confirmar-sin-cobro')
   @UseGuards(JwtAuthGuard)
+  @PermiteInvitado()
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Confirmar la reserva sin cobrar (sólo en entornos de prueba)' })

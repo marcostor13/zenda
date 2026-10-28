@@ -1,9 +1,23 @@
 import {
   IsString, IsOptional, IsInt, IsDateString, Min, IsEnum, IsObject, ValidateNested, IsArray, ArrayMaxSize,
+  IsNotEmpty, MaxLength,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VerticalKey } from '../../enums/vertical.enum';
 import { RecurrenciaDto } from './recurrencia.dto';
+
+/** Contacto de quien reserva sin cuenta. El email no viaja: es el de su sesión. */
+export class ContactoReservaDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(120)
+  nombre!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  telefono?: string;
+}
 
 export class CrearReservaDto {
   @IsString()
@@ -63,4 +77,13 @@ export class CrearReservaDto {
   @ValidateNested()
   @Type(() => RecurrenciaDto)
   recurrencia?: RecurrenciaDto;
+
+  /**
+   * Sólo para reservas de invitado: a quién atender y a qué teléfono llamar.
+   * Con cuenta se ignora, porque esos datos ya están en el perfil.
+   */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ContactoReservaDto)
+  contacto?: ContactoReservaDto;
 }

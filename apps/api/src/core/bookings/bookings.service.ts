@@ -23,7 +23,7 @@ import {
   AgendaCitasRespuestaApi, DisponibilidadRespuesta, ExcepcionHorarioDto, HuecosDelDiaRespuestaApi,
   HorarioDiaDto, claveDiaEnZona, comprobarHorario, comprobarEntradaYSalida, describirProblemaEstancia,
   esHoraValida, esMedianocheUtc, fechaYHoraEnZona, horaEnZona, instanteEnZona, partesEnZona,
-  MAX_OCURRENCIAS_SERIE, ocurrenciasDeSerie,
+  MAX_OCURRENCIAS_SERIE, ocurrenciasDeSerie, ContactoInvitado,
 } from 'shared';
 import { nanoid } from 'nanoid';
 
@@ -46,7 +46,8 @@ export interface RecurrenciaParams {
  * sólo influyen en el importe y en cuántas reservas se generan al confirmar.
  */
 export interface ComprobarDisponibilidadParams {
-  usuarioId: string;
+  /** Sin sesión se puede consultar igual: el paso 1 del invitado aún no la tiene. */
+  usuarioId?: string;
   servicioId: string;
   comercioId?: string;
   vertical?: VerticalKey;
@@ -85,6 +86,8 @@ export interface CrearReservaParams {
    * demás —comisión, IVA, cupones— se calcula igual que en cualquier reserva.
    */
   precioAcordado?: number;
+  /** Reserva de invitado: contacto que se congela en la reserva. */
+  contactoInvitado?: ContactoInvitado;
 }
 
 const MAX_OCURRENCIAS_RECURRENCIA = MAX_OCURRENCIAS_SERIE;
@@ -105,7 +108,7 @@ const MOTIVO_HORA_OCUPADA = 'Esa hora ya está reservada. Elige otra de las cita
 const MAX_DIAS_CALENDARIO = 120;
 
 export interface CalendarioDisponibilidadParams {
-  usuarioId: string;
+  usuarioId?: string;
   servicioId: string;
   desde: Date;
   hasta: Date;
@@ -203,7 +206,8 @@ export class BookingsService {
     const estrategia = this.availabilityRegistry.obtener(servicio.vertical);
     const fechaInicio = this.inicioConHora(params.fechaInicio, params.detalle);
 
-    const perroSnapshot = params.perroId
+    // La ficha del perro sólo cuenta si es de quien pregunta: sin sesión no la hay.
+    const perroSnapshot = params.perroId && params.usuarioId
       ? construirSnapshotPerro(await this.perrosService.obtenerPropio(params.perroId, params.usuarioId))
       : undefined;
 
@@ -540,6 +544,7 @@ export class BookingsService {
       holdId: hold.holdId,
       aceptacion: this.aceptacionRequerida(disponibilidad.metadata),
       historialEstados: [{ estado: ReservaEstado.PENDIENTE, por: 'sistema', at: new Date() }],
+      ...(params.contactoInvitado ? { contactoInvitado: params.contactoInvitado } : {}),
     });
 
     const guardada = await reserva.save();

@@ -3,9 +3,11 @@ import { HttpRequest, HttpHandlerFn, HttpEvent } from '@angular/common/http';
 import { of } from 'rxjs';
 import { authInterceptor } from './auth.interceptor';
 import { AuthService } from '../auth/auth.service';
+import { SesionInvitadoService } from '../auth/sesion-invitado.service';
 
 describe('authInterceptor', () => {
   let token: string | null;
+  let tokenInvitado: string | null;
   let siguiente: jest.Mock<ReturnType<HttpHandlerFn>, [HttpRequest<unknown>]>;
 
   /** Ejecuta el interceptor dentro del contexto de inyección que necesita. */
@@ -19,10 +21,14 @@ describe('authInterceptor', () => {
 
   beforeEach(() => {
     token = null;
+    tokenInvitado = null;
     siguiente = jest.fn().mockReturnValue(of({} as HttpEvent<unknown>));
 
     TestBed.configureTestingModule({
-      providers: [{ provide: AuthService, useValue: { token: () => token } }],
+      providers: [
+        { provide: AuthService, useValue: { token: () => token } },
+        { provide: SesionInvitadoService, useValue: { token: () => tokenInvitado } },
+      ],
     });
   });
 
@@ -73,5 +79,22 @@ describe('authInterceptor', () => {
     interceptar(new HttpRequest('GET', '/api/v1/catalog'));
 
     expect(peticionEnviada().headers.has('Authorization')).toBe(false);
+  });
+
+  it('debería mandar el token de invitado si no hay sesión normal', () => {
+    tokenInvitado = 'jwt-invitado';
+
+    interceptar(new HttpRequest('GET', '/api/v1/reservas'));
+
+    expect(peticionEnviada().headers.get('Authorization')).toBe('Bearer jwt-invitado');
+  });
+
+  it('debería preferir la sesión normal a la de invitado', () => {
+    token = 'jwt-cuenta';
+    tokenInvitado = 'jwt-invitado';
+
+    interceptar(new HttpRequest('GET', '/api/v1/reservas'));
+
+    expect(peticionEnviada().headers.get('Authorization')).toBe('Bearer jwt-cuenta');
   });
 });

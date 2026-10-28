@@ -194,7 +194,8 @@ export const routes: Routes = [
       {
         path: 'reservas',
         // Una cuenta de comercio no reserva como cliente: se la lleva a su panel.
-        canActivate: [authGuard, soloClientesGuard],
+        // La sesión la pide cada ruta hija: el asistente admite invitados.
+        canActivate: [soloClientesGuard],
         loadChildren: () => import('./features/reservas/reservas.routes').then((m) => m.reservasRoutes),
       },
       {

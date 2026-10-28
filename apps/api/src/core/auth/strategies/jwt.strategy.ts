@@ -63,6 +63,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: usuario.email,
       rol: usuario.rol,
       comercioId: usuario.comercioId?.toString(),
+      // De la cuenta y no del token: en cuanto el invitado reclama su cuenta,
+      // la sesión deja de estar recortada.
+      ...(usuario.invitado ? { invitado: true } : {}),
     };
 
     this.escribirCache(payload.sub, vigente);

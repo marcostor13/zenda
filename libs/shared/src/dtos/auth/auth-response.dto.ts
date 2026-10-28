@@ -14,5 +14,10 @@ export class AuthResponseDto {
      * documental del comercio (TCK-8029).
      */
     verificado?: boolean;
+    /**
+     * Sesión de invitado: reserva sin cuenta. Sólo da acceso al asistente de
+     * reserva y al pago, y caduca en horas.
+     */
+    invitado?: boolean;
   };
 }

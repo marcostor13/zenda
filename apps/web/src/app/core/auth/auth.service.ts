@@ -4,7 +4,8 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { LoginDto, RegistroDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, Rol } from 'shared';
 import { environment } from '../../../environments/environment';
-import { almacenLocal } from '../plataforma/almacen';
+import { almacenLocal, almacenSesion } from '../plataforma/almacen';
+import { CLAVE_SESION_INVITADO } from './sesion-invitado.service';
 
 export interface UsuarioAutenticado {
   id: string;
@@ -207,6 +208,9 @@ export class AuthService {
   }
 
   private guardarSesion(respuesta: AuthResponseDto): void {
+    // Con cuenta de verdad sobra la sesión de invitado (ver SesionInvitadoService).
+    // Se borra por clave y no inyectando el servicio para no cruzar dependencias.
+    almacenSesion().removeItem(CLAVE_SESION_INVITADO);
     almacenLocal().setItem(TOKEN_KEY, respuesta.accessToken);
     almacenLocal().setItem('zenda_usuario', JSON.stringify(respuesta.usuario));
     this._token.set(respuesta.accessToken);

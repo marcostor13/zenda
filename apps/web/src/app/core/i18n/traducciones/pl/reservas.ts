@@ -352,6 +352,20 @@ const reservas: Diccionario = {
   'Puedes cancelar gratis hasta 24 h antes del servicio y recuperas el importe íntegro.': 'Możesz bezpłatnie anulować do 24 h przed usługą i otrzymać pełny zwrot.',
   'Puedes cancelar gratis hasta 3 días antes del servicio y recuperas el importe íntegro.': 'Możesz bezpłatnie anulować do 3 dni przed usługą i otrzymać pełny zwrot.',
   'Esta reserva no tiene devolución si la cancelas: el importe no se reembolsa.': 'Ta rezerwacja jest bezzwrotna: w razie anulowania kwota nie zostanie zwrócona.',
+  // Reserva como invitado (sin cuenta).
+  'Estás reservando sin cuenta. Cuéntanos cómo es tu perro (raza, tamaño, edad) en «Peticiones especiales» del siguiente paso.': 'Rezerwujesz bez konta. Opisz swojego psa (rasa, wielkość, wiek) w polu „Specjalne prośby” w następnym kroku.',
+  'Puedes reservar sin crear una cuenta: sólo necesitamos tus datos de contacto.': 'Możesz zarezerwować bez zakładania konta: potrzebujemy tylko Twoich danych kontaktowych.',
+  'Ese email ya tiene una cuenta en Doogking. Inicia sesión para reservar con ella.': 'Ten e-mail ma już konto w Doogking. Zaloguj się, aby zarezerwować.',
+  'No hemos podido continuar sin cuenta. Inténtalo de nuevo o inicia sesión.': 'Nie udało się kontynuować bez konta. Spróbuj ponownie lub zaloguj się.',
+  'No se puede reservar con este email. Contacta con soporte.': 'Nie można zarezerwować z tym adresem e-mail. Skontaktuj się z pomocą.',
+  'tu reserva': 'Twojej rezerwacji',
+  'Has reservado sin cuenta. Crea tu cuenta con este mismo correo para ver, cambiar o cancelar tus reservas.': 'Zarezerwowałeś bez konta. Załóż konto na ten sam e-mail, aby przeglądać, zmieniać lub anulować rezerwacje.',
+  'Crear mi cuenta': 'Załóż konto',
+  'Ver mi reserva': 'Zobacz moją rezerwację',
+  'Has reservado sin cuenta. Guarda tu código de reserva: la confirmación ya está en tu correo.': 'Zarezerwowałeś bez konta. Zachowaj kod rezerwacji: potwierdzenie jest już w Twojej skrzynce.',
+  'Crea tu cuenta con ese mismo correo': 'Załóż konto na ten sam e-mail',
+  'para ver y gestionar tus reservas.': 'aby przeglądać rezerwacje i nimi zarządzać.',
+  'Para esto necesitas una cuenta. Regístrate o inicia sesión.': 'Do tego potrzebujesz konta. Zarejestruj się lub zaloguj.',
 };
 
 export default reservas;

@@ -47,6 +47,7 @@ export * from './dtos/auth/auth-response.dto';
 export * from './dtos/auth/social-login.dto';
 export * from './dtos/auth/verificacion-email.dto';
 export * from './dtos/auth/recuperar-password.dto';
+export * from './dtos/auth/invitado.dto';
 
 // DTOs — Payments
 export * from './dtos/payments/crear-payment-intent.dto';
