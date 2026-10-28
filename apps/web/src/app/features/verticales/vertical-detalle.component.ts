@@ -12,7 +12,7 @@ import { verticalUi, VerticalUi } from '../../shared/verticales/verticales.confi
 import { precioDesde } from '../../shared/verticales/precio-desde';
 import { EventosService } from '../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../shared/components/ubicacion/rs-ubicacion.component';
-import { RsHorarioPublicoComponent } from '../../shared/components/horario/rs-horario-publico.component';
+import { RsHorarioPublicoComponent, tieneHorario } from '../../shared/components/horario/rs-horario-publico.component';
 import { PuntoUbicacion } from '../../shared/mapas/google-maps';
 import { CatalogBrowseService, ServicioDetalle } from './catalog-browse.service';
 import { ReservasService } from '../reservas/services/reservas.service';
@@ -535,7 +535,7 @@ const CONFIGS: Record<string, DetalleConfig> = {
         }
 
         <!-- Cuándo atienden: el horario es de este servicio, no del negocio. -->
-        <div class="section-block">
+        <div class="section-block horario--movil">
           <rs-horario-publico [horario]="s.horario" [excepciones]="s.excepcionesHorario" />
         </div>
 
@@ -653,6 +653,18 @@ const CONFIGS: Record<string, DetalleConfig> = {
           Va una sola vez: dos "rs-ubicacion" serían dos mapas montados.
           En móvil la columna cae al final, así que el mapa cierra la ficha.
         -->
+        <!--
+          El horario sube a la columna de la derecha en escritorio. Sin él, el
+          panel y el mapa se quedaban muy por debajo del alto de la pantalla y
+          dejaban un hueco vacío bajo ellos durante toda la ficha. En móvil la
+          columna cae al final, así que ahí se queda con el resto del contenido.
+        -->
+        @if (tieneHorario(s.horario)) {
+          <div class="side-horario rs-card horario--escritorio" data-testid="horario-lateral">
+            <rs-horario-publico [horario]="s.horario" [excepciones]="s.excepcionesHorario" />
+          </div>
+        }
+
         <div class="side-mapa rs-card">
           <rs-ubicacion [lugar]="ubicacion()" [compacto]="true" />
         </div>
@@ -895,6 +907,10 @@ const CONFIGS: Record<string, DetalleConfig> = {
 
     /* La tarjeta del mapa, separada del panel de reserva pero en su columna. */
     .side-mapa { margin-top: var(--sp-4); padding: var(--sp-4); }
+    /* El horario va en una columna u otra según el ancho (ver plantilla). */
+    .side-horario { margin-top: var(--sp-4); padding: var(--sp-4); }
+    .horario--escritorio { @media (max-width: 1024px) { display: none; } }
+    .horario--movil { @media (min-width: 1025px) { display: none; } }
 
     /* ── Servicios con su tarifa ──────────────────────────────────── */
     .tarifas {
@@ -993,6 +1009,9 @@ export class VerticalDetalleComponent implements OnInit {
   readonly servicio = signal<ServicioDetalle | null>(null);
 
   /** Dirección de la cabecera sin huecos ni repeticiones («1, 1, , Valencia» → «Valencia»). */
+  /** Para la plantilla: la tarjeta lateral del horario sólo si hay horario. */
+  readonly tieneHorario = tieneHorario;
+
   readonly lineaDireccion = computed(() => {
     const s = this.servicio();
     return s ? formatearDireccion([s.direccion, s.ciudad]) : '';

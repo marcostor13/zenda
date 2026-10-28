@@ -22,6 +22,14 @@ const POR_INDICE = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'vierne
 /** Posición del día en la semana (lunes = 0), para saber cuáles son seguidos. */
 const ORDEN = new Map<string, number>(DIAS_SEMANA.map((dia, i) => [dia, i]));
 
+/**
+ * Si hay algo que enseñar. Lo usan también las fichas para no pintar la
+ * tarjeta que envuelve al horario cuando el servicio no tiene ninguno.
+ */
+export function tieneHorario(horario: readonly HorarioDiaDto[] | null | undefined): boolean {
+  return (horario ?? []).some((d) => d.cerrado || (d.abre && d.cierra));
+}
+
 /** Un bloque de días seguidos que abren igual. */
 interface BloqueHorario {
   readonly clave: string;
@@ -138,8 +146,7 @@ export class RsHorarioPublicoComponent {
   readonly excepciones = input<ExcepcionHorarioDto[] | undefined>();
 
   /** Sin ningún día con horas puestas no se pinta nada: una tabla vacía estorba. */
-  readonly hayHorario = computed(() =>
-    (this.horario() ?? []).some((d) => d.cerrado || (d.abre && d.cierra)));
+  readonly hayHorario = computed(() => tieneHorario(this.horario()));
 
   /**
    * La semana agrupada: los días seguidos con el mismo horario salen en una

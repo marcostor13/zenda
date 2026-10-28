@@ -21,7 +21,7 @@ import {
 } from 'shared';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../../shared/components/ubicacion/rs-ubicacion.component';
-import { RsHorarioPublicoComponent } from '../../../shared/components/horario/rs-horario-publico.component';
+import { RsHorarioPublicoComponent, tieneHorario } from '../../../shared/components/horario/rs-horario-publico.component';
 import { PuntoUbicacion } from '../../../shared/mapas/google-maps';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
@@ -241,7 +241,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
         </div>
 
         <!-- Cuándo atienden: el horario es de este servicio, no del negocio. -->
-        <div class="section-block" rsAnim>
+        <div class="section-block horario--movil" rsAnim>
           <rs-horario-publico [horario]="alojamiento()!.horario"
                               [excepciones]="alojamiento()!.excepcionesHorario" />
         </div>
@@ -571,6 +571,19 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
           Va una sola vez: dos "rs-ubicacion" serían dos mapas montados.
           En móvil la columna cae al final, así que el mapa cierra la ficha.
         -->
+        <!--
+          El horario sube a la columna de la derecha en escritorio. Sin él, el
+          panel y el mapa se quedaban muy por debajo del alto de la pantalla y
+          dejaban un hueco vacío bajo ellos durante toda la ficha. En móvil la
+          columna cae al final, así que ahí se queda con el resto del contenido.
+        -->
+        @if (tieneHorario(alojamiento()!.horario)) {
+          <div class="side-horario rs-card horario--escritorio" data-testid="horario-lateral">
+            <rs-horario-publico [horario]="alojamiento()!.horario"
+                                [excepciones]="alojamiento()!.excepcionesHorario" />
+          </div>
+        }
+
         <div class="side-mapa rs-card">
           <rs-ubicacion [lugar]="ubicacion()" [compacto]="true" />
         </div>
@@ -901,6 +914,10 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
 
     /* La tarjeta del mapa, separada del panel de reserva pero en su columna. */
     .side-mapa { margin-top: var(--sp-4); padding: var(--sp-4); }
+    /* El horario va en una columna u otra según el ancho (ver plantilla). */
+    .side-horario { margin-top: var(--sp-4); padding: var(--sp-4); }
+    .horario--escritorio { @media (max-width: 1024px) { display: none; } }
+    .horario--movil { @media (min-width: 1025px) { display: none; } }
 
     .compromiso-block {
       margin-top: var(--sp-5);
@@ -1088,6 +1105,9 @@ export class AlojamientoDetalleComponent implements OnInit {
    * Línea de la cabecera: «Calle Mayor, 12, Ruzafa, Valencia» sin huecos ni
    * repeticiones. Se montaba a mano y con datos a medias salía «1, 1, , Valencia».
    */
+  /** Para la plantilla: la tarjeta lateral del horario sólo si hay horario. */
+  readonly tieneHorario = tieneHorario;
+
   readonly lineaDireccion = computed(() => {
     const a = this.alojamiento();
     return a ? formatearDireccion([a.direccion, a.barrio, a.ciudad]) : '';

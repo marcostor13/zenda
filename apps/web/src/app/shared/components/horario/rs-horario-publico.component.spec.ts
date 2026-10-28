@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { partesEnZona, type HorarioDiaDto } from 'shared';
-import { RsHorarioPublicoComponent } from './rs-horario-publico.component';
+import { RsHorarioPublicoComponent, tieneHorario } from './rs-horario-publico.component';
 
 describe('RsHorarioPublicoComponent', () => {
   let fixture: ComponentFixture<RsHorarioPublicoComponent>;
@@ -230,5 +230,18 @@ describe('RsHorarioPublicoComponent', () => {
 
       expect(componente.especialesProximos()[0].fechaLegible).not.toBe(fecha);
     });
+  });
+});
+
+describe('tieneHorario', () => {
+  it('debería decir que no hay nada que enseñar sin días o con días a medio rellenar', () => {
+    expect(tieneHorario(undefined)).toBe(false);
+    expect(tieneHorario([])).toBe(false);
+    expect(tieneHorario([{ dia: 'lunes', abre: '09:00' } as HorarioDiaDto])).toBe(false);
+  });
+
+  it('debería contar un día con horas o un día cerrado', () => {
+    expect(tieneHorario([{ dia: 'lunes', abre: '09:00', cierra: '14:00' } as HorarioDiaDto])).toBe(true);
+    expect(tieneHorario([{ dia: 'domingo', cerrado: true } as HorarioDiaDto])).toBe(true);
   });
 });
