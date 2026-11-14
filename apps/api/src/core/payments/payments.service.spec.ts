@@ -8,7 +8,7 @@ import { ComisionConfigRepository } from '../comision-configs/comision-config.re
 import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { PagoEstado, VerticalKey, IVA_RATE } from 'shared';
+import { PagoEstado, VerticalKey, IVA_RATE, AsumeDescuento } from 'shared';
 
 describe('PaymentsService', () => {
   let service: PaymentsService;
@@ -66,6 +66,7 @@ describe('PaymentsService', () => {
     pagoModel = jest.fn().mockImplementation(() => ({ ...pagoMock, save: mockSave }));
     pagoModel.findOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
     pagoModel.findById = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+    pagoModel.updateOne = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) });
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -212,6 +213,30 @@ describe('PaymentsService', () => {
         expect(desglose.montoTotal).toBe(total);
         expect(Math.round((desglose.montoSubtotal + desglose.ivaMonto) * 100) / 100).toBe(total);
       }
+    });
+
+    it('debería devolverle al comercio el descuento de un cupón que asume la plataforma', async () => {
+      const conCupon = {
+        ...reservaMock, montoTotal: 90, montoSubtotal: 74.38, comisionMonto: 12.4,
+        descuentoMonto: 10, descuentoAsumidoPor: AsumeDescuento.PLATAFORMA,
+      };
+
+      const desglose = await service.calcularDesglose(conCupon as never);
+
+      expect(desglose.descuentoPlataforma).toBe(10);
+      expect(desglose.montoLiquidacion).toBe(Math.round((90 + 10 - 12.4 - desglose.stripeFee) * 100) / 100);
+    });
+
+    it('no debería compensar al comercio por una promoción suya', async () => {
+      const conCupon = {
+        ...reservaMock, montoTotal: 90, montoSubtotal: 74.38, comisionMonto: 11.16,
+        descuentoMonto: 10, descuentoAsumidoPor: AsumeDescuento.COMERCIO,
+      };
+
+      const desglose = await service.calcularDesglose(conCupon as never);
+
+      expect(desglose.descuentoPlataforma).toBe(0);
+      expect(desglose.montoLiquidacion).toBe(Math.round((90 - 11.16 - desglose.stripeFee) * 100) / 100);
     });
 
     it('debería cobrar la comisión pactada en la reserva, no la vigente hoy', async () => {
@@ -406,9 +431,25 @@ describe('PaymentsService', () => {
      * reintento de Stripe chocaba contra el propio guard de idempotencia.
      */
     describe('orden de confirmación y reintentos', () => {
+      it('no debería avisar dos veces si el webhook y la sincronización aprueban el pago a la vez', async () => {
+        pagoModel.updateOne.mockReturnValue({ exec: jest.fn().mockResolvedValue({ modifiedCount: 0 }) });
+        bookingsService.confirmar.mockResolvedValue({} as never);
+        pagoModel.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue({ ...pagoMock, save: jest.fn() }) });
+        paymentGateway.construirEvento.mockReturnValue({});
+        paymentGateway.extraerIntentDeEvento.mockReturnValue({ intentId: 'pi_test', estado: 'succeeded' });
+
+        await service.procesarWebhook(Buffer.from('{}'), 'sig_test');
+
+        expect(notificationsService.notificarReservaConfirmada).not.toHaveBeenCalled();
+      });
+
       it('debería confirmar la reserva ANTES de marcar el pago como aprobado', async () => {
         const orden: string[] = [];
-        const save = jest.fn().mockImplementation(() => { orden.push('pago-guardado'); });
+        const save = jest.fn();
+        pagoModel.updateOne.mockImplementation(() => {
+          orden.push('pago-guardado');
+          return { exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) };
+        });
         bookingsService.confirmar.mockImplementation(async () => {
           orden.push('reserva-confirmada');
           return {} as never;
@@ -433,11 +474,16 @@ describe('PaymentsService', () => {
 
         await expect(service.procesarWebhook(Buffer.from('{}'), 'sig_test')).rejects.toThrow();
         expect(save).not.toHaveBeenCalled();
+        expect(pagoModel.updateOne).not.toHaveBeenCalled();
       });
 
       it('debería confirmar todas las líneas del viaje antes de marcar el pago', async () => {
         const orden: string[] = [];
-        const save = jest.fn().mockImplementation(() => { orden.push('pago-guardado'); });
+        const save = jest.fn();
+        pagoModel.updateOne.mockImplementation(() => {
+          orden.push('pago-guardado');
+          return { exec: jest.fn().mockResolvedValue({ modifiedCount: 1 }) };
+        });
         bookingsService.confirmar.mockImplementation(async (id: string) => {
           orden.push(id);
           return {} as never;
@@ -543,6 +589,24 @@ describe('PaymentsService', () => {
       expect(guardado.reservaIds).toEqual(['r1', 'r2']);
       // La primera hace de referencia principal del pago.
       expect(guardado.reservaId).toBe('r1');
+    });
+
+    it('debería guardar el desglose de cada comercio, con el fijo de Stripe sólo en la primera línea', async () => {
+      // Sin las líneas, liquidaciones y paneles atribuían el viaje entero al
+      // comercio de la primera reserva y los demás no cobraban nada.
+      bookingsService.obtenerPorId
+        .mockResolvedValueOnce(linea('r1', 100, 15) as never)
+        .mockResolvedValueOnce(linea('r2', 200, 30) as never);
+
+      await service.crearIntentDeViaje(['r1', 'r2'], 'user-1');
+
+      const { lineas, stripeFee, montoLiquidacion } = pagoModel.mock.calls[0][0];
+      expect(lineas).toHaveLength(2);
+      expect(lineas[0].stripeFee).toBeCloseTo(121 * 0.029 + 1.1, 2);
+      expect(lineas[1].stripeFee).toBeCloseTo(242 * 0.029, 2);
+      expect(lineas[1].montoLiquidacion).toBeCloseTo(242 - 30 - lineas[1].stripeFee, 2);
+      expect(stripeFee).toBeCloseTo(lineas[0].stripeFee + lineas[1].stripeFee, 2);
+      expect(montoLiquidacion).toBeCloseTo(lineas[0].montoLiquidacion + lineas[1].montoLiquidacion, 2);
     });
 
     it('debería marcar el intent como viaje en los metadatos de la pasarela', async () => {

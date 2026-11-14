@@ -17,6 +17,7 @@ import { Usuario, UsuarioSchema } from '../users/usuario.schema';
 import { Comercio, ComercioSchema } from '../comercios/comercio.schema';
 import { Perro, PerroSchema } from '../perros/perro.schema';
 import { AuthModule } from '../auth/auth.module';
+import { PaymentsModule } from '../payments/payments.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AuthModule } from '../auth/auth.module';
     ComerciosModule,
     UsersModule,
     AuthModule,
+    PaymentsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

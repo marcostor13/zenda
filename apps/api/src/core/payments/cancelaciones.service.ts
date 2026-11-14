@@ -9,6 +9,7 @@ import { BookingsService } from '../bookings/bookings.service';
 import { ReservaDocument } from '../bookings/reserva.schema';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PoliticaReembolso } from '../availability/availability.strategy';
+import { DomainException } from '../../shared/exceptions/domain.exception';
 
 /** Lo que el cliente ve antes de confirmar la cancelación. */
 export interface VistaPreviaCancelacion {
@@ -90,6 +91,31 @@ export class CancelacionesService {
     return vencidas.length;
   }
 
+  /**
+   * El admin marca una reserva como reembolsada: se devuelve en Stripe lo que
+   * quede por devolver de su cobro y se dice cuánto.
+   *
+   * Antes el botón sólo cambiaba el estado: el panel la daba por reembolsada,
+   * el dashboard la sumaba a «reembolsado» y el cliente no recibía nada. En
+   * producción hay reservas así que nunca llegaron a cobrarse; por eso, sin
+   * cobro que devolver, se rechaza en vez de fingirlo.
+   */
+  async reembolsarPorAdmin(reservaId: string): Promise<number> {
+    const reserva = await this.bookings.obtenerPorId(reservaId);
+    if (!reserva) {
+      throw new DomainException('Reserva no encontrada', 404);
+    }
+    const cobrado = await this.pagoModel.exists({
+      $or: [{ reservaId: reserva._id }, { 'lineas.reservaId': reserva._id }, { reservaIds: reserva._id }],
+      estado: { $in: [PagoEstado.APROBADO, PagoEstado.REEMBOLSADO] },
+      esSuplemento: false,
+    });
+    if (!cobrado) {
+      throw new DomainException('Esta reserva no tiene ningún cobro que devolver: cancélala en lugar de reembolsarla.', 409);
+    }
+    return this.reembolsar(reserva, reserva.montoTotal);
+  }
+
   private async cancelarConDevolucionTotal(
     reserva: ReservaDocument,
     params: { por: string; motivo: string; aceptacion: 'rechazada' | 'caducada' },
@@ -125,7 +151,7 @@ export class CancelacionesService {
     if (importe <= 0) return 0;
     const pago = await this.pagoModel
       .findOne({
-        $or: [{ reservaId: reserva._id }, { reservaIds: reserva._id }],
+        $or: [{ reservaId: reserva._id }, { reservaIds: reserva._id }, { 'lineas.reservaId': reserva._id }],
         estado: PagoEstado.APROBADO,
         esSuplemento: false,
       })
@@ -133,7 +159,13 @@ export class CancelacionesService {
       .exec();
     if (!pago) return 0;
 
-    const devolver = redondear(Math.min(importe, pago.montoTotal - (pago.importeReembolsado ?? 0)));
+    // En un viaje se devuelve, como mucho, lo cobrado por **esta** reserva: el
+    // tope del pago entero dejaba cancelar una línea devolviendo las de otros.
+    const linea = pago.lineas?.find((l) => String(l.reservaId) === String(reserva._id));
+    const disponible = linea
+      ? linea.montoTotal - (linea.importeReembolsado ?? 0)
+      : pago.montoTotal - (pago.importeReembolsado ?? 0);
+    const devolver = redondear(Math.min(importe, disponible));
     if (devolver <= 0) return 0;
 
     if (pago.stripePaymentIntentId && !pago.esPrueba) {
@@ -150,6 +182,10 @@ export class CancelacionesService {
       );
     }
     pago.importeReembolsado = redondear((pago.importeReembolsado ?? 0) + devolver);
+    if (linea) {
+      linea.importeReembolsado = redondear((linea.importeReembolsado ?? 0) + devolver);
+      pago.markModified('lineas');
+    }
     if (pago.importeReembolsado >= pago.montoTotal) pago.estado = PagoEstado.REEMBOLSADO;
     await pago.save();
     return devolver;

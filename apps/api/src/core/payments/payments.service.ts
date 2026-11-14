@@ -1,14 +1,14 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
-import { Pago, PagoDocument } from './pago.schema';
+import { LineaPago, Pago, PagoDocument } from './pago.schema';
 import { IncidenciaPasarela, PaymentGateway, PAYMENT_GATEWAY } from './payment-gateway.interface';
 import { ComisionConfigRepository } from '../comision-configs/comision-config.repository';
 import { BookingsService } from '../bookings/bookings.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { PagoEstado, PaymentIntentResponseDto, IVA_RATE, MONEDA_DEFAULT, VerticalKey } from 'shared';
+import { AsumeDescuento, PagoEstado, PaymentIntentResponseDto, IVA_RATE, MONEDA_DEFAULT, VerticalKey } from 'shared';
 import { ReservaDocument } from '../bookings/reserva.schema';
 
 export interface DesglosePago {
@@ -18,6 +18,8 @@ export interface DesglosePago {
   comisionPlataforma: number;
   stripeFee: number;
   montoLiquidacion: number;
+  /** Lo que Doogking pone de su bolsillo por un cupón que asume ella; 0 si no hay. */
+  descuentoPlataforma: number;
 }
 
 /**
@@ -109,6 +111,7 @@ export class PaymentsService {
       comisionPlataforma: desglose.comisionPlataforma,
       stripeFee: desglose.stripeFee,
       montoLiquidacion: desglose.montoLiquidacion,
+      descuentoPlataforma: desglose.descuentoPlataforma,
       estado: PagoEstado.INICIADO,
     });
 
@@ -237,6 +240,7 @@ export class PaymentsService {
       comisionPlataforma: desglose.comisionPlataforma,
       stripeFee: desglose.stripeFee,
       montoLiquidacion: desglose.montoLiquidacion,
+      descuentoPlataforma: desglose.descuentoPlataforma,
       estado: PagoEstado.INICIADO,
       stripePaymentIntentId: intent.intentId,
       stripeMetadata: { clientSecret: intent.clientSecret },
@@ -264,8 +268,7 @@ export class PaymentsService {
       throw new DomainException('El viaje no tiene reservas que cobrar', 400);
     }
 
-    const desgloses: DesglosePago[] = [];
-    let stripeFijo = 0;
+    const lineas: Array<LineaPago & DesglosePago> = [];
 
     for (const [indice, id] of reservaIds.entries()) {
       const reserva = await this.bookingsService.obtenerPorId(id);
@@ -277,19 +280,23 @@ export class PaymentsService {
       }
 
       const config = await this.comisionConfigRepo.obtenerComisionEfectiva(reserva.vertical);
-      // El fijo de Stripe es por transacción, y el viaje es **una sola**: se
-      // añade una vez, no una por reserva.
-      if (indice === 0) stripeFijo = config.stripeFijoEur;
-
       // Cada línea conserva la comisión que se fijó al crear su reserva.
       const linea = await this.calcularDesglose(reserva);
-      desgloses.push({
+      // El fijo de Stripe es por transacción, y el viaje es **una sola**: se
+      // carga una vez, a la primera línea, no una por reserva.
+      const stripeFee = redondear(linea.montoTotal * config.stripePct + (indice === 0 ? config.stripeFijoEur : 0));
+      lineas.push({
+        reservaId: reserva._id as Types.ObjectId,
         ...linea,
-        stripeFee: Math.round((linea.montoTotal * config.stripePct) * 100) / 100,
+        stripeFee,
+        // Recalculada con la comisión de Stripe de la línea: la de
+        // `calcularDesglose` llevaba el fijo entero en cada reserva.
+        montoLiquidacion: redondear(linea.montoTotal + linea.descuentoPlataforma - linea.comisionPlataforma - stripeFee),
+        importeReembolsado: 0,
       });
     }
 
-    const total = this.sumarDesgloses(desgloses, stripeFijo);
+    const total = this.sumarDesgloses(lineas);
     const moneda = MONEDA_DEFAULT;
 
     const intent = await this.paymentGateway.crearIntent({
@@ -303,6 +310,7 @@ export class PaymentsService {
     const pago = await new this.pagoModel({
       reservaId: reservaIds[0],
       reservaIds,
+      lineas,
       usuarioId,
       montoTotal: total.montoTotal,
       moneda,
@@ -311,6 +319,7 @@ export class PaymentsService {
       comisionPlataforma: total.comisionPlataforma,
       stripeFee: total.stripeFee,
       montoLiquidacion: total.montoLiquidacion,
+      descuentoPlataforma: total.descuentoPlataforma,
       estado: PagoEstado.INICIADO,
       stripePaymentIntentId: intent.intentId,
       stripeMetadata: { clientSecret: intent.clientSecret },
@@ -324,20 +333,19 @@ export class PaymentsService {
     };
   }
 
-  /** Agrega los desgloses del viaje y añade el fijo de Stripe una sola vez. */
-  private sumarDesgloses(desgloses: DesglosePago[], stripeFijo: number): DesglosePago {
+  /** Totales del viaje: la suma de sus líneas, que ya llevan el fijo de Stripe una sola vez. */
+  private sumarDesgloses(lineas: DesglosePago[]): DesglosePago {
     const sumar = (clave: keyof DesglosePago): number =>
-      redondear(desgloses.reduce((total, d) => total + d[clave], 0));
-
-    const stripeFee = redondear(sumar('stripeFee') + stripeFijo);
+      redondear(lineas.reduce((total, d) => total + d[clave], 0));
 
     return {
       montoSubtotal: sumar('montoSubtotal'),
       ivaMonto: sumar('ivaMonto'),
       montoTotal: sumar('montoTotal'),
       comisionPlataforma: sumar('comisionPlataforma'),
-      stripeFee,
-      montoLiquidacion: redondear(sumar('montoTotal') - sumar('comisionPlataforma') - stripeFee),
+      stripeFee: sumar('stripeFee'),
+      montoLiquidacion: sumar('montoLiquidacion'),
+      descuentoPlataforma: sumar('descuentoPlataforma'),
     };
   }
 
@@ -382,6 +390,7 @@ export class PaymentsService {
       comisionPlataforma: desglose.comisionPlataforma,
       stripeFee: desglose.stripeFee,
       montoLiquidacion: desglose.montoLiquidacion,
+      descuentoPlataforma: desglose.descuentoPlataforma,
       estado: PagoEstado.INICIADO,
       stripePaymentIntentId: intent.intentId,
       stripeMetadata: { clientSecret: intent.clientSecret },
@@ -594,9 +603,16 @@ export class PaymentsService {
       this.logger.log(`${aConfirmar.length} reserva(s) confirmada(s) tras pago exitoso.`);
     }
 
+    // Atómico por la misma carrera que `confirmar`: webhook y sincronización
+    // llegan casi a la vez, y sólo quien cambia el estado manda los avisos.
+    // Si no, el cliente y el comercio recibían el correo de confirmación dos veces.
+    const cambio = await this.pagoModel.updateOne(
+      { _id: pago._id, estado: { $ne: PagoEstado.APROBADO } },
+      { $set: { estado: PagoEstado.APROBADO, stripeChargeId: chargeId } },
+    ).exec();
     pago.estado = PagoEstado.APROBADO;
     pago.stripeChargeId = chargeId;
-    await pago.save();
+    if (cambio.modifiedCount === 0) return;
 
     // Los avisos van al final y sin `await`: ya no hay nada que deshacer si
     // fallan, y un correo lento no debe demorar la respuesta a Stripe.
@@ -613,10 +629,15 @@ export class PaymentsService {
   async calcularDesglose(reserva: ReservaDocument): Promise<DesglosePago> {
     const config = await this.comisionConfigRepo.obtenerComisionEfectiva(reserva.vertical);
 
+    const descuentoPlataforma = reserva.descuentoAsumidoPor === AsumeDescuento.PLATAFORMA
+      ? reserva.descuentoMonto ?? 0
+      : 0;
+
     return this.desglosar({
       montoTotal: reserva.montoTotal,
       montoSubtotal: reserva.montoSubtotal,
       comisionPlataforma: reserva.comisionMonto,
+      descuentoPlataforma,
       config,
     });
   }
@@ -656,6 +677,7 @@ export class PaymentsService {
     montoTotal: number;
     montoSubtotal: number;
     comisionPlataforma: number;
+    descuentoPlataforma?: number;
     config: { comisionPct: number; stripePct: number; stripeFijoEur: number };
   }): DesglosePago {
     const montoTotal = redondear(datos.montoTotal);
@@ -663,8 +685,12 @@ export class PaymentsService {
     const ivaMonto = redondear(montoTotal - montoSubtotal);
     const comisionPlataforma = redondear(datos.comisionPlataforma);
     const stripeFee = redondear(montoTotal * datos.config.stripePct + datos.config.stripeFijoEur);
-    const montoLiquidacion = redondear(montoTotal - comisionPlataforma - stripeFee);
+    // Un cupón que asume la plataforma lo paga ella: al comercio se le
+    // devuelve lo que el cliente dejó de pagar. Sin esto, el descuento salía
+    // siempre de la liquidación del comercio, lo asumiera quien lo asumiera.
+    const descuentoPlataforma = redondear(datos.descuentoPlataforma ?? 0);
+    const montoLiquidacion = redondear(montoTotal + descuentoPlataforma - comisionPlataforma - stripeFee);
 
-    return { montoSubtotal, ivaMonto, montoTotal, comisionPlataforma, stripeFee, montoLiquidacion };
+    return { montoSubtotal, ivaMonto, montoTotal, comisionPlataforma, stripeFee, montoLiquidacion, descuentoPlataforma };
   }
 }

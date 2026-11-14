@@ -30,6 +30,7 @@ import { UsersRepository } from '../users/users.repository';
 import { AuditoriaService } from '../auditoria/auditoria.service';
 import { UsuarioDocument } from '../users/usuario.schema';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { PagoConLineas, filtroPagosDeReservas, lineasDeReservas } from '../payments/lineas-pago';
 import { RegistrarComercioDto, RegistroComercioDto, ActualizarDisponibilidadDto, AuthResponseDto, RegistroPendienteDto, Rol, ActualizarPerfilComercioDto, ConsentimientosComercioDto, CONDICIONES_COMERCIO_VERSION, MIN_FOTOS_SERVICIO, SolicitarAjusteDto, VerticalKey } from 'shared';
 import { campoContador, plazasDeclaradas, sinPlazas } from '../catalog/disponibilidad';
 
@@ -364,11 +365,12 @@ export class ComerciosService {
     const estadoPorReserva = new Map(reservas.map((r) => [String(r._id), r.estado]));
     const reservaIds = reservas.map((r) => r._id);
 
-    const pagos = await this.pagoModel
-      .find({ reservaId: { $in: reservaIds }, estado: PagoEstado.APROBADO })
-      .select('reservaId montoTotal comisionPlataforma stripeFee montoLiquidacion')
+    // Por líneas: en un pago de viaje sólo es de este comercio su parte.
+    const pagos = lineasDeReservas(await this.pagoModel
+      .find({ ...filtroPagosDeReservas(reservaIds), estado: PagoEstado.APROBADO })
+      .select('reservaId montoTotal montoSubtotal ivaMonto comisionPlataforma stripeFee montoLiquidacion importeReembolsado lineas')
       .lean()
-      .exec() as unknown as Array<{ reservaId: Types.ObjectId; montoTotal: number; comisionPlataforma: number; stripeFee: number; montoLiquidacion: number }>;
+      .exec() as unknown as PagoConLineas[], reservaIds);
 
     const acc = { facturacionBruta: 0, comisionPlataforma: 0, stripeFee: 0, reembolsos: 0, liquidacion: 0, proximaLiquidacion: 0 };
     const estadosPendientesPago = new Set<string>([ReservaEstado.COMPLETADA, ReservaEstado.PAGO_RETENIDO, ReservaEstado.CONFIRMADA]);

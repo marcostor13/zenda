@@ -19,7 +19,7 @@ import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { limpiarDetalleCliente } from './detalle-cliente.util';
 import {
-  VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, TipoEvento,
+  VerticalKey, ReservaEstado, IVA_RATE, COMISION_PCT_DEFAULT, AsumeDescuento, TipoEvento,
   AgendaCitasRespuestaApi, DisponibilidadRespuesta, ExcepcionHorarioDto, HuecosDelDiaRespuestaApi,
   HorarioDiaDto, claveDiaEnZona, comprobarHorario, comprobarEntradaYSalida, describirProblemaEstancia,
   esHoraValida, esMedianocheUtc, fechaYHoraEnZona, horaEnZona, instanteEnZona, partesEnZona,
@@ -476,6 +476,7 @@ export class BookingsService {
     let descuentoMonto = 0;
 
     let cuponCodigo: string | undefined;
+    let descuentoAsumidoPor: AsumeDescuento | undefined;
 
     if (params.cuponCodigo) {
       const descuento = await this.cuponesService
@@ -494,6 +495,7 @@ export class BookingsService {
       // Como lo guarda el cupón, no como lo tecleó el cliente: de este campo
       // sale la cuenta de «usos por persona».
       cuponCodigo = descuento.codigo;
+      descuentoAsumidoPor = descuento.asumeDescuento;
       montoTotal = redondearEuros(montoTotal - descuentoMonto);
     }
 
@@ -503,6 +505,11 @@ export class BookingsService {
     // agregados del reporte financiero del admin sumaban ese ruido.
     montoTotal = redondearEuros(montoTotal);
     const montoSubtotal = redondearEuros(montoTotal / (1 + IVA_RATE));
+    // Un descuento que paga la plataforma no le quita venta al comercio: su
+    // comisión va sobre el precio entero, igual que si no hubiera cupón.
+    const baseComisionable = descuentoAsumidoPor === AsumeDescuento.PLATAFORMA
+      ? redondearEuros(precioBase / (1 + IVA_RATE))
+      : montoSubtotal;
 
     // La jerarquía de comisiones vive entera en el resolver: socio fundador →
     // override del comercio → tramo por importe → vertical → defecto.
@@ -510,7 +517,7 @@ export class BookingsService {
       ? { comisionPct: params.comisionPct, origen: 'override_comercio' as const }
       : await this.comisionResolver.resolver({
           vertical,
-          montoSubtotal,
+          montoSubtotal: baseComisionable,
           comercioId,
         });
 
@@ -518,7 +525,7 @@ export class BookingsService {
     // ingreso del comercio y cobrar comisión sobre él sería cobrar sobre un
     // dinero que va a Hacienda.
     const comisionPct = comision.comisionPct;
-    const comisionMonto = redondearEuros(montoSubtotal * comisionPct);
+    const comisionMonto = redondearEuros(baseComisionable * comisionPct);
     const detalle = this.detalleDeReserva(params.detalle, momento, disponibilidad.metadata, { viajes, precioUnitario });
 
     const reserva = new this.reservaModel({
@@ -540,6 +547,7 @@ export class BookingsService {
       montoTotal,
       descuentoMonto,
       cuponCodigo,
+      descuentoAsumidoPor,
       estado: ReservaEstado.PENDIENTE,
       holdId: hold.holdId,
       aceptacion: this.aceptacionRequerida(disponibilidad.metadata),
@@ -775,8 +783,12 @@ export class BookingsService {
     // plaza ya no está, confirmar sin más sería vender dos veces lo mismo.
     const incidencia = await this.revalidarAntesDeConfirmar(reservaId);
 
-    const reserva = await this.reservaModel.findByIdAndUpdate(
-      reservaId,
+    // El filtro por `PENDIENTE` hace atómico el paso: el webhook y la
+    // sincronización del cliente llegan a la vez tras pagar, y con la
+    // comprobación de arriba sola los dos confirmaban (historial duplicado en
+    // producción) y el uso del cupón se contaba dos veces.
+    const reserva = await this.reservaModel.findOneAndUpdate(
+      { _id: reservaId, estado: ReservaEstado.PENDIENTE },
       {
         estado: incidencia ? ReservaEstado.EN_DISPUTA : ReservaEstado.CONFIRMADA,
         holdId: undefined,
@@ -793,7 +805,8 @@ export class BookingsService {
     ).exec();
 
     if (!reserva) {
-      throw new DomainException('Reserva no encontrada', 404);
+      // Otra llamada la confirmó entre medias: esa ya hizo el resto del trabajo.
+      return (await this.reservaModel.findById(reservaId).exec()) ?? yaProcesada;
     }
 
     if (incidencia) {

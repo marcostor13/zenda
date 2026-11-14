@@ -14,7 +14,7 @@ import { EventosService } from '../eventos/eventos.service';
 import { BloqueosService } from '../bloqueos/bloqueos.service';
 import { HuecosService } from './huecos.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
-import { VerticalKey, ReservaEstado, COMISION_PCT_DEFAULT, TipoEvento, horarioSemanal } from 'shared';
+import { VerticalKey, ReservaEstado, COMISION_PCT_DEFAULT, TipoEvento, horarioSemanal, AsumeDescuento } from 'shared';
 
 describe('BookingsService', () => {
   let service: BookingsService;
@@ -74,6 +74,7 @@ describe('BookingsService', () => {
       lean: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue(reservaMock) }),
     });
     mockConstructor.findByIdAndUpdate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.CONFIRMADA }) });
+    mockConstructor.findOneAndUpdate = jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue({ ...reservaMock, estado: ReservaEstado.CONFIRMADA }) });
     mockConstructor.find = jest.fn().mockReturnValue({
       sort: jest.fn().mockReturnThis(),
       lean: jest.fn().mockReturnThis(),
@@ -519,6 +520,20 @@ describe('BookingsService', () => {
       });
     });
 
+    it('debería cobrar la comisión sobre el precio entero si el descuento lo asume la plataforma', async () => {
+      cuponesService.validar.mockResolvedValue({
+        codigo: 'VERANO', tipo: 'porcentaje', descuento: 50, asumeDescuento: AsumeDescuento.PLATAFORMA,
+      });
+
+      await service.crear({ ...parametrosBase, cuponCodigo: 'VERANO' });
+
+      const guardada = (reservaModel as unknown as jest.Mock).mock.calls[0][0];
+      expect(guardada.montoTotal).toBe(450);
+      expect(guardada.descuentoAsumidoPor).toBe(AsumeDescuento.PLATAFORMA);
+      // 500 / 1,21 = 413,22 de base: la de antes del descuento, no la de 450.
+      expect(guardada.comisionMonto).toBe(Math.round(413.22 * COMISION_PCT_DEFAULT * 100) / 100);
+    });
+
     it('debería guardar el código tal como lo tiene el cupón, no como se tecleó', async () => {
       // De este campo sale la cuenta de usos por persona.
       cuponesService.validar.mockResolvedValue({ codigo: 'VERANO', tipo: 'porcentaje', descuento: 50 });
@@ -958,16 +973,27 @@ describe('BookingsService', () => {
   describe('confirmar', () => {
     it('debería actualizar el estado de la reserva a CONFIRMADA', async () => {
       const resultado = await service.confirmar('reserva-1');
-      expect(reservaModel.findByIdAndUpdate).toHaveBeenCalledWith(
-        'reserva-1',
+      expect(reservaModel.findOneAndUpdate).toHaveBeenCalledWith(
+        { _id: 'reserva-1', estado: ReservaEstado.PENDIENTE },
         expect.objectContaining({ estado: ReservaEstado.CONFIRMADA }),
         { new: true },
       );
     });
 
     it('debería lanzar DomainException 404 si la reserva no existe', async () => {
-      reservaModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+      reservaModel.findById.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
       await expect(service.confirmar('no-existe')).rejects.toThrow(DomainException);
+    });
+
+    it('no debería contar el cupón otra vez si otra llamada la confirmó a la vez', async () => {
+      // El webhook y la sincronización del cliente llegan casi juntos: sólo
+      // uno de los dos gana el paso desde PENDIENTE.
+      reservaModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
+
+      await service.confirmar('reserva-1');
+
+      expect(cuponesService.aplicar).not.toHaveBeenCalled();
+      expect(reservaModel.updateMany).not.toHaveBeenCalled();
     });
 
     it('debería confirmar en cascada las reservas hijas de la serie recurrente', async () => {
@@ -1010,8 +1036,8 @@ describe('BookingsService', () => {
 
         await service.confirmar('reserva-1');
 
-        expect(reservaModel.findByIdAndUpdate).toHaveBeenCalledWith(
-          'reserva-1',
+        expect(reservaModel.findOneAndUpdate).toHaveBeenCalledWith(
+          { _id: 'reserva-1', estado: ReservaEstado.PENDIENTE },
           expect.objectContaining({ estado: ReservaEstado.CONFIRMADA }),
           { new: true },
         );
@@ -1022,8 +1048,8 @@ describe('BookingsService', () => {
 
         await service.confirmar('reserva-1');
 
-        expect(reservaModel.findByIdAndUpdate).toHaveBeenCalledWith(
-          'reserva-1',
+        expect(reservaModel.findOneAndUpdate).toHaveBeenCalledWith(
+          { _id: 'reserva-1', estado: ReservaEstado.PENDIENTE },
           expect.objectContaining({ estado: ReservaEstado.EN_DISPUTA }),
           { new: true },
         );
@@ -1038,8 +1064,8 @@ describe('BookingsService', () => {
 
         await service.confirmar('reserva-1');
 
-        expect(reservaModel.findByIdAndUpdate).toHaveBeenCalledWith(
-          'reserva-1',
+        expect(reservaModel.findOneAndUpdate).toHaveBeenCalledWith(
+          { _id: 'reserva-1', estado: ReservaEstado.PENDIENTE },
           expect.objectContaining({ estado: ReservaEstado.CONFIRMADA }),
           { new: true },
         );
@@ -1589,7 +1615,7 @@ describe('BookingsService', () => {
       const confirmada = docReserva({
         estado: ReservaEstado.CONFIRMADA, aceptacion: { requerida: true, estado: 'pendiente', plazoMin: 30 },
       });
-      reservaModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(confirmada) });
+      reservaModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(confirmada) });
       const antes = Date.now();
 
       await service.confirmar('reserva-1');
@@ -1605,7 +1631,7 @@ describe('BookingsService', () => {
       const confirmada = docReserva({
         estado: ReservaEstado.CONFIRMADA, aceptacion: { requerida: true, estado: 'pendiente', plazoMin: 30, venceEn },
       });
-      reservaModel.findByIdAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(confirmada) });
+      reservaModel.findOneAndUpdate.mockReturnValue({ exec: jest.fn().mockResolvedValue(confirmada) });
 
       await service.confirmar('reserva-1');
 

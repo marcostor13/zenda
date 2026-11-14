@@ -297,10 +297,16 @@ describe('CuponesService', () => {
     expect(r.descuento).toBe(15);
   });
 
-  it('aplica un descuento fijo sin superar el subtotal', async () => {
+  it('aplica un descuento fijo dejando siempre el mínimo que Stripe puede cobrar', async () => {
     repo.findByCodigo.mockResolvedValue({ ...base, tipo: 'fijo', valor: 150 } as never);
     const r = await service.validar('X', 'alojamiento', 100);
-    expect(r.descuento).toBe(100);
+    expect(r.descuento).toBe(99.5);
+  });
+
+  it('debería dejar 0,50 € con un cupón del 99 % en lugar de una reserva impagable', async () => {
+    repo.findByCodigo.mockResolvedValue({ ...base, tipo: 'porcentaje', valor: 0.99 } as never);
+    const r = await service.validar('X', 'alojamiento', 10);
+    expect(r.descuento).toBe(9.5);
   });
 
   it('lanza 404 si el cupón no existe o está inactivo', async () => {

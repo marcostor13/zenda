@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types, SchemaTypes } from 'mongoose';
-import { VerticalKey, ReservaEstado, MONEDA_DEFAULT, ContactoInvitado } from 'shared';
+import { VerticalKey, ReservaEstado, MONEDA_DEFAULT, ContactoInvitado, AsumeDescuento } from 'shared';
 
 export type ReservaDocument = HydratedDocument<Reserva>;
 
@@ -136,6 +136,14 @@ export class Reserva {
 
   @Prop()
   cuponCodigo?: string;
+
+  /**
+   * Quién paga el descuento del cupón, copiado del cupón al reservar. Si es la
+   * plataforma, el comercio cobra como si no hubiera descuento: Doogking pone
+   * la diferencia y la comisión va sobre el precio entero.
+   */
+  @Prop({ type: String, enum: Object.values(AsumeDescuento) })
+  descuentoAsumidoPor?: AsumeDescuento;
 
   @Prop({ default: MONEDA_DEFAULT })
   moneda!: string;

@@ -19,6 +19,7 @@ import { Resena } from '../reviews/resena.schema';
 import { Incidencia } from '../incidencias/incidencia.schema';
 import { Servicio } from '../catalog/servicio.schema';
 import { Evento } from '../eventos/evento.schema';
+import { CancelacionesService } from '../payments/cancelaciones.service';
 import { VerticalKey, PagoEstado, IVA_RATE, MotivoBajaComercio, Rol } from 'shared';
 
 describe('AdminService', () => {
@@ -26,6 +27,7 @@ describe('AdminService', () => {
   let comisionConfigRepo: jest.Mocked<ComisionConfigRepository>;
   let alphaRepo: jest.Mocked<AlphaRepository>;
   let pagoModel: any;
+  const cancelaciones = { reembolsarPorAdmin: jest.fn() };
   let reservaModel: any;
   let comercioModel: any;
   let perroModel: any;
@@ -233,6 +235,7 @@ describe('AdminService', () => {
         { provide: getModelToken(Servicio.name), useValue: servicioModel },
         // El embudo de la analítica cuenta sesiones en la colección de eventos.
         { provide: getModelToken(Evento.name), useValue: { distinct: jest.fn().mockReturnValue({ exec: jest.fn().mockResolvedValue([]) }) } },
+        { provide: CancelacionesService, useValue: cancelaciones },
       ],
     }).compile();
 
@@ -521,17 +524,42 @@ describe('AdminService', () => {
     });
 
     it('debería actualizar el estado y registrar la transición en el historial', async () => {
-      await service.cambiarEstadoReserva('r1', 'reembolsada', 'admin-1', 'Cliente no atendido');
+      await service.cambiarEstadoReserva('r1', 'completada', 'admin-1', 'Servicio prestado');
       expect(reservaModel.findByIdAndUpdate).toHaveBeenCalledWith(
         'r1',
         expect.objectContaining({
-          estado: 'reembolsada',
+          estado: 'completada',
           $push: expect.objectContaining({
-            historialEstados: expect.objectContaining({ estado: 'reembolsada', motivo: 'Cliente no atendido', por: 'admin:admin-1' }),
+            historialEstados: expect.objectContaining({ estado: 'completada', motivo: 'Servicio prestado', por: 'admin:admin-1' }),
           }),
         }),
         { new: true },
       );
+      expect(cancelaciones.reembolsarPorAdmin).not.toHaveBeenCalled();
+    });
+
+    it('debería devolver el dinero en Stripe al marcarla como reembolsada', async () => {
+      cancelaciones.reembolsarPorAdmin.mockResolvedValue(42.5);
+
+      await service.cambiarEstadoReserva('r1', 'reembolsada', 'admin-1', 'Cliente no atendido');
+
+      expect(cancelaciones.reembolsarPorAdmin).toHaveBeenCalledWith('r1');
+      expect(reservaModel.findByIdAndUpdate).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({
+          $push: expect.objectContaining({
+            historialEstados: expect.objectContaining({ motivo: 'Cliente no atendido · Devueltos 42.50 € en Stripe' }),
+          }),
+        }),
+        { new: true },
+      );
+    });
+
+    it('no debería marcarla como reembolsada si no hay cobro que devolver', async () => {
+      cancelaciones.reembolsarPorAdmin.mockRejectedValue(new Error('sin cobro'));
+
+      await expect(service.cambiarEstadoReserva('r1', 'reembolsada', 'admin-1')).rejects.toThrow('sin cobro');
+      expect(reservaModel.findByIdAndUpdate).not.toHaveBeenCalled();
     });
   });
 

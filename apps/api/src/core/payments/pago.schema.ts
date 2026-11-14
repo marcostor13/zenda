@@ -37,6 +37,13 @@ export class Pago {
   @Prop({ required: true, type: Number })
   montoLiquidacion!: number; // lo que recibe el comercio
 
+  /**
+   * Lo que pone la plataforma por un cupón que asume ella (ya sumado a
+   * `montoLiquidacion`). Es coste de Doogking: el margen neto lo resta.
+   */
+  @Prop({ type: Number, default: 0 })
+  descuentoPlataforma!: number;
+
   @Prop({ type: String, enum: PagoEstado, default: PagoEstado.INICIADO })
   estado!: PagoEstado;
 
@@ -60,6 +67,29 @@ export class Pago {
    */
   @Prop({ type: [SchemaTypes.ObjectId], ref: 'Reserva', default: [] })
   reservaIds!: Types.ObjectId[];
+
+  /**
+   * Desglose reserva a reserva de un pago de viaje. Cada línea es de un
+   * comercio distinto y es lo que hay que liquidarle: sin esto, todo el cobro
+   * se atribuía al comercio de `reservaId` (la primera) y los demás no cobraban.
+   * Vacío en un pago normal; ahí la única línea son los totales del propio pago.
+   */
+  @Prop({
+    type: [{
+      _id: false,
+      reservaId: { type: SchemaTypes.ObjectId, ref: 'Reserva' },
+      montoTotal: Number,
+      montoSubtotal: Number,
+      ivaMonto: Number,
+      comisionPlataforma: Number,
+      stripeFee: Number,
+      montoLiquidacion: Number,
+      descuentoPlataforma: { type: Number, default: 0 },
+      importeReembolsado: { type: Number, default: 0 },
+    }],
+    default: [],
+  })
+  lineas!: LineaPago[];
 
   /**
    * Se dio por cobrado sin pasar por la pasarela, para poder probar el flujo de
@@ -87,6 +117,18 @@ export class Pago {
     default: [],
   })
   incidencias!: IncidenciaPago[];
+}
+
+export interface LineaPago {
+  reservaId: Types.ObjectId;
+  montoTotal: number;
+  montoSubtotal: number;
+  ivaMonto: number;
+  comisionPlataforma: number;
+  stripeFee: number;
+  montoLiquidacion: number;
+  descuentoPlataforma?: number;
+  importeReembolsado?: number;
 }
 
 export interface IncidenciaPago {

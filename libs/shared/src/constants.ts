@@ -2,6 +2,12 @@
 export const IVA_RATE = 0.21;
 /** Moneda por defecto de la plataforma (Eurozona). */
 export const MONEDA_DEFAULT = 'EUR';
+/**
+ * Lo mínimo que Stripe deja cobrar en EUR. Un cupón que deje la reserva por
+ * debajo la haría impagable: Stripe rechaza el PaymentIntent y la reserva se
+ * queda pendiente para siempre.
+ */
+export const IMPORTE_MINIMO_COBRO_EUR = 0.5;
 
 /**
  * Monedas en las que se pueden **mostrar** los precios. El cobro es siempre en

@@ -10,6 +10,8 @@ import { ComerciosRepository } from '../comercios/comercios.repository';
 import { ComerciosService } from '../comercios/comercios.service';
 import { UsersRepository } from '../users/users.repository';
 import { Pago, PagoDocument } from '../payments/pago.schema';
+import { PagoConLineas, filtroPagosDeReservas, lineasDePago, lineasDeReservas } from '../payments/lineas-pago';
+import { CancelacionesService } from '../payments/cancelaciones.service';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { Usuario, UsuarioDocument } from '../users/usuario.schema';
 import { Comercio } from '../comercios/comercio.schema';
@@ -40,6 +42,7 @@ interface PagoLean {
   comisionPlataforma: number;
   stripeFee: number;
   montoLiquidacion: number;
+  descuentoPlataforma?: number;
 }
 
 interface ReservaLean {
@@ -170,6 +173,7 @@ export class AdminService {
     @InjectModel(Incidencia.name) private readonly incidenciaModel: Model<IncidenciaDocument>,
     @InjectModel(Servicio.name) private readonly servicioModelAdmin: Model<ServicioDocument>,
     @InjectModel(Evento.name) private readonly eventoModel: Model<EventoDocument>,
+    private readonly cancelaciones: CancelacionesService,
   ) {}
 
   // ── Dashboard ────────────────────────────────────────────────────────────────
@@ -994,17 +998,30 @@ export class AdminService {
     const [totales] = await this.pagoModel.aggregate<{
       gmv: number; comision: number; stripeFee: number; liquidacion: number; pagos: number; reembolsado: number;
     }>([
-      { $lookup: { from: 'reservas', localField: 'reservaId', foreignField: '_id', as: 'reserva' } },
+      { $match: { estado: { $in: [PagoEstado.APROBADO, PagoEstado.REEMBOLSADO] }, esPrueba: { $ne: true } } },
+      // Un pago de viaje cobra a varios comercios: se reparte en sus líneas y
+      // a cada una se llega a su comercio por su reserva.
+      { $project: {
+        estado: 1,
+        linea: { $cond: [
+          { $gt: [{ $size: { $ifNull: ['$lineas', []] } }, 0] },
+          '$lineas',
+          [{ reservaId: '$reservaId', montoTotal: '$montoTotal', comisionPlataforma: '$comisionPlataforma',
+            stripeFee: '$stripeFee', montoLiquidacion: '$montoLiquidacion' }],
+        ] },
+      } },
+      { $unwind: '$linea' },
+      { $lookup: { from: 'reservas', localField: 'linea.reservaId', foreignField: '_id', as: 'reserva' } },
       { $unwind: '$reserva' },
-      { $match: { 'reserva.comercioId': comercioId, estado: { $in: [PagoEstado.APROBADO, PagoEstado.REEMBOLSADO] } } },
+      { $match: { 'reserva.comercioId': comercioId } },
       { $group: {
         _id: null,
-        gmv: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$montoTotal', 0] } },
-        comision: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$comisionPlataforma', 0] } },
-        stripeFee: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$stripeFee', 0] } },
-        liquidacion: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$montoLiquidacion', 0] } },
+        gmv: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$linea.montoTotal', 0] } },
+        comision: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$linea.comisionPlataforma', 0] } },
+        stripeFee: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$linea.stripeFee', 0] } },
+        liquidacion: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, '$linea.montoLiquidacion', 0] } },
         pagos: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.APROBADO] }, 1, 0] } },
-        reembolsado: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.REEMBOLSADO] }, '$montoTotal', 0] } },
+        reembolsado: { $sum: { $cond: [{ $eq: ['$estado', PagoEstado.REEMBOLSADO] }, '$linea.montoTotal', 0] } },
       } },
     ]).exec();
 
@@ -1535,14 +1552,15 @@ export class AdminService {
     // aparte para que la tabla pueda enseñarlos en columnas distintas (TCK-8036).
     // Con el pago viajan también el coste de Stripe y el neto del comercio, que
     // es lo que hay que poder explicar en la ficha de la reserva (TCK-8036 §6).
-    const pagos = await this.pagoModel
-      .find({ reservaId: { $in: items.map((r) => r._id) } })
-      .select('reservaId estado stripeFee montoLiquidacion')
+    const idsPagina = items.map((r) => r._id as Types.ObjectId);
+    const pagosPagina = await this.pagoModel
+      .find(filtroPagosDeReservas(idsPagina))
+      .select('reservaId estado montoTotal montoSubtotal ivaMonto comisionPlataforma stripeFee montoLiquidacion lineas')
       .lean()
-      .exec() as unknown as Array<{
-        reservaId: Types.ObjectId; estado: string; stripeFee?: number; montoLiquidacion?: number;
-      }>;
-    const pagoPorReserva = new Map(pagos.map((p) => [String(p.reservaId), p]));
+      .exec() as unknown as Array<PagoConLineas & { estado: string }>;
+    // En un pago de viaje, cada reserva enseña su línea, no los totales del viaje.
+    const pagoPorReserva = new Map(pagosPagina.flatMap((pago) =>
+      lineasDePago(pago).map((linea) => [String(linea.reservaId), { ...linea, estado: pago.estado }] as const)));
 
     const enriquecidas = items.map((r) => ({
       ...r,
@@ -1807,6 +1825,11 @@ export class AdminService {
     if (!AdminService.ESTADOS_ADMIN.includes(estado as ReservaEstado)) {
       throw new BadRequestException(`Estado no permitido para operación de admin: ${estado}`);
     }
+    // «Reembolsada» tiene que devolver el dinero de verdad, no sólo decirlo.
+    if (estado === ReservaEstado.REEMBOLSADA) {
+      const devuelto = await this.cancelaciones.reembolsarPorAdmin(id);
+      motivo = [motivo, `Devueltos ${devuelto.toFixed(2)} € en Stripe`].filter(Boolean).join(' · ');
+    }
     const reserva = await this.reservaModel.findByIdAndUpdate(
       id,
       {
@@ -2003,10 +2026,12 @@ export class AdminService {
 
     const reservaIdsArr = reservasIds.map((r) => r._id);
 
-    const pagos = await this.pagoModel
-      .find({ reservaId: { $in: reservaIdsArr }, estado: PagoEstado.APROBADO })
+    // Por líneas: con un filtro de comercio o de vertical, de un viaje sólo
+    // cuenta la parte de las reservas filtradas.
+    const pagos = lineasDeReservas(await this.pagoModel
+      .find({ ...filtroPagosDeReservas(reservaIdsArr), estado: PagoEstado.APROBADO, esPrueba: { $ne: true } })
       .lean()
-      .exec() as PagoLean[];
+      .exec() as unknown as PagoConLineas[], reservaIdsArr);
 
     const totales = pagos.reduce(
       (acc, pago) => ({
@@ -2014,8 +2039,9 @@ export class AdminService {
         ingresosPlataforma: acc.ingresosPlataforma + pago.comisionPlataforma,
         costoStripe: acc.costoStripe + pago.stripeFee,
         liquidacionesComercio: acc.liquidacionesComercio + pago.montoLiquidacion,
+        descuentosPlataforma: acc.descuentosPlataforma + (pago.descuentoPlataforma ?? 0),
       }),
-      { gmv: 0, ingresosPlataforma: 0, costoStripe: 0, liquidacionesComercio: 0 },
+      { gmv: 0, ingresosPlataforma: 0, costoStripe: 0, liquidacionesComercio: 0, descuentosPlataforma: 0 },
     );
 
     const porVertical = this.agruparPorVertical(pagos, reservasIds);
@@ -2027,7 +2053,10 @@ export class AdminService {
       gmv: Math.round(totales.gmv * 100) / 100,
       ingresosPlataforma: Math.round(totales.ingresosPlataforma * 100) / 100,
       costoStripe: Math.round(totales.costoStripe * 100) / 100,
-      margenNetoPlataforma: Math.round((totales.ingresosPlataforma - totales.costoStripe) * 100) / 100,
+      // Los cupones que asume Doogking salen de su margen, no del comercio.
+      margenNetoPlataforma: Math.round(
+        (totales.ingresosPlataforma - totales.costoStripe - totales.descuentosPlataforma) * 100,
+      ) / 100,
       liquidacionesComercio: Math.round(totales.liquidacionesComercio * 100) / 100,
       totalReservas: reservaIdsArr.length,
       porVertical,
@@ -2117,7 +2146,7 @@ export class AdminService {
       entrada.gmv += pago.montoTotal;
       entrada.comision += pago.comisionPlataforma;
       entrada.costoStripe += pago.stripeFee;
-      entrada.margenNeto += pago.comisionPlataforma - pago.stripeFee;
+      entrada.margenNeto += pago.comisionPlataforma - pago.stripeFee - (pago.descuentoPlataforma ?? 0);
       entrada.totalReservas += 1;
 
       acumulador.set(vertical, entrada);

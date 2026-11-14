@@ -112,7 +112,7 @@ describe('CancelacionesService', () => {
       await service.cancelarPorCliente('r1', 'u1');
 
       expect(pagoModel.findOne).toHaveBeenCalledWith({
-        $or: [{ reservaId }, { reservaIds: reservaId }], estado: PagoEstado.APROBADO, esSuplemento: false,
+        $or: [{ reservaId }, { reservaIds: reservaId }, { 'lineas.reservaId': reservaId }], estado: PagoEstado.APROBADO, esSuplemento: false,
       });
       expect(gateway.reembolsar).toHaveBeenCalledWith('pi_1', 50, expect.stringMatching(/^reembolso-/));
       expect(doc.importeReembolsado).toBe(50);

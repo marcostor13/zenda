@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { CrearCuponDto, ValidarCuponDto, esFechaSinHora, fechaYHoraEnZona, normalizarUbicacion } from 'shared';
+import { AsumeDescuento, CrearCuponDto, IMPORTE_MINIMO_COBRO_EUR, ValidarCuponDto, esFechaSinHora, fechaYHoraEnZona, normalizarUbicacion } from 'shared';
 import { CuponesRepository } from './cupones.repository';
 import { Cupon, CuponDocument } from './cupon.schema';
 import { AlphaService } from '../alpha/alpha.service';
@@ -49,6 +49,8 @@ export interface DescuentoAplicado {
   tipo: string;
   descuento: number;
   descripcion?: string;
+  /** Quién paga el descuento: decide cuánto se liquida al comercio. */
+  asumeDescuento?: AsumeDescuento;
 }
 
 @Injectable()
@@ -110,6 +112,7 @@ export class CuponesService {
       tipo: cupon.tipo,
       descuento: this.calcularDescuento(cupon, montoSubtotal),
       descripcion: cupon.descripcion,
+      asumeDescuento: cupon.asumeDescuento ?? AsumeDescuento.PLATAFORMA,
     };
   }
 
@@ -195,7 +198,9 @@ export class CuponesService {
     } else {
       descuento = cupon.valor;
     }
-    descuento = Math.min(descuento, montoSubtotal); // nunca más que el subtotal
+    // Nunca por debajo del mínimo que Stripe cobra: con un cupón del 99 % o del
+    // 100 % la reserva quedaba en céntimos y el pago fallaba sin remedio.
+    descuento = Math.min(descuento, Math.max(0, montoSubtotal - IMPORTE_MINIMO_COBRO_EUR));
     return Math.round(descuento * 100) / 100;
   }
 

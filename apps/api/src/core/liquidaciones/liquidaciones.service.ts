@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { EntidadAuditada, PagoEstado } from 'shared';
 import { Pago, PagoDocument } from '../payments/pago.schema';
+import { filtroPagosDeReservas } from '../payments/lineas-pago';
 import { Reserva, ReservaDocument } from '../bookings/reserva.schema';
 import { ComerciosRepository } from '../comercios/comercios.repository';
 import { AuditoriaService } from '../auditoria/auditoria.service';
@@ -75,23 +76,54 @@ export class LiquidacionesService {
       .lean()
       .exec() as unknown as Array<{ _id: Types.ObjectId }>;
 
+    const idsReservas = reservas.map((r) => r._id);
     const [totales] = await this.pagoModel.aggregate<{
       bruto: number; comision: number; stripe: number; neto: number; pagos: number;
     }>([
       {
         $match: {
-          reservaId: { $in: reservas.map((r) => r._id) },
+          ...filtroPagosDeReservas(idsReservas),
           estado: PagoEstado.APROBADO,
+          // Un pago de prueba (bypass) no movió dinero: no se le debe nada al comercio.
+          esPrueba: { $ne: true },
           createdAt: { $gte: inicio, $lte: fin },
         },
       },
+      // Un pago de viaje lleva a varios comercios: se reparte en sus líneas y
+      // sólo cuentan las de este. Un pago normal es su propia y única línea.
+      {
+        $project: {
+          linea: {
+            $cond: [
+              { $gt: [{ $size: { $ifNull: ['$lineas', []] } }, 0] },
+              '$lineas',
+              [{
+                reservaId: '$reservaId',
+                montoTotal: '$montoTotal',
+                comisionPlataforma: '$comisionPlataforma',
+                stripeFee: '$stripeFee',
+                montoLiquidacion: '$montoLiquidacion',
+                importeReembolsado: '$importeReembolsado',
+              }],
+            ],
+          },
+        },
+      },
+      { $unwind: '$linea' },
+      { $match: { 'linea.reservaId': { $in: idsReservas } } },
       {
         $group: {
           _id: null,
-          bruto: { $sum: '$montoTotal' },
-          comision: { $sum: '$comisionPlataforma' },
-          stripe: { $sum: '$stripeFee' },
-          neto: { $sum: '$montoLiquidacion' },
+          // Lo devuelto en una cancelación parcial sale del bolsillo del
+          // comercio: antes se le liquidaba el cobro entero igualmente.
+          bruto: { $sum: { $subtract: ['$linea.montoTotal', { $ifNull: ['$linea.importeReembolsado', 0] }] } },
+          comision: { $sum: '$linea.comisionPlataforma' },
+          stripe: { $sum: '$linea.stripeFee' },
+          neto: {
+            $sum: {
+              $max: [0, { $subtract: ['$linea.montoLiquidacion', { $ifNull: ['$linea.importeReembolsado', 0] }] }],
+            },
+          },
           pagos: { $sum: 1 },
         },
       },

@@ -26,6 +26,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
     CancelacionesService,
     { provide: PAYMENT_GATEWAY, useClass: StripeGateway },
   ],
-  exports: [PaymentsService],
+  exports: [PaymentsService, CancelacionesService],
 })
 export class PaymentsModule {}
