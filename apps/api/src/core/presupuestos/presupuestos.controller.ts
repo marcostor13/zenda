@@ -12,6 +12,7 @@ import { Roles, RolesGuard } from '../auth/guards/roles.guard';
 import { DomainException } from '../../shared/exceptions/domain.exception';
 import { PresupuestoDocument } from './presupuesto.schema';
 import { PresupuestosService } from './presupuestos.service';
+import { Apertura, AperturaGuard, RequiereApertura } from '../../shared/apertura';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -98,6 +99,8 @@ export class PresupuestosController {
   }
 
   @Post(':id/aceptar')
+  @UseGuards(AperturaGuard)
+  @RequiereApertura(Apertura.RESERVAS)
   @ApiOperation({ summary: 'Aceptar la oferta; crea la reserva pendiente de pago' })
   async aceptar(
     @Req() req: RequestConUser,

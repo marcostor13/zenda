@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from '../../core/guards/auth.guard';
 import { soloClientesGuard } from '../../core/guards/role.guard';
+import { reservasAbiertasGuard } from '../../core/guards/lanzamiento.guard';
 
 /**
  * Transporte de mascotas (docs/PLAN-TRANSPORTE-FLUJO-CLIENTE.md).
@@ -33,7 +34,7 @@ export const transporteRoutes: Routes = [
     // Desde aquí hace falta cuenta: la reserva es del cliente. El borrador del
     // viaje sobrevive al paso por el login (va en sessionStorage).
     path: 'viaje/reserva',
-    canActivate: [authGuard, soloClientesGuard],
+    canActivate: [reservasAbiertasGuard, authGuard, soloClientesGuard],
     loadComponent: () => import('./viaje/pantallas/reserva-viaje.component').then((m) => m.ReservaViajeComponent),
   },
   {

@@ -6,6 +6,8 @@ import { CarritoService, ItemCarritoApi } from './carrito.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { EurosPipe } from '../../shared/pipes/euros.pipe';
 import { FechaPipe } from '../../shared/pipes/fecha.pipe';
+import { environment } from '../../../environments/environment';
+import { RUTA_RESERVAS_PROXIMAMENTE } from '../../core/guards/lanzamiento.guard';
 
 interface GrupoComercio {
   comercioId: string;
@@ -240,6 +242,13 @@ export class CarritoPanelComponent {
   }
 
   async reservar(): Promise<void> {
+    // Antes de la apertura de comercios no se convierte el viaje en reservas:
+    // el API lo rechazaría. Se explica en su pantalla en vez de mostrar un error.
+    if (!environment.reservasAbiertas) {
+      this.cerrar();
+      await this.router.navigate([RUTA_RESERVAS_PROXIMAMENTE]);
+      return;
+    }
     this.procesando.set(true);
     this.error.set('');
     try {

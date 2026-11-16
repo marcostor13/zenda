@@ -11,12 +11,21 @@ import { bandera, variable } from './entorno-runtime';
 export const environment = {
   production: true,
   apiUrl: variable('WEB_API_URL', 'https://api.doogking.com/api/v1'),
-  // Pantalla "muy pronto" mientras se prepara el lanzamiento público.
-  // Acceso directo: https://doogking.com/?acceso=royal-preview-2026
-  // Al entrar una vez con la clave correcta, queda guardado en localStorage
-  // y no hace falta repetir el query param. Para lanzar: WEB_UNDER_CONSTRUCTION=false.
-  underConstruction: bandera('WEB_UNDER_CONSTRUCTION', true),
+  // Pantalla "muy pronto" para TODA la web (cierre total). Apagada por defecto:
+  // la web está abierta a clientes. Si hiciera falta volver a cerrarla:
+  // WEB_UNDER_CONSTRUCTION=true y se entra con ?acceso=<clave>.
+  underConstruction: bandera('WEB_UNDER_CONSTRUCTION', false),
   underConstructionKey: variable('WEB_UNDER_CONSTRUCTION_KEY', 'royal-preview-2026'),
+  /*
+   * Lanzamiento por fases. Los clientes ya pueden registrarse, explorar,
+   * guardar favoritos y dar de alta a sus perros, pero reservar y el alta de
+   * negocios esperan a la apertura de comercios: hasta entonces muestran su
+   * pantalla de "muy pronto" (ver `lanzamiento.guard.ts`). Cerradas salvo que
+   * la variable valga `true`. Deben ir a la par que `RESERVAS_ABIERTAS` y
+   * `REGISTRO_COMERCIOS_ABIERTO` del API, que es quien las hace cumplir.
+   */
+  reservasAbiertas: bandera('WEB_RESERVAS_ABIERTAS', false),
+  registroComerciosAbierto: bandera('WEB_REGISTRO_COMERCIOS_ABIERTO', false),
   // Sustituir por la clave publicable LIVE (pk_live_…) desde WEB_STRIPE_PUBLIC_KEY.
   stripePublicKey: variable(
     'WEB_STRIPE_PUBLIC_KEY',

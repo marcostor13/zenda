@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PaymentsService } from '../payments/payments.service';
 import { CarritoDocument } from './carrito.schema';
 import { CarritoService } from './carrito.service';
+import { Apertura, AperturaGuard, RequiereApertura } from '../../shared/apertura';
 
 interface RequestConUsuario extends Request {
   user: { sub: string };
@@ -52,6 +53,8 @@ export class CarritoController {
   }
 
   @Post('checkout')
+  @UseGuards(AperturaGuard)
+  @RequiereApertura(Apertura.RESERVAS)
   @ApiOperation({
     summary: 'Convierte el viaje en reservas independientes y prepara un único pago',
   })

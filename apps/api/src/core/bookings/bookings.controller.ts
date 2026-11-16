@@ -21,6 +21,7 @@ import {
 } from 'shared';
 import { CalendarioDisponibilidadRespuesta } from './bookings.service';
 import { ReservaDocument } from './reserva.schema';
+import { Apertura, AperturaGuard, RequiereApertura } from '../../shared/apertura';
 
 interface RequestConUsuario extends Request {
   user: { sub: string; email?: string; invitado?: boolean };
@@ -43,7 +44,8 @@ export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AperturaGuard, JwtAuthGuard)
+  @RequiereApertura(Apertura.RESERVAS)
   @PermiteInvitado()
   @ApiOperation({ summary: 'Crear una reserva (genera un SlotHold temporal)' })
   crear(@Body() dto: CrearReservaDto, @Req() req: RequestConUsuario): Promise<ReservaDocument> {

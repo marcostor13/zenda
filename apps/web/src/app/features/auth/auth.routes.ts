@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { underConstructionGuard } from '../../core/guards/under-construction.guard';
+import { registroComerciosAbiertoGuard } from '../../core/guards/lanzamiento.guard';
 
 export const authRoutes: Routes = [
   {
@@ -18,6 +19,8 @@ export const authRoutes: Routes = [
   },
   {
     path: 'registro-comercio',
+    // Hasta la apertura de comercios lleva a su pantalla de "muy pronto".
+    canActivate: [registroComerciosAbiertoGuard],
     loadComponent: () =>
       import('./registro-comercio/registro-comercio.component').then((m) => m.RegistroComercioComponent),
   },

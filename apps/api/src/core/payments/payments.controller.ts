@@ -17,6 +17,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { EstadoSincronizacion, PaymentsService } from './payments.service';
 import { JwtAuthGuard, PermiteInvitado } from '../auth/guards/jwt-auth.guard';
 import { CrearPaymentIntentDto, PaymentIntentResponseDto } from 'shared';
+import { Apertura, AperturaGuard, RequiereApertura } from '../../shared/apertura';
 
 interface RequestConUsuario extends Request {
   user: { sub: string };
@@ -28,7 +29,8 @@ export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post('intent')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(AperturaGuard, JwtAuthGuard)
+  @RequiereApertura(Apertura.RESERVAS)
   @PermiteInvitado()
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Crear PaymentIntent de Stripe para una reserva' })
