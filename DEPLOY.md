@@ -277,7 +277,7 @@ genera en el servidor y el que se hidrata en el navegador hablan con el mismo AP
 | Variable | Para qué |
 |---|---|
 | `WEB_API_URL` | Base del API con el prefijo de versión: `https://api.doogking.com/api/v1`. **Comprueba su valor real en `https://doogking.com/env.js`**: si ahí pone `localhost`, el navegador de cada visitante intenta llamar a su propia máquina y el error que ves es de CORS o de contenido mixto, no del API. |
-| `WEB_UNDER_CONSTRUCTION` | `true` cierra **toda** la web tras la pantalla "muy pronto"; `false` (por defecto) la abre |
+| `WEB_CIERRE_TOTAL` | `true` cierra **toda** la web tras la pantalla "muy pronto"; `false` (por defecto) la abre. Sustituye a `WEB_UNDER_CONSTRUCTION`, que **ya no se lee** (puede quedarse declarada en Coolify sin efecto) |
 | `WEB_RESERVAS_ABIERTAS` | `false` (por defecto en producción): se explora pero al reservar se ve "las reservas abren muy pronto". `true` cuando haya comercios. Va con `RESERVAS_ABIERTAS` del API |
 | `WEB_REGISTRO_COMERCIOS_ABIERTO` | `false` (por defecto en producción): `/auth/registro-comercio` lleva a "el registro de negocios abre muy pronto". Va con `REGISTRO_COMERCIOS_ABIERTO` del API |
 | `WEB_UNDER_CONSTRUCTION_KEY` | Clave del acceso anticipado (`?acceso=…`) |

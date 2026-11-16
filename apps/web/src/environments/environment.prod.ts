@@ -11,10 +11,14 @@ import { bandera, variable } from './entorno-runtime';
 export const environment = {
   production: true,
   apiUrl: variable('WEB_API_URL', 'https://api.doogking.com/api/v1'),
-  // Pantalla "muy pronto" para TODA la web (cierre total). Apagada por defecto:
-  // la web está abierta a clientes. Si hiciera falta volver a cerrarla:
-  // WEB_UNDER_CONSTRUCTION=true y se entra con ?acceso=<clave>.
-  underConstruction: bandera('WEB_UNDER_CONSTRUCTION', false),
+  /*
+   * Pantalla "muy pronto" para TODA la web (cierre total). Apagada: la web está
+   * abierta a clientes. Se ignora a propósito la antigua WEB_UNDER_CONSTRUCTION,
+   * que en Coolify seguía a `true` del prelanzamiento y volvería a cerrar la web.
+   * Si hiciera falta cerrarla otra vez: WEB_CIERRE_TOTAL=true y se entra con
+   * ?acceso=<clave>.
+   */
+  underConstruction: bandera('WEB_CIERRE_TOTAL', false),
   underConstructionKey: variable('WEB_UNDER_CONSTRUCTION_KEY', 'royal-preview-2026'),
   /*
    * Lanzamiento por fases. Los clientes ya pueden registrarse, explorar,
