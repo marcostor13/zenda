@@ -9,8 +9,12 @@ export const environment = {
   production: false,
   apiUrl: variable('WEB_API_URL', 'http://localhost:3051/api/v1'),
   // Pantalla "muy pronto": desactivada en desarrollo para no estorbar.
-  underConstruction: bandera('WEB_UNDER_CONSTRUCTION', false),
+  underConstruction: bandera('WEB_CIERRE_TOTAL', false),
   underConstructionKey: variable('WEB_UNDER_CONSTRUCTION_KEY', 'royal-preview-2026'),
+  // Lanzamiento por fases: en desarrollo todo abierto para poder probar el flujo
+  // completo. En producción arrancan cerradas (ver `environment.prod.ts`).
+  reservasAbiertas: bandera('WEB_RESERVAS_ABIERTAS', true),
+  registroComerciosAbierto: bandera('WEB_REGISTRO_COMERCIOS_ABIERTO', true),
   // Clave publicable de Stripe (de test; segura para exponer en el frontend).
   stripePublicKey: variable(
     'WEB_STRIPE_PUBLIC_KEY',

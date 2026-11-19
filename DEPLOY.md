@@ -100,6 +100,8 @@ SWAGGER_ENABLED=false
 | Variable | Para qué |
 |---|---|
 | `CORS_ORIGINS` | Orígenes a los que el API responde desde un navegador, separados por comas. Los tres dominios propios y los de Capacitor (app móvil) se permiten **siempre**, aunque no la declares; esta variable es para añadir otros (un dominio de cliente, un entorno de pruebas). |
+| `RESERVAS_ABIERTAS` | Lanzamiento por fases. Mientras no valga `true`, crear reservas, pagar, cerrar el carrito y aceptar presupuestos responde **503 "las reservas abren muy pronto"**. Sin declarar: cerrada en producción. Ábrela a la vez que `WEB_RESERVAS_ABIERTAS`. |
+| `REGISTRO_COMERCIOS_ABIERTO` | Igual para `POST /comercios/registro` (alta de negocios). Los comercios ya existentes y el alta desde el panel admin no se ven afectados. Ábrela a la vez que `WEB_REGISTRO_COMERCIOS_ABIERTO`. |
 | `SWAGGER_ENABLED` | `/api/docs` publica el mapa completo de endpoints y DTOs. Sin esta variable no se monta en producción. Ponla a `true` sólo si necesitas exponerlo a propósito. |
 
 > **Si ves un error de CORS en el navegador, mira primero `WEB_API_URL` (§3.3).**
@@ -275,7 +277,9 @@ genera en el servidor y el que se hidrata en el navegador hablan con el mismo AP
 | Variable | Para qué |
 |---|---|
 | `WEB_API_URL` | Base del API con el prefijo de versión: `https://api.doogking.com/api/v1`. **Comprueba su valor real en `https://doogking.com/env.js`**: si ahí pone `localhost`, el navegador de cada visitante intenta llamar a su propia máquina y el error que ves es de CORS o de contenido mixto, no del API. |
-| `WEB_UNDER_CONSTRUCTION` | `true` mantiene la pantalla "muy pronto"; `false` abre la web |
+| `WEB_CIERRE_TOTAL` | `true` cierra **toda** la web tras la pantalla "muy pronto"; `false` (por defecto) la abre. Sustituye a `WEB_UNDER_CONSTRUCTION`, que **ya no se lee** (puede quedarse declarada en Coolify sin efecto) |
+| `WEB_RESERVAS_ABIERTAS` | `false` (por defecto en producción): se explora pero al reservar se ve "las reservas abren muy pronto". `true` cuando haya comercios. Va con `RESERVAS_ABIERTAS` del API |
+| `WEB_REGISTRO_COMERCIOS_ABIERTO` | `false` (por defecto en producción): `/auth/registro-comercio` lleva a "el registro de negocios abre muy pronto". Va con `REGISTRO_COMERCIOS_ABIERTO` del API |
 | `WEB_UNDER_CONSTRUCTION_KEY` | Clave del acceso anticipado (`?acceso=…`) |
 | `WEB_STRIPE_PUBLIC_KEY` | Clave **publicable** de Stripe (`pk_live_…`) |
 | `WEB_GOOGLE_CLIENT_ID` · `WEB_FACEBOOK_APP_ID` | Respaldo del login social. Normalmente **no hacen falta**: el frontend pide los identificadores al API (`GET /auth/social/config`), que es lo que impide que los dos lados se configuren distinto. Sólo se usan si el API no responde. |

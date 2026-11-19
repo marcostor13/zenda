@@ -22,6 +22,7 @@ import { PermisosAdminGuard, PermisosAdmin } from '../auth/guards/permisos.guard
 import { RegistrarComercioDto, RegistroComercioDto, AuthResponseDto, RegistroPendienteDto, ActualizarDisponibilidadDto, CambiarEstadoComercioDto, ActualizarPerfilComercioDto, SolicitarAjusteDto, FijarSocioFundadorDto, FijarAlphaAdheridoDto, BajaComercioDto, PausarComercioDto, ImpactoBajaComercioDto, ResultadoBajaComercioDto, PermisoAdmin, Rol, MarcarHitoDto } from 'shared';
 import { ComercioCuentaService } from './comercio-cuenta.service';
 import { DomainException } from '../../shared/exceptions/domain.exception';
+import { Apertura, AperturaGuard, RequiereApertura } from '../../shared/apertura';
 
 interface RequestConUser extends Request {
   user: { sub: string; comercioId?: string };
@@ -60,6 +61,8 @@ export class ComerciosController {
   }
 
   @Post('registro')
+  @UseGuards(AperturaGuard)
+  @RequiereApertura(Apertura.REGISTRO_COMERCIOS)
   @ApiOperation({ summary: 'Alta de comercio en un solo paso (cuenta + negocio); pendiente de verificar email' })
   registrarConCuenta(@Body() dto: RegistroComercioDto): Promise<RegistroPendienteDto> {
     return this.comerciosService.registrarConCuenta(dto);

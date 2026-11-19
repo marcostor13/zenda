@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from '../../core/guards/auth.guard';
 import { sesionOInvitadoGuard } from '../../core/guards/sesion-o-invitado.guard';
+import { reservasAbiertasGuard } from '../../core/guards/lanzamiento.guard';
 
 /*
  * El asistente de reserva es público: se puede reservar como invitado (el
@@ -17,9 +18,14 @@ export const reservasRoutes: Routes = [
       import('./components/mis-reservas.component').then(m => m.MisReservasComponent),
   },
   // Rutas fijas antes que las paramétricas: si no, ':codigo' las capturaría.
+  /*
+   * Todo lo que crea o cobra una reserva pasa por `reservasAbiertasGuard`: hasta
+   * la apertura de comercios lleva a la pantalla de "reservas muy pronto". Ver
+   * el historial y las fichas sigue abierto.
+   */
   {
     path: 'viaje-pago',
-    canActivate: [authGuard],
+    canActivate: [reservasAbiertasGuard, authGuard],
     loadComponent: () =>
       import('./components/viaje-pago.component').then(m => m.ViajePagoComponent),
   },
@@ -30,7 +36,7 @@ export const reservasRoutes: Routes = [
    */
   {
     path: 'pagar',
-    canActivate: [authGuard],
+    canActivate: [reservasAbiertasGuard, authGuard],
     loadComponent: () =>
       import('./components/viaje-pago.component').then(m => m.ViajePagoComponent),
   },
@@ -55,6 +61,7 @@ export const reservasRoutes: Routes = [
   },
   {
     path: ':vertical/:servicioId',
+    canActivate: [reservasAbiertasGuard],
     loadComponent: () =>
       import('./components/reserva-wizard.component').then(m => m.ReservaWizardComponent),
   },

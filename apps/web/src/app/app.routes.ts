@@ -12,6 +12,23 @@ export const routes: Routes = [
       import('./features/proximamente/proximamente.component').then((m) => m.ProximamenteComponent),
   },
   /*
+   * Lanzamiento por fases: la web está abierta, pero reservar y el alta de
+   * negocios aún no. Sus guards (`lanzamiento.guard.ts`) traen aquí. Fuera del
+   * guard de cierre total por el mismo motivo que `/proximamente`.
+   */
+  {
+    path: 'proximamente/reservas',
+    data: { apertura: 'reservas' },
+    loadComponent: () =>
+      import('./features/proximamente/apertura-proximamente.component').then((m) => m.AperturaProximamenteComponent),
+  },
+  {
+    path: 'proximamente/comercios',
+    data: { apertura: 'comercios' },
+    loadComponent: () =>
+      import('./features/proximamente/apertura-proximamente.component').then((m) => m.AperturaProximamenteComponent),
+  },
+  /*
    * Documentos legales, fuera del guard de "muy pronto" a propósito: los revisa
    * gente de fuera —Meta y Google no aprueban el inicio de sesión social sin
    * poder leer la política de privacidad— y con la app cerrada al público

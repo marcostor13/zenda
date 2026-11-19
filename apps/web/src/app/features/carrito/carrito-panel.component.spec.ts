@@ -7,6 +7,7 @@ import { signal } from '@angular/core';
 import { VerticalKey } from 'shared';
 import { CarritoPanelComponent } from './carrito-panel.component';
 import { CarritoService, ItemCarritoApi } from './carrito.service';
+import { environment } from '../../../environments/environment';
 
 const item = (extra: Partial<ItemCarritoApi> = {}): ItemCarritoApi => ({
   itemId: 'i1', servicioId: 's1', comercioId: 'c1', vertical: VerticalKey.ALOJAMIENTO,
@@ -155,6 +156,23 @@ describe('CarritoPanelComponent', () => {
 
       expect(componente.error()).toContain('No se pudo reservar el viaje');
       expect(componente.procesando()).toBe(false);
+    });
+
+    it('debería llevar a "reservas muy pronto" sin cobrar mientras las reservas están cerradas', async () => {
+      const abiertas = environment.reservasAbiertas;
+      environment.reservasAbiertas = false;
+      try {
+        await crear();
+        await componente.abrir();
+
+        await componente.reservar();
+
+        expect(carrito.checkout).not.toHaveBeenCalled();
+        expect(router.navigate).toHaveBeenCalledWith(['/proximamente/reservas']);
+        expect(componente.abierto()).toBe(false);
+      } finally {
+        environment.reservasAbiertas = abiertas;
+      }
     });
   });
 

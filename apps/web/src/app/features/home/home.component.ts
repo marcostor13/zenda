@@ -204,6 +204,20 @@ type SearchMode = 'filtros' | 'ia';
     </div>
   </section>
 
+  <!-- Lanzamiento por fases: la web está abierta pero aún no se reserva. -->
+  @if (!reservasAbiertas) {
+    <div class="rs-wrap rs-wrap--2xl lanzamiento">
+      <p class="rs-alert rs-alert--info lanzamiento__aviso" role="status">
+        <rs-icon name="rocket" [size]="18" [stroke]="2"></rs-icon>
+        <span>
+          <strong>{{ 'Las reservas abren muy pronto.' | t }}</strong>
+          {{ 'Mientras tanto, crea tu cuenta, registra a tus perros y guarda tus servicios favoritos.' | t }}
+          <a routerLink="/proximamente/reservas">{{ 'Avísame cuando abran' | t }}</a>
+        </span>
+      </p>
+    </div>
+  }
+
   <!-- ═══ CATEGORÍAS ══════════════════════════════════════════════ -->
   <section class="rs-section rs-section--sm cats-section" id="categorias">
     <div class="rs-wrap rs-wrap--2xl">
@@ -576,6 +590,9 @@ type SearchMode = 'filtros' | 'ia';
 </div>
   `,
   styles: [`
+    .lanzamiento { padding-top: var(--sp-6); }
+    .lanzamiento__aviso { align-items: center; margin: 0; }
+    .lanzamiento__aviso a { font-weight: var(--w-7); color: inherit; text-decoration: underline; }
     :host { display: block; }
 
     /*
@@ -1682,6 +1699,9 @@ export class HomeComponent implements OnInit {
    * cuanto el usuario cambia de divisa en la cabecera.
    */
   readonly moneda = inject(MonedaService);
+
+  /** Hasta la apertura de comercios se explora pero no se reserva. */
+  readonly reservasAbiertas = environment.reservasAbiertas;
 
   private readonly router = inject(Router);
   private readonly http = inject(HttpClient);
