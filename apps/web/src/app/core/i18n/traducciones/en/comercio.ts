@@ -693,6 +693,11 @@ const comercio: Diccionario = {
   'plazas publicadas en Doogking.': 'spaces published on Doogking.',
   'Pon un número para cerrar sólo esa parte. Vacío cierra el servicio entero esos días.': 'Enter a number to close only that part. Leave it empty to close the whole service on those days.',
   'Habitaciones reservables': 'Bookable rooms',
+  'Se cobra': 'Charged',
+  'Una vez por reserva': 'Once per booking',
+  'Por día': 'Per day',
+  'Por día y perro': 'Per day and dog',
+  'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.': 'For each one, say whether it is charged once (like a bath) or is a daily extra (like medication): daily extras are multiplied by the days of the stay and, if you choose, by the number of dogs.',
 };
 
 export default comercio;

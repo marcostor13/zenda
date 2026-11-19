@@ -693,6 +693,11 @@ const comercio: Diccionario = {
   'plazas publicadas en Doogking.': 'plekken gepubliceerd op Doogking.',
   'Pon un número para cerrar sólo esa parte. Vacío cierra el servicio entero esos días.': 'Vul een getal in om alleen dat deel te sluiten. Leeg sluit de hele dienst op die dagen.',
   'Habitaciones reservables': 'Boekbare kamers',
+  'Se cobra': 'Berekening',
+  'Una vez por reserva': 'Eenmaal per boeking',
+  'Por día': 'Per dag',
+  'Por día y perro': 'Per dag en per hond',
+  'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.': 'Geef bij elke dienst aan of die één keer wordt gerekend (zoals een wasbeurt) of een dagelijkse toeslag is (zoals medicatie): dagelijkse toeslagen worden vermenigvuldigd met de dagen van het verblijf en, als je dat kiest, met het aantal honden.',
 };
 
 export default comercio;

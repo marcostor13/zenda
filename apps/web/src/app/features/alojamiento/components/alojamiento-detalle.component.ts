@@ -18,6 +18,7 @@ import {
   ModalidadAlojamiento, TRAMO_GUARDERIA_LABELS, TramoGuarderia, VerticalKey, ofreceGuarderia, ofreceResidencia,
   precioDesdeGuarderia, tramosOfrecidos, type ConfigGuarderia,
   PERFIL_COMPATIBILIDAD_SOCIAL_LABELS, type PerfilCompatibilidadSocial, formatearDireccion,
+  COBRO_SERVICIO_ADICIONAL_SUFIJOS, cobroDeServicioAdicional,
 } from 'shared';
 import { EventosService } from '../../../core/eventos/eventos.service';
 import { RsUbicacionComponent } from '../../../shared/components/ubicacion/rs-ubicacion.component';
@@ -521,7 +522,7 @@ const UMBRAL_ULTIMOS_ESPACIOS = 3;
           <h3>{{ 'Servicios adicionales' | t }}</h3>
           <div class="room-card__amenities">
             @for (s of alojamiento()!.serviciosAdicionales; track s.nombre) {
-              <span class="rs-amenity">{{ s.nombre }} ({{ s.precio | euros }})</span>
+              <span class="rs-amenity">{{ s.nombre }} ({{ s.precio | euros }}@if (sufijoCobroExtra(s)) {&nbsp;{{ sufijoCobroExtra(s) | t }}})</span>
             }
           </div>
         </div>
@@ -1257,6 +1258,11 @@ export class AlojamientoDetalleComponent implements OnInit {
    * Puntos de compatibilidad reales entre la mascota elegida y este alojamiento
    * (HU-4.1.7) — solo a partir de datos que ambos declaran, nunca inventados.
    */
+  /** «/ día y perro» junto al precio del extra; vacío si se cobra una vez. */
+  sufijoCobroExtra(extra: { cobro?: string }): string {
+    return COBRO_SERVICIO_ADICIONAL_SUFIJOS[cobroDeServicioAdicional(extra)];
+  }
+
   /** Clave de traducción del perfil social; el valor crudo si es desconocido. */
   etiquetaPerfilSocial(perfil: string): string {
     return PERFIL_COMPATIBILIDAD_SOCIAL_LABELS[perfil as PerfilCompatibilidadSocial] ?? perfil;

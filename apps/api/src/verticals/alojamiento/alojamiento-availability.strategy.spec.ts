@@ -349,6 +349,28 @@ describe('AlojamientoAvailabilityStrategy', () => {
         expect(resultado.precioCalculado).toBe(45);
       });
 
+      it('debería multiplicar por noches y perros los extras que se cobran por día y perro', async () => {
+        servicioModel.findById.mockReturnValue({
+          lean: jest.fn().mockReturnThis(),
+          exec: jest.fn().mockResolvedValue({
+            ...alojamientoMock,
+            serviciosAdicionales: [
+              { nombre: 'Medicación', precio: 3, cobro: 'por_dia_perro' },
+              { nombre: 'Baño y cepillado', precio: 25 },
+            ],
+          }),
+        });
+
+        const resultado = await strategy.checkAvailability('alojamiento-1', {
+          fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-13'), cantidad: 2,
+          parametrosExtra: { extras: ['Medicación', 'Baño y cepillado'] },
+        });
+
+        // 3 noches × 45 € × 2 perros + 3 € × 3 noches × 2 perros + 25 € una vez
+        expect(resultado.metadata?.extras).toBe(18 + 25);
+        expect(resultado.precioCalculado).toBe(45 * 3 * 2 + 18 + 25);
+      });
+
       it('no debería sumar nada si no se seleccionan extras', async () => {
         const resultado = await strategy.checkAvailability('alojamiento-1', {
           fechaInicio: new Date('2026-01-10'), fechaFin: new Date('2026-01-11'),

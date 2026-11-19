@@ -693,6 +693,11 @@ const comercio: Diccionario = {
   'plazas publicadas en Doogking.': 'posti pubblicati su Doogking.',
   'Pon un número para cerrar sólo esa parte. Vacío cierra el servicio entero esos días.': 'Inserisci un numero per chiudere solo quella parte. Vuoto chiude l’intero servizio in quei giorni.',
   'Habitaciones reservables': 'Camere prenotabili',
+  'Se cobra': 'Addebito',
+  'Una vez por reserva': 'Una volta per prenotazione',
+  'Por día': 'Al giorno',
+  'Por día y perro': 'Al giorno per cane',
+  'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.': 'Indica per ciascuno se si paga una sola volta (come un bagno) o è un supplemento giornaliero (come i farmaci): i supplementi giornalieri si moltiplicano per i giorni del soggiorno e, se lo scegli, per il numero di cani.',
 };
 
 export default comercio;

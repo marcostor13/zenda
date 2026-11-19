@@ -339,6 +339,20 @@ describe('ReservaWizardComponent', () => {
       expect(componente.subtotal()).toBe(65);
     });
 
+    it('debería multiplicar por noches y perros el extra que se cobra por día y perro', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      componente.paso1AlojamientoForm.patchValue({ checkIn: '2026-12-01', checkOut: '2026-12-04', perros: 2 });
+      componente.serviciosAdicionalesAlojamiento.set([
+        { nombre: 'Medicación', precio: 3, cobro: 'por_dia_perro' },
+      ]);
+      componente.toggleExtra('Medicación');
+
+      expect(componente.extraPrecio('Medicación')).toBe(3 * 3 * 2);
+      expect(componente.detalleUnidadesExtra('Medicación')).toContain('× 6');
+      expect(componente.sufijoCobroExtra({ nombre: 'Medicación', precio: 3, cobro: 'por_dia_perro' })).toBe('/ día y perro');
+    });
+
     it('debería quitar el extra al pulsarlo de nuevo', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query);

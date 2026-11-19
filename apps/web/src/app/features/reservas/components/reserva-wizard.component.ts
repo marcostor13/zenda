@@ -22,7 +22,9 @@ import {
   type ConfigTransporte, type DesglosePrecioTransporte, type ProblemaHorarioEstancia,
   // Residencia y guardería canina: el mismo cálculo que cobra el API.
   ModalidadAlojamiento, TRAMO_GUARDERIA_LABELS, TramoGuarderia, HORAS_MEDIA_JORNADA,
-  modalidadesAlojamiento, precioGuarderia, tramosOfrecidos, type ConfigGuarderia } from 'shared';
+  modalidadesAlojamiento, precioGuarderia, tramosOfrecidos, type ConfigGuarderia,
+  COBRO_SERVICIO_ADICIONAL_SUFIJOS, cobroDeServicioAdicional, lineasServicioAdicional, totalServiciosAdicionales,
+  type LineaServicioAdicional } from 'shared';
 import {
   extrasFunerarios, serviciosFunerarios,
 } from '../../../shared/verticales/funerarios.util';
@@ -103,6 +105,7 @@ interface ServicioGroomingWizard {
 interface ServicioAdicionalWizard {
   nombre: string;
   precio: number;
+  cobro?: string;
 }
 
 /** Un dato del resumen del viaje de hotel (HU-5.7.2), con su icono Lucide. */
@@ -365,7 +368,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                           <div class="extra-item__icon"><rs-icon name="sparkles" [size]="20" [stroke]="2" /></div>
                           <div class="extra-item__info">
                             <div class="extra-item__name">{{ extra.nombre }}</div>
-                            <div class="extra-item__price">{{ extra.precio | euros }}</div>
+                            <div class="extra-item__price">{{ extra.precio | euros }}@if (sufijoCobroExtra(extra)) {&nbsp;{{ sufijoCobroExtra(extra) | t }}}</div>
                           </div>
                         </label>
                       }
@@ -435,7 +438,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                           <div class="extra-item__icon"><rs-icon name="sparkles" [size]="20" [stroke]="2" /></div>
                           <div class="extra-item__info">
                             <div class="extra-item__name">{{ extra.nombre }}</div>
-                            <div class="extra-item__price">{{ extra.precio | euros }}</div>
+                            <div class="extra-item__price">{{ extra.precio | euros }}@if (sufijoCobroExtra(extra)) {&nbsp;{{ sufijoCobroExtra(extra) | t }}}</div>
                           </div>
                         </label>
                       }
@@ -1460,7 +1463,7 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
             @if (vertical() === 'alojamiento') {
               @for (extra of extrasSelec(); track extra) {
                 <div class="price-row">
-                  <span>{{ extraNombre(extra) }}</span>
+                  <span>{{ extraNombre(extra) }}{{ detalleUnidadesExtra(extra) }}</span>
                   <span>{{ extraPrecio(extra) | euros }}</span>
                 </div>
               }
@@ -3198,8 +3201,8 @@ export class ReservaWizardComponent implements OnInit {
     const base = this.precioBase();
     switch (this.vertical()) {
       case VerticalKey.ALOJAMIENTO: {
-        const extras = this.extrasSelec().reduce(
-          (s, nombre) => s + (this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.precio ?? 0), 0,
+        const extras = totalServiciosAdicionales(
+          this.serviciosAdicionalesAlojamiento(), this.extrasSelec(), this.estanciaExtras(),
         );
         if (this.esGuarderia()) return this.precioDiaGuarderia() + extras;
         const { checkIn, checkOut } = this.paso1AlojamientoForm.value;
@@ -4252,7 +4255,30 @@ export class ReservaWizardComponent implements OnInit {
   }
 
   extraNombre(nombre: string): string { return this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.nombre ?? ''; }
-  extraPrecio(nombre: string): number { return this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.precio ?? 0; }
+  extraPrecio(nombre: string): number { return this.lineaExtra(nombre)?.importe ?? 0; }
+
+  /** Días y perros con los que se multiplican los extras diarios (la guardería es un solo día). */
+  private estanciaExtras(): { dias: number; perros: number } {
+    if (this.esGuarderia()) return { dias: 1, perros: Number(this.paso1GuarderiaForm.value.perros ?? 1) };
+    const { checkIn, checkOut, perros } = this.paso1AlojamientoForm.value;
+    return { dias: this.calcularNoches(checkIn ?? '', checkOut ?? ''), perros: Number(perros ?? 1) };
+  }
+
+  private lineaExtra(nombre: string): LineaServicioAdicional | undefined {
+    return lineasServicioAdicional(this.serviciosAdicionalesAlojamiento(), [nombre], this.estanciaExtras())[0];
+  }
+
+  /** «/ día y perro» junto al precio del extra; vacío si se cobra una vez. */
+  sufijoCobroExtra(extra: ServicioAdicionalWizard): string {
+    return COBRO_SERVICIO_ADICIONAL_SUFIJOS[cobroDeServicioAdicional(extra)];
+  }
+
+  /** « (3 € × 14)» en el resumen cuando el extra se multiplica por la estancia. */
+  detalleUnidadesExtra(nombre: string): string {
+    const linea = this.lineaExtra(nombre);
+    if (!linea || linea.unidades <= 1) return '';
+    return ` (${this.moneda.formatear(linea.precioUnitario)} × ${linea.unidades})`;
+  }
 
   async aplicarCupon(): Promise<void> {
     const codigo = this.cuponInput.trim().toUpperCase();

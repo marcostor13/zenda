@@ -366,6 +366,8 @@ const reservas: Diccionario = {
   'Crea tu cuenta con ese mismo correo': 'Maak een account aan met hetzelfde e-mailadres',
   'para ver y gestionar tus reservas.': 'om je boekingen te bekijken en te beheren.',
   'Para esto necesitas una cuenta. Regístrate o inicia sesión.': 'Hiervoor heb je een account nodig. Registreer je of log in.',
+  '/ día': '/ dag',
+  '/ día y perro': '/ dag per hond',
 };
 
 export default reservas;

@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import {
   ID_UNIDAD_GUARDERIA, ModalidadAlojamiento, VerticalKey, admitePerfilSocial, cabeEnTamano, claveDiaEnZona,
   etiquetaTamanoPerro, guarderiaAbreElDia, motivoGuarderiaNoReservable, ofreceGuarderia,
-  ofreceResidencia, precioGuarderia,
+  ofreceResidencia, precioGuarderia, totalServiciosAdicionales,
 } from 'shared';
 import {
   AvailabilityStrategy,
@@ -151,7 +151,7 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
     this.validarConductaRiesgo(alojamiento, params);
 
     const perros = Math.max(1, params.cantidad ?? 1);
-    const extras = this.calcularExtras(alojamiento, params);
+    const extras = this.calcularExtras(alojamiento, params, { dias: noches, perros });
 
     return {
       disponible: true,
@@ -211,7 +211,7 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
     this.validarConductaRiesgo(alojamiento, params);
 
     const perros = Math.max(1, params.cantidad ?? 1);
-    const extras = this.calcularExtras(alojamiento, params);
+    const extras = this.calcularExtras(alojamiento, params, { dias: 1, perros });
     const precio = precioGuarderia(config, solicitud, perros) ?? 0;
 
     return {
@@ -270,18 +270,19 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
   }
 
   /**
-   * Suma el precio de los `serviciosAdicionales` configurados por el comercio y
-   * elegidos por el cliente (HU-15.1/15.2) — se identifican por nombre, no por id,
-   * porque el schema no tiene id estable por servicio adicional.
+   * Suma los `serviciosAdicionales` configurados por el comercio y elegidos por
+   * el cliente (HU-15.1/15.2). Se identifican por nombre, no por id, porque el
+   * schema no tiene id estable por servicio adicional. Los que el comercio marca
+   * «por día» o «por día y perro» se multiplican por la estancia.
    */
-  private calcularExtras(alojamiento: Alojamiento, params: AvailabilityQuery): number {
+  private calcularExtras(
+    alojamiento: Alojamiento,
+    params: AvailabilityQuery,
+    estancia: { dias: number; perros: number },
+  ): number {
     const seleccionados = params.parametrosExtra?.['extras'];
     if (!Array.isArray(seleccionados) || seleccionados.length === 0) return 0;
-    const disponibles = alojamiento.serviciosAdicionales ?? [];
-    return seleccionados.reduce((suma: number, nombre) => {
-      const extra = disponibles.find((e) => e.nombre === nombre);
-      return suma + (extra?.precio ?? 0);
-    }, 0);
+    return totalServiciosAdicionales(alojamiento.serviciosAdicionales ?? [], seleccionados.map(String), estancia);
   }
 
   /** Usa el espacio elegido por el cliente (`espacioId`); si no se indica, el primero con cupo. */

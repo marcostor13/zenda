@@ -366,6 +366,8 @@ const reservas: Diccionario = {
   'Crea tu cuenta con ese mismo correo': 'Cria a tua conta com esse mesmo e-mail',
   'para ver y gestionar tus reservas.': 'para ver e gerir as tuas reservas.',
   'Para esto necesitas una cuenta. Regístrate o inicia sesión.': 'Para isto precisas de uma conta. Regista-te ou inicia sessão.',
+  '/ día': '/ dia',
+  '/ día y perro': '/ dia e cão',
 };
 
 export default reservas;

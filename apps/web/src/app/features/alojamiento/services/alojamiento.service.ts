@@ -101,6 +101,8 @@ export interface AlojamientoCard {
 export interface ServicioAdicionalAlojamiento {
   nombre: string;
   precio: number;
+  /** `unico` (por defecto), `por_dia` o `por_dia_perro`. */
+  cobro?: string;
 }
 
 export interface AlojamientoDetalle extends AlojamientoCard {

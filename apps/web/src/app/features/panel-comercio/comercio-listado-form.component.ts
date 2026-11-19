@@ -20,7 +20,8 @@ import {
   RedondeoDistancia, TipoIdaVuelta, TipoRecogida, TipoTrayecto, VentanaRecogida,
   // Residencia y guardería canina.
   ModalidadAlojamiento, DIAS_GUARDERIA_DEFECTO, HORAS_MEDIA_JORNADA, precioDesdeGuarderia,
-  type ConfigGuarderia } from 'shared';
+  type ConfigGuarderia,
+  CobroServicioAdicional, COBRO_SERVICIO_ADICIONAL_LABELS, cobroDeServicioAdicional } from 'shared';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
 import { RsImageUploadComponent } from '../../shared/components/image-upload/rs-image-upload.component';
 import { RsTagsInputComponent } from '../../shared/components/tags-input/rs-tags-input.component';
@@ -755,10 +756,13 @@ function aCsv(v: string): string[] {
                 </div>
 
                 <h2 class="section-title">{{ 'Servicios adicionales' | t }}</h2>
+                <p class="rs-field-hint" style="margin-bottom:var(--sp-4)">
+                  {{ 'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.' | t }}
+                </p>
                 <div formArrayName="serviciosAdicionales" class="rows">
                   @for (s of serviciosAdicionalesAlojamiento.controls; track $index; let i = $index) {
                     <div [formGroupName]="i" class="row-card row-card--sm">
-                      <div class="row-card__grid row-card__grid--2">
+                      <div class="row-card__grid row-card__grid--3">
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Nombre' | t }}</label>
                           <input class="rs-inp" formControlName="nombre" [placeholder]="'Ej. Paseo individual diario' | t">
@@ -766,6 +770,14 @@ function aCsv(v: string): string[] {
                         <div class="rs-field">
                           <label class="rs-lbl">{{ 'Precio (€)' | t }}</label>
                           <input class="rs-inp" type="number" min="0" step="0.01" formControlName="precio" inputmode="decimal">
+                        </div>
+                        <div class="rs-field">
+                          <label class="rs-lbl">{{ 'Se cobra' | t }}</label>
+                          <select class="rs-inp" formControlName="cobro">
+                            @for (c of cobrosServicioAdicional; track c.valor) {
+                              <option [value]="c.valor">{{ c.label | t }}</option>
+                            }
+                          </select>
                         </div>
                       </div>
                       <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="quitarServicioAdicionalAlojamiento(i)">
@@ -3059,10 +3071,16 @@ export class ComercioListadoFormComponent implements OnInit {
   agregarHabitacionHotel(): void { this.habitacionesHotel.push(this.nuevaHabitacionHotel()); }
   quitarHabitacionHotel(i: number): void { this.habitacionesHotel.removeAt(i); }
 
+  /** Una vez, por día o por día y perro: cómo multiplica el extra en el total de la estancia. */
+  readonly cobrosServicioAdicional = Object.values(CobroServicioAdicional)
+    .map((valor) => ({ valor, label: COBRO_SERVICIO_ADICIONAL_LABELS[valor] }));
+
   private nuevoServicioAdicionalAlojamiento(e?: Record<string, unknown>) {
     return this.fb.group({
       nombre: [(e?.['nombre'] as string) ?? ''],
       precio: [(e?.['precio'] as number) ?? 0],
+      // Los extras de antes no traen modo y se cobraban una vez: se respeta.
+      cobro: [e ? cobroDeServicioAdicional({ cobro: e['cobro'] as string | undefined }) : CobroServicioAdicional.POR_DIA_PERRO],
     });
   }
 
