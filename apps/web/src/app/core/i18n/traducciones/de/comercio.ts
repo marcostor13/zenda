@@ -697,7 +697,22 @@ const comercio: Diccionario = {
   'Una vez por reserva': 'Einmal pro Buchung',
   'Por día': 'Pro Tag',
   'Por día y perro': 'Pro Tag und Hund',
-  'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.': 'Gib bei jedem an, ob er einmalig berechnet wird (wie ein Bad) oder ein täglicher Aufschlag ist (wie Medikamente): Tägliche Aufschläge werden mit den Tagen des Aufenthalts und, wenn du willst, mit der Anzahl der Hunde multipliziert.',
+  'Servicios puntuales': 'Einmalige Leistungen',
+  'Se cobran una sola vez por reserva, dure lo que dure la estancia. Por ejemplo, entregar el perro bañado a la recogida.': 'Werden einmal pro Buchung berechnet, egal wie lange der Aufenthalt dauert. Zum Beispiel den Hund bei der Abholung gebadet übergeben.',
+  'Ej. Baño a la recogida': 'Z. B. Bad bei Abholung',
+  'Añadir servicio puntual': 'Einmalige Leistung hinzufügen',
+  'Pluses por día': 'Tageszuschläge',
+  'Se suman cada día de la estancia, por ejemplo si no traen su pienso o el perro es agresivo. Elige si se cobran por día o por día y perro. Los de carácter y medicación se marcan solos según la ficha del perro, y el cliente puede quitarlos.': 'Werden für jeden Tag des Aufenthalts berechnet, zum Beispiel wenn kein eigenes Futter mitgebracht wird oder der Hund aggressiv ist. Wähle, ob sie pro Tag oder pro Tag und Hund berechnet werden. Zuschläge für Verhalten und Medikamente werden anhand des Hundeprofils automatisch markiert, und der Kunde kann sie entfernen.',
+  'Añadir rápido:': 'Schnell hinzufügen:',
+  'Precio por día (€)': 'Preis pro Tag (€)',
+  'Añadir otro plus por día': 'Weiteren Tageszuschlag hinzufügen',
+  'Sin pienso propio': 'Kein eigenes Futter',
+  'Alimentación de nevera': 'Kühlschrankfutter',
+  'Perro agresivo o reactivo': 'Aggressiver oder reaktiver Hund',
+  'Perro con mucho miedo': 'Sehr ängstlicher Hund',
+  'Administración de medicación': 'Medikamentengabe',
+  'Servicios y pluses:': 'Leistungen und Zuschläge:',
+  'días': 'Tage',
 };
 
 export default comercio;

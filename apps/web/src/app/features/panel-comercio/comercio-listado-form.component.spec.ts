@@ -7,7 +7,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { of, throwError } from 'rxjs';
 import {
   FranjaHoraria, LugarRecogida, ModoPrecioRecogida, ServicioClinicoTipo, SERVICIO_CLINICO_LABELS,
-  TipoSeguro, TipoServicioFunerario, VerticalKey,
+  TipoSeguro, TipoServicioFunerario, VerticalKey, CobroServicioAdicional, TipoPlusAlojamiento,
 } from 'shared';
 import { ComercioListadoFormComponent } from './comercio-listado-form.component';
 import { ComercioApiService, ServicioPayload } from './comercio-api.service';
@@ -1102,10 +1102,32 @@ describe('ComercioListadoFormComponent', () => {
       componente.quitarServicioAdicionalPeluqueria(0);
       expect(componente.serviciosAdicionalesPeluqueria.length).toBe(0);
 
-      componente.agregarServicioAdicionalAlojamiento();
+      componente.agregarServicioPuntualAlojamiento();
       expect(componente.serviciosAdicionalesAlojamiento.length).toBe(1);
+      expect(componente.esPlusDiarioControl(componente.serviciosAdicionalesAlojamiento.at(0))).toBe(false);
       componente.quitarServicioAdicionalAlojamiento(0);
       expect(componente.serviciosAdicionalesAlojamiento.length).toBe(0);
+    });
+
+    it('debería añadir un plus diario típico con su tipo y retirarlo de las sugerencias', async () => {
+      await crear();
+      const pendientesAntes = componente.plusesSugeridosPendientes().length;
+
+      componente.agregarPlusSugerido(TipoPlusAlojamiento.SIN_PIENSO);
+
+      const plus = componente.serviciosAdicionalesAlojamiento.at(0);
+      expect(plus.get('tipo')?.value).toBe(TipoPlusAlojamiento.SIN_PIENSO);
+      expect(plus.get('cobro')?.value).toBe(CobroServicioAdicional.POR_DIA_PERRO);
+      expect(componente.esPlusDiarioControl(plus)).toBe(true);
+      expect(componente.plusesSugeridosPendientes().length).toBe(pendientesAntes - 1);
+    });
+
+    it('debería añadir un plus diario libre cobrado por día y perro', async () => {
+      await crear();
+      componente.agregarPlusDiarioAlojamiento();
+      const plus = componente.serviciosAdicionalesAlojamiento.at(0);
+      expect(plus.get('cobro')?.value).toBe(CobroServicioAdicional.POR_DIA_PERRO);
+      expect(plus.get('tipo')?.value).toBe('');
     });
   });
 

@@ -353,6 +353,54 @@ describe('ReservaWizardComponent', () => {
       expect(componente.sufijoCobroExtra({ nombre: 'Medicación', precio: 3, cobro: 'por_dia_perro' })).toBe('/ día y perro');
     });
 
+    it('debería separar los servicios puntuales de los pluses por día', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query);
+      componente.serviciosAdicionalesAlojamiento.set([
+        { nombre: 'Baño a la recogida', precio: 25 },
+        { nombre: 'Sin pienso propio', precio: 3, cobro: 'por_dia' },
+      ]);
+
+      expect(componente.extrasPuntualesAlojamiento().map((e) => e.nombre)).toEqual(['Baño a la recogida']);
+      expect(componente.plusesDiariosAlojamiento().map((e) => e.nombre)).toEqual(['Sin pienso propio']);
+    });
+
+    it('debería premarcar el plus de carácter según la ficha y dejar quitarlo', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, { perros: { misPerros: jest.fn().mockResolvedValue([]) } });
+      componente.serviciosAdicionalesAlojamiento.set([
+        { nombre: 'Perro agresivo', precio: 5, cobro: 'por_dia_perro', tipo: 'agresivo' },
+        { nombre: 'Sin pienso propio', precio: 3, cobro: 'por_dia', tipo: 'sin_pienso' },
+      ]);
+      componente.perros.set([perro({ _id: 'p7', reactividadCorrea: true })]);
+      componente.seleccionarPerro('p7');
+      TestBed.tick();
+
+      expect(componente.extrasSelec()).toEqual(['Perro agresivo']);
+      expect(componente.extrasAutoMarcados()).toEqual(['Perro agresivo']);
+
+      componente.toggleExtra('Perro agresivo');
+      expect(componente.extrasSelec()).toEqual([]);
+      expect(componente.extrasAutoMarcados()).toEqual([]);
+    });
+
+    it('debería retirar los pluses premarcados al cambiar a un perro tranquilo', async () => {
+      const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
+      await crear(params, query, { perros: { misPerros: jest.fn().mockResolvedValue([]) } });
+      componente.serviciosAdicionalesAlojamiento.set([
+        { nombre: 'Perro agresivo', precio: 5, cobro: 'por_dia_perro', tipo: 'agresivo' },
+        { nombre: 'Baño a la recogida', precio: 25 },
+      ]);
+      componente.perros.set([perro({ _id: 'p7', reactividadCorrea: true }), perro({ _id: 'p8' })]);
+      componente.toggleExtra('Baño a la recogida');
+      componente.seleccionarPerro('p7');
+      TestBed.tick();
+      componente.seleccionarPerro('p8');
+      TestBed.tick();
+
+      expect(componente.extrasSelec()).toEqual(['Baño a la recogida']);
+    });
+
     it('debería quitar el extra al pulsarlo de nuevo', async () => {
       const { params, query } = contexto(VerticalKey.ALOJAMIENTO);
       await crear(params, query);

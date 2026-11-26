@@ -368,6 +368,10 @@ const reservas: Diccionario = {
   'Para esto necesitas una cuenta. Regístrate o inicia sesión.': 'Hiervoor heb je een account nodig. Registreer je of log in.',
   '/ día': '/ dag',
   '/ día y perro': '/ dag per hond',
+  'Pluses por día de estancia': 'Toeslagen per verblijfsdag',
+  'Márcalos si se aplican a tu perro: se suman cada día de la estancia.': 'Vink ze aan als ze op je hond van toepassing zijn: ze worden voor elke verblijfsdag opgeteld.',
+  'Marcado según la ficha de {nombre}': 'Aangevinkt op basis van het profiel van {nombre}',
+  'Servicios y pluses': 'Diensten en toeslagen',
 };
 
 export default reservas;

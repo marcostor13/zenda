@@ -697,7 +697,22 @@ const comercio: Diccionario = {
   'Una vez por reserva': 'Una volta per prenotazione',
   'Por día': 'Al giorno',
   'Por día y perro': 'Al giorno per cane',
-  'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.': 'Indica per ciascuno se si paga una sola volta (come un bagno) o è un supplemento giornaliero (come i farmaci): i supplementi giornalieri si moltiplicano per i giorni del soggiorno e, se lo scegli, per il numero di cani.',
+  'Servicios puntuales': 'Servizi una tantum',
+  'Se cobran una sola vez por reserva, dure lo que dure la estancia. Por ejemplo, entregar el perro bañado a la recogida.': 'Si addebitano una sola volta per prenotazione, qualunque sia la durata del soggiorno. Ad esempio, riconsegnare il cane lavato al ritiro.',
+  'Ej. Baño a la recogida': 'Es. Bagno al ritiro',
+  'Añadir servicio puntual': 'Aggiungi servizio una tantum',
+  'Pluses por día': 'Supplementi giornalieri',
+  'Se suman cada día de la estancia, por ejemplo si no traen su pienso o el perro es agresivo. Elige si se cobran por día o por día y perro. Los de carácter y medicación se marcan solos según la ficha del perro, y el cliente puede quitarlos.': 'Si sommano per ogni giorno del soggiorno, ad esempio se non portano le crocchette o se il cane è aggressivo. Scegli se si addebitano al giorno o al giorno per cane. Quelli per carattere e farmaci si selezionano da soli in base alla scheda del cane e il cliente può toglierli.',
+  'Añadir rápido:': 'Aggiunta rapida:',
+  'Precio por día (€)': 'Prezzo al giorno (€)',
+  'Añadir otro plus por día': 'Aggiungi un altro supplemento giornaliero',
+  'Sin pienso propio': 'Senza crocchette proprie',
+  'Alimentación de nevera': 'Alimentazione da frigorifero',
+  'Perro agresivo o reactivo': 'Cane aggressivo o reattivo',
+  'Perro con mucho miedo': 'Cane molto pauroso',
+  'Administración de medicación': 'Somministrazione di farmaci',
+  'Servicios y pluses:': 'Servizi e supplementi:',
+  'días': 'giorni',
 };
 
 export default comercio;

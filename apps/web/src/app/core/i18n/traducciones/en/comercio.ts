@@ -697,7 +697,22 @@ const comercio: Diccionario = {
   'Una vez por reserva': 'Once per booking',
   'Por día': 'Per day',
   'Por día y perro': 'Per day and dog',
-  'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.': 'For each one, say whether it is charged once (like a bath) or is a daily extra (like medication): daily extras are multiplied by the days of the stay and, if you choose, by the number of dogs.',
+  'Servicios puntuales': 'One-off services',
+  'Se cobran una sola vez por reserva, dure lo que dure la estancia. Por ejemplo, entregar el perro bañado a la recogida.': 'Charged once per booking, however long the stay. For example, handing the dog back bathed at pick-up.',
+  'Ej. Baño a la recogida': 'E.g. Bath at pick-up',
+  'Añadir servicio puntual': 'Add one-off service',
+  'Pluses por día': 'Daily surcharges',
+  'Se suman cada día de la estancia, por ejemplo si no traen su pienso o el perro es agresivo. Elige si se cobran por día o por día y perro. Los de carácter y medicación se marcan solos según la ficha del perro, y el cliente puede quitarlos.': 'Added for every day of the stay, for example if the owner does not bring the dog food or the dog is aggressive. Choose whether they are charged per day or per day and dog. Temperament and medication surcharges are ticked automatically from the dog profile, and the customer can remove them.',
+  'Añadir rápido:': 'Quick add:',
+  'Precio por día (€)': 'Price per day (€)',
+  'Añadir otro plus por día': 'Add another daily surcharge',
+  'Sin pienso propio': 'Owner\'s food not provided',
+  'Alimentación de nevera': 'Refrigerated food',
+  'Perro agresivo o reactivo': 'Aggressive or reactive dog',
+  'Perro con mucho miedo': 'Very fearful dog',
+  'Administración de medicación': 'Medication administration',
+  'Servicios y pluses:': 'Services and surcharges:',
+  'días': 'days',
 };
 
 export default comercio;

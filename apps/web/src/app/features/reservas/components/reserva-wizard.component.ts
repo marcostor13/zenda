@@ -1,4 +1,4 @@
-import { Component, signal, computed, effect, OnInit, inject } from '@angular/core';
+import { Component, signal, computed, effect, OnInit, inject, untracked } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -24,6 +24,7 @@ import {
   ModalidadAlojamiento, TRAMO_GUARDERIA_LABELS, TramoGuarderia, HORAS_MEDIA_JORNADA,
   modalidadesAlojamiento, precioGuarderia, tramosOfrecidos, type ConfigGuarderia,
   COBRO_SERVICIO_ADICIONAL_SUFIJOS, cobroDeServicioAdicional, lineasServicioAdicional, totalServiciosAdicionales,
+  esPlusDiario, plusesSugeridosParaPerro,
   type LineaServicioAdicional } from 'shared';
 import {
   extrasFunerarios, serviciosFunerarios,
@@ -106,6 +107,8 @@ interface ServicioAdicionalWizard {
   nombre: string;
   precio: number;
   cobro?: string;
+  /** Situación del plus diario: con ella se premarca según la ficha del perro. */
+  tipo?: string;
 }
 
 /** Un dato del resumen del viaje de hotel (HU-5.7.2), con su icono Lucide. */
@@ -358,17 +361,38 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                     </select>
                   </div>
                 </div>
-                @if (serviciosAdicionalesAlojamiento().length > 0) {
+                @if (extrasPuntualesAlojamiento().length > 0) {
                   <div class="extras-section">
                     <h3>{{ 'Servicios adicionales' | t }}</h3>
                     <div class="extras-grid">
-                      @for (extra of serviciosAdicionalesAlojamiento(); track extra.nombre) {
+                      @for (extra of extrasPuntualesAlojamiento(); track extra.nombre) {
                         <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
-                          <input type="checkbox" [value]="extra.nombre" (change)="toggleExtra(extra.nombre)" />
+                          <input type="checkbox" [value]="extra.nombre" [checked]="extrasSelec().includes(extra.nombre)" (change)="toggleExtra(extra.nombre)" />
                           <div class="extra-item__icon"><rs-icon name="sparkles" [size]="20" [stroke]="2" /></div>
                           <div class="extra-item__info">
                             <div class="extra-item__name">{{ extra.nombre }}</div>
-                            <div class="extra-item__price">{{ extra.precio | euros }}@if (sufijoCobroExtra(extra)) {&nbsp;{{ sufijoCobroExtra(extra) | t }}}</div>
+                            <div class="extra-item__price">{{ extra.precio | euros }}</div>
+                          </div>
+                        </label>
+                      }
+                    </div>
+                  </div>
+                }
+                @if (plusesDiariosAlojamiento().length > 0) {
+                  <div class="extras-section">
+                    <h3>{{ 'Pluses por día de estancia' | t }}</h3>
+                    <p class="rs-field-hint">{{ 'Márcalos si se aplican a tu perro: se suman cada día de la estancia.' | t }}</p>
+                    <div class="extras-grid">
+                      @for (extra of plusesDiariosAlojamiento(); track extra.nombre) {
+                        <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
+                          <input type="checkbox" [value]="extra.nombre" [checked]="extrasSelec().includes(extra.nombre)" (change)="toggleExtra(extra.nombre)" />
+                          <div class="extra-item__icon"><rs-icon name="calendar" [size]="20" [stroke]="2" /></div>
+                          <div class="extra-item__info">
+                            <div class="extra-item__name">{{ extra.nombre }}</div>
+                            <div class="extra-item__price">{{ extra.precio | euros }}&nbsp;{{ sufijoCobroExtra(extra) | t }}@if (detalleUnidadesExtra(extra.nombre); as det) {<span class="extra-item__total">{{ det }} = {{ extraPrecio(extra.nombre) | euros }}</span>}</div>
+                            @if (extrasAutoMarcados().includes(extra.nombre)) {
+                              <div class="extra-item__nota">{{ 'Marcado según la ficha de {nombre}' | t: { nombre: perroSeleccionadoObj()?.nombre ?? '' } }}</div>
+                            }
                           </div>
                         </label>
                       }
@@ -428,17 +452,38 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
                   </select>
                   <span class="rs-field-hint">{{ 'Ayuda a la residencia a alojarlo de forma segura junto a otros perros.' | t }}</span>
                 </div>
-                @if (serviciosAdicionalesAlojamiento().length > 0) {
+                @if (extrasPuntualesAlojamiento().length > 0) {
                   <div class="extras-section">
                     <h3>{{ 'Servicios adicionales' | t }}</h3>
                     <div class="extras-grid">
-                      @for (extra of serviciosAdicionalesAlojamiento(); track extra.nombre) {
+                      @for (extra of extrasPuntualesAlojamiento(); track extra.nombre) {
                         <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
-                          <input type="checkbox" [value]="extra.nombre" (change)="toggleExtra(extra.nombre)" />
+                          <input type="checkbox" [value]="extra.nombre" [checked]="extrasSelec().includes(extra.nombre)" (change)="toggleExtra(extra.nombre)" />
                           <div class="extra-item__icon"><rs-icon name="sparkles" [size]="20" [stroke]="2" /></div>
                           <div class="extra-item__info">
                             <div class="extra-item__name">{{ extra.nombre }}</div>
-                            <div class="extra-item__price">{{ extra.precio | euros }}@if (sufijoCobroExtra(extra)) {&nbsp;{{ sufijoCobroExtra(extra) | t }}}</div>
+                            <div class="extra-item__price">{{ extra.precio | euros }}</div>
+                          </div>
+                        </label>
+                      }
+                    </div>
+                  </div>
+                }
+                @if (plusesDiariosAlojamiento().length > 0) {
+                  <div class="extras-section">
+                    <h3>{{ 'Pluses por día de estancia' | t }}</h3>
+                    <p class="rs-field-hint">{{ 'Márcalos si se aplican a tu perro: se suman cada día de la estancia.' | t }}</p>
+                    <div class="extras-grid">
+                      @for (extra of plusesDiariosAlojamiento(); track extra.nombre) {
+                        <label class="extra-item" [class.selected]="extrasSelec().includes(extra.nombre)">
+                          <input type="checkbox" [value]="extra.nombre" [checked]="extrasSelec().includes(extra.nombre)" (change)="toggleExtra(extra.nombre)" />
+                          <div class="extra-item__icon"><rs-icon name="calendar" [size]="20" [stroke]="2" /></div>
+                          <div class="extra-item__info">
+                            <div class="extra-item__name">{{ extra.nombre }}</div>
+                            <div class="extra-item__price">{{ extra.precio | euros }}&nbsp;{{ sufijoCobroExtra(extra) | t }}@if (detalleUnidadesExtra(extra.nombre); as det) {<span class="extra-item__total">{{ det }} = {{ extraPrecio(extra.nombre) | euros }}</span>}</div>
+                            @if (extrasAutoMarcados().includes(extra.nombre)) {
+                              <div class="extra-item__nota">{{ 'Marcado según la ficha de {nombre}' | t: { nombre: perroSeleccionadoObj()?.nombre ?? '' } }}</div>
+                            }
                           </div>
                         </label>
                       }
@@ -1868,6 +1913,8 @@ const POLITICA_TEMPERAMENTO_LABEL: Record<string, string> = {
     .extra-item__icon { font-size: 1.5rem; }
     .extra-item__name { font-size: var(--f-sm); font-weight: var(--w-5); color: var(--t-100); }
     .extra-item__price { font-size: var(--f-xs); color: var(--t-400); }
+    .extra-item__total { color: var(--t-300); }
+    .extra-item__nota { margin-top: var(--sp-1); font-size: var(--f-xs); color: var(--c-accent); }
 
     .wizard-nav { display: flex; justify-content: space-between; align-items: center; margin-top: var(--sp-6); gap: var(--sp-4); flex-wrap: wrap; }
 
@@ -2821,6 +2868,34 @@ export class ReservaWizardComponent implements OnInit {
   // ─── Extras (alojamiento) — configurados por el comercio (HU-15.1/15.2), no fijos ───
   readonly extrasSelec = signal<string[]>([]);
   readonly serviciosAdicionalesAlojamiento = signal<ServicioAdicionalWizard[]>([]);
+
+  /** Lo que se cobra una vez (el baño a la recogida) va aparte de los pluses que suman cada día. */
+  readonly extrasPuntualesAlojamiento = computed(() =>
+    this.serviciosAdicionalesAlojamiento().filter((extra) => !esPlusDiario(extra)),
+  );
+  readonly plusesDiariosAlojamiento = computed(() =>
+    this.serviciosAdicionalesAlojamiento().filter((extra) => esPlusDiario(extra)),
+  );
+
+  /** Pluses marcados por la ficha del perro y no por el cliente: se rehacen si cambia el perro. */
+  readonly extrasAutoMarcados = signal<string[]>([]);
+
+  /**
+   * Un perro reactivo, nervioso o con medicación premarca su plus diario. El
+   * cliente puede quitarlo, y el comercio cobrarlo en recepción si hacía falta.
+   */
+  private readonly premarcarPlusesSegunFicha = effect(() => {
+    const sugeridos = plusesSugeridosParaPerro(this.serviciosAdicionalesAlojamiento(), this.perroSeleccionadoObj());
+    const anteriores = untracked(() => this.extrasAutoMarcados());
+    if (sugeridos.length === anteriores.length && sugeridos.every((n) => anteriores.includes(n))) return;
+    untracked(() => {
+      this.extrasSelec.update((lista) => {
+        const sinAnteriores = lista.filter((n) => !anteriores.includes(n));
+        return [...sinAnteriores, ...sugeridos.filter((n) => !sinAnteriores.includes(n))];
+      });
+      this.extrasAutoMarcados.set(sugeridos);
+    });
+  });
 
   /**
    * Tarifas y extras del transportista (HU-5.5.2/5.5.3/15.1). Sin esto el resumen
@@ -4252,6 +4327,8 @@ export class ReservaWizardComponent implements OnInit {
     this.extrasSelec.update(list =>
       list.includes(id) ? list.filter(x => x !== id) : [...list, id]
     );
+    // Tocado a mano deja de ser una sugerencia de la ficha.
+    this.extrasAutoMarcados.update((lista) => lista.filter((n) => n !== id));
   }
 
   extraNombre(nombre: string): string { return this.serviciosAdicionalesAlojamiento().find(e => e.nombre === nombre)?.nombre ?? ''; }

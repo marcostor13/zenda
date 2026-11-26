@@ -1,6 +1,6 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import type { CobroServicioAdicional, ConfigGuarderia } from 'shared';
+import type { CobroServicioAdicional, ConfigGuarderia, TipoPlusAlojamiento } from 'shared';
 import { Servicio } from '../../core/catalog/servicio.schema';
 
 export type AlojamientoDocument = HydratedDocument<Alojamiento>;
@@ -25,6 +25,8 @@ export interface ServicioAdicionalResidencia {
   precio: number;
   /** `unico` (por defecto), `por_dia` o `por_dia_perro`: ver `CobroServicioAdicional`. */
   cobro?: CobroServicioAdicional;
+  /** Situación del plus diario (sin pienso, perro reactivo...): ver `TipoPlusAlojamiento`. */
+  tipo?: TipoPlusAlojamiento;
 }
 
 @Schema({ _id: false })

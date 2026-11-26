@@ -697,7 +697,22 @@ const comercio: Diccionario = {
   'Una vez por reserva': 'Eenmaal per boeking',
   'Por día': 'Per dag',
   'Por día y perro': 'Per dag en per hond',
-  'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.': 'Geef bij elke dienst aan of die één keer wordt gerekend (zoals een wasbeurt) of een dagelijkse toeslag is (zoals medicatie): dagelijkse toeslagen worden vermenigvuldigd met de dagen van het verblijf en, als je dat kiest, met het aantal honden.',
+  'Servicios puntuales': 'Eenmalige diensten',
+  'Se cobran una sola vez por reserva, dure lo que dure la estancia. Por ejemplo, entregar el perro bañado a la recogida.': 'Worden één keer per boeking gerekend, hoe lang het verblijf ook duurt. Bijvoorbeeld de hond gewassen teruggeven bij het ophalen.',
+  'Ej. Baño a la recogida': 'Bijv. Wasbeurt bij ophalen',
+  'Añadir servicio puntual': 'Eenmalige dienst toevoegen',
+  'Pluses por día': 'Toeslagen per dag',
+  'Se suman cada día de la estancia, por ejemplo si no traen su pienso o el perro es agresivo. Elige si se cobran por día o por día y perro. Los de carácter y medicación se marcan solos según la ficha del perro, y el cliente puede quitarlos.': 'Worden voor elke dag van het verblijf opgeteld, bijvoorbeeld als het eigen voer niet wordt meegebracht of de hond agressief is. Kies of ze per dag of per dag en hond worden gerekend. Toeslagen voor karakter en medicatie worden automatisch aangevinkt op basis van het hondenprofiel en de klant kan ze verwijderen.',
+  'Añadir rápido:': 'Snel toevoegen:',
+  'Precio por día (€)': 'Prijs per dag (€)',
+  'Añadir otro plus por día': 'Nog een toeslag per dag toevoegen',
+  'Sin pienso propio': 'Geen eigen voer',
+  'Alimentación de nevera': 'Gekoeld voer',
+  'Perro agresivo o reactivo': 'Agressieve of reactieve hond',
+  'Perro con mucho miedo': 'Zeer angstige hond',
+  'Administración de medicación': 'Toediening van medicatie',
+  'Servicios y pluses:': 'Diensten en toeslagen:',
+  'días': 'dagen',
 };
 
 export default comercio;

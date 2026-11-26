@@ -1,5 +1,8 @@
 import { Component, signal, inject, computed, OnInit } from '@angular/core';
-import { HitoFunerario, VerticalKey, etiquetaModalidadReserva, tieneHistorialDeServicio } from 'shared';
+import {
+  HitoFunerario, VerticalKey, diasCobrablesReserva, etiquetaModalidadReserva, importeSuplemento,
+  tieneHistorialDeServicio, unidadesSuplemento,
+} from 'shared';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -373,6 +376,11 @@ function desdeClaveDia(clave: string): number {
                     <div><dt>{{ 'Importe' | t }}</dt><dd>{{ (r.montoAjustado ?? r.montoTotal) | euros:'1.2-2' }}</dd></div>
                     <div><dt>{{ 'Reservada el' | t }}</dt><dd>{{ r.createdAt | date:'d MMM yyyy' }}</dd></div>
                   </dl>
+                  @if (r.detalle?.['extrasResumen']) {
+                    <p class="detalle__suplementos">
+                      <strong>{{ 'Servicios y pluses:' | t }}</strong> {{ r.detalle!['extrasResumen'] }}
+                    </p>
+                  }
                   @if (r.suplementos?.length) {
                     <p class="detalle__suplementos">
                       <strong>{{ 'Suplementos:' | t }}</strong>
@@ -678,7 +686,7 @@ function desdeClaveDia(clave: string): number {
                           <label class="filter-check">
                             <input type="checkbox" [checked]="seleccionados().has(s._id)"
                                    (change)="toggleSuplemento(s._id)" />
-                            {{ s.concepto }} (+{{ s.monto | euros:'1.2-2' }})
+                            {{ s.concepto }} (+{{ importeSuplementoEn(s, r) | euros:'1.2-2' }}@if (unidadesSuplementoEn(s, r) > 1) { = {{ s.monto | euros:'1.2-2' }} × {{ unidadesSuplementoEn(s, r) }} {{ 'días' | t }}})
                           </label>
                         }
                       </div>
@@ -982,11 +990,21 @@ export class ComercioReservasComponent implements OnInit {
   planSesiones: number | null = null;
   planPrecio: number | null = null;
 
-  readonly totalSuplementoSeleccionado = computed(() =>
-    this.suplementosCatalogo()
+  readonly totalSuplementoSeleccionado = computed(() => {
+    const reserva = this.reservas().find((r) => r._id === this.ajusteAbiertoId());
+    return this.suplementosCatalogo()
       .filter((s) => this.seleccionados().has(s._id))
-      .reduce((acc, s) => acc + s.monto, 0),
-  );
+      .reduce((acc, s) => acc + (reserva ? this.importeSuplementoEn(s, reserva) : s.monto), 0);
+  });
+
+  /** Veces que se cobra el suplemento: uno «por día» se suma cada día de la reserva. */
+  unidadesSuplementoEn(s: SuplementoConfig, r: MiReserva): number {
+    return unidadesSuplemento(s.unidad, diasCobrablesReserva(r.fechaInicio, r.fechaFin));
+  }
+
+  importeSuplementoEn(s: SuplementoConfig, r: MiReserva): number {
+    return importeSuplemento(s.monto, s.unidad, diasCobrablesReserva(r.fechaInicio, r.fechaFin));
+  }
 
   // Reputación bidireccional: el comercio valora al perro tras completar el servicio.
   readonly valorarAbiertoId = signal<string | null>(null);
@@ -1366,7 +1384,11 @@ export class ComercioReservasComponent implements OnInit {
   async enviarAjuste(r: MiReserva): Promise<void> {
     const suplementos = this.suplementosCatalogo()
       .filter((s) => this.seleccionados().has(s._id))
-      .map((s) => ({ concepto: s.concepto, monto: s.monto }));
+      .map((s) => {
+        const unidades = this.unidadesSuplementoEn(s, r);
+        const concepto = unidades > 1 ? `${s.concepto} (${unidades} días)` : s.concepto;
+        return { concepto, monto: this.importeSuplementoEn(s, r) };
+      });
 
     if (this.planValido()) {
       const sesiones = this.planSesiones ? `${this.planSesiones} sesiones` : 'programa';

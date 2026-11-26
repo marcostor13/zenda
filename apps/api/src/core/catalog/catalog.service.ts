@@ -219,7 +219,7 @@ export interface ServicioDetalleDto extends ServicioCardDto {
   requiereDesparasitacionInterna: boolean;
   requiereDesparasitacionExterna: boolean;
   requiereVacunaTosPerreras: boolean;
-  serviciosAdicionales: Array<{ nombre: string; precio: number; cobro?: string }>;
+  serviciosAdicionales: Array<{ nombre: string; precio: number; cobro?: string; tipo?: string }>;
 }
 
 export interface PaginatedResult<T> {
@@ -306,7 +306,7 @@ interface ServicioLean {
   requiereDesparasitacionInterna?: boolean;
   requiereDesparasitacionExterna?: boolean;
   requiereVacunaTosPerreras?: boolean;
-  serviciosAdicionales?: Array<{ nombre: string; precio: number; cobro?: string }>;
+  serviciosAdicionales?: Array<{ nombre: string; precio: number; cobro?: string; tipo?: string }>;
   distanciaCentroKm?: number;
 }
 

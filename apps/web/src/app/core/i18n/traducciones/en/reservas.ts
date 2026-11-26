@@ -368,6 +368,10 @@ const reservas: Diccionario = {
   'Para esto necesitas una cuenta. Regístrate o inicia sesión.': 'You need an account for this. Sign up or log in.',
   '/ día': '/ day',
   '/ día y perro': '/ day per dog',
+  'Pluses por día de estancia': 'Daily surcharges for the stay',
+  'Márcalos si se aplican a tu perro: se suman cada día de la estancia.': 'Tick them if they apply to your dog: they are added for every day of the stay.',
+  'Marcado según la ficha de {nombre}': 'Ticked from {nombre}\'s profile',
+  'Servicios y pluses': 'Services and surcharges',
 };
 
 export default reservas;

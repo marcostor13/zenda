@@ -697,7 +697,22 @@ const comercio: Diccionario = {
   'Una vez por reserva': 'Uma vez por reserva',
   'Por día': 'Por dia',
   'Por día y perro': 'Por dia e por cão',
-  'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.': 'Indique em cada um se é cobrado uma só vez (como um banho) ou se é um extra diário (como a medicação): os diários multiplicam-se pelos dias da estadia e, se escolher, pelo número de cães.',
+  'Servicios puntuales': 'Serviços pontuais',
+  'Se cobran una sola vez por reserva, dure lo que dure la estancia. Por ejemplo, entregar el perro bañado a la recogida.': 'Cobram-se uma única vez por reserva, seja qual for a duração da estadia. Por exemplo, entregar o cão lavado na recolha.',
+  'Ej. Baño a la recogida': 'Ex. Banho na recolha',
+  'Añadir servicio puntual': 'Adicionar serviço pontual',
+  'Pluses por día': 'Suplementos por dia',
+  'Se suman cada día de la estancia, por ejemplo si no traen su pienso o el perro es agresivo. Elige si se cobran por día o por día y perro. Los de carácter y medicación se marcan solos según la ficha del perro, y el cliente puede quitarlos.': 'Somam-se por cada dia da estadia, por exemplo se não trouxerem a ração ou se o cão for agressivo. Escolha se se cobram por dia ou por dia e cão. Os de temperamento e medicação marcam-se sozinhos conforme a ficha do cão, e o cliente pode retirá-los.',
+  'Añadir rápido:': 'Adicionar rápido:',
+  'Precio por día (€)': 'Preço por dia (€)',
+  'Añadir otro plus por día': 'Adicionar outro suplemento por dia',
+  'Sin pienso propio': 'Sem ração própria',
+  'Alimentación de nevera': 'Alimentação refrigerada',
+  'Perro agresivo o reactivo': 'Cão agressivo ou reativo',
+  'Perro con mucho miedo': 'Cão com muito medo',
+  'Administración de medicación': 'Administração de medicação',
+  'Servicios y pluses:': 'Serviços e suplementos:',
+  'días': 'dias',
 };
 
 export default comercio;

@@ -697,7 +697,22 @@ const comercio: Diccionario = {
   'Una vez por reserva': 'Une fois par réservation',
   'Por día': 'Par jour',
   'Por día y perro': 'Par jour et par chien',
-  'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.': 'Indiquez pour chacun s’il est facturé une seule fois (comme un bain) ou s’il s’agit d’un supplément quotidien (comme les médicaments) : les suppléments quotidiens sont multipliés par les jours du séjour et, si vous le souhaitez, par le nombre de chiens.',
+  'Servicios puntuales': 'Services ponctuels',
+  'Se cobran una sola vez por reserva, dure lo que dure la estancia. Por ejemplo, entregar el perro bañado a la recogida.': 'Facturés une seule fois par réservation, quelle que soit la durée du séjour. Par exemple, rendre le chien lavé à la récupération.',
+  'Ej. Baño a la recogida': 'Ex. Bain à la récupération',
+  'Añadir servicio puntual': 'Ajouter un service ponctuel',
+  'Pluses por día': 'Suppléments par jour',
+  'Se suman cada día de la estancia, por ejemplo si no traen su pienso o el perro es agresivo. Elige si se cobran por día o por día y perro. Los de carácter y medicación se marcan solos según la ficha del perro, y el cliente puede quitarlos.': 'S\'ajoutent pour chaque jour du séjour, par exemple si le client n\'apporte pas les croquettes ou si le chien est agressif. Choisissez s\'ils sont facturés par jour ou par jour et par chien. Ceux liés au caractère et aux médicaments se cochent seuls selon la fiche du chien, et le client peut les retirer.',
+  'Añadir rápido:': 'Ajout rapide :',
+  'Precio por día (€)': 'Prix par jour (€)',
+  'Añadir otro plus por día': 'Ajouter un autre supplément par jour',
+  'Sin pienso propio': 'Sans croquettes fournies',
+  'Alimentación de nevera': 'Alimentation réfrigérée',
+  'Perro agresivo o reactivo': 'Chien agressif ou réactif',
+  'Perro con mucho miedo': 'Chien très craintif',
+  'Administración de medicación': 'Administration de médicaments',
+  'Servicios y pluses:': 'Services et suppléments :',
+  'días': 'jours',
 };
 
 export default comercio;

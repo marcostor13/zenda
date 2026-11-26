@@ -368,6 +368,10 @@ const reservas: Diccionario = {
   'Para esto necesitas una cuenta. Regístrate o inicia sesión.': 'Do tego potrzebujesz konta. Zarejestruj się lub zaloguj.',
   '/ día': '/ dzień',
   '/ día y perro': '/ dzień i pies',
+  'Pluses por día de estancia': 'Dopłaty za dzień pobytu',
+  'Márcalos si se aplican a tu perro: se suman cada día de la estancia.': 'Zaznacz je, jeśli dotyczą twojego psa: są doliczane za każdy dzień pobytu.',
+  'Marcado según la ficha de {nombre}': 'Zaznaczone na podstawie profilu: {nombre}',
+  'Servicios y pluses': 'Usługi i dopłaty',
 };
 
 export default reservas;

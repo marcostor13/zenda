@@ -697,7 +697,22 @@ const comercio: Diccionario = {
   'Una vez por reserva': 'Raz za rezerwację',
   'Por día': 'Za dzień',
   'Por día y perro': 'Za dzień i psa',
-  'Indica en cada uno si se cobra una sola vez (como un baño) o es un plus diario (como la medicación): los diarios se multiplican por los días de estancia y, si lo eliges, por el número de perros.': 'Przy każdej usłudze wskaż, czy jest płatna jednorazowo (jak kąpiel), czy jest dziennym dodatkiem (jak leki): dodatki dzienne mnoży się przez liczbę dni pobytu i, jeśli wybierzesz, przez liczbę psów.',
+  'Servicios puntuales': 'Usługi jednorazowe',
+  'Se cobran una sola vez por reserva, dure lo que dure la estancia. Por ejemplo, entregar el perro bañado a la recogida.': 'Pobierane raz za rezerwację, niezależnie od długości pobytu. Na przykład oddanie psa wykąpanego przy odbiorze.',
+  'Ej. Baño a la recogida': 'Np. Kąpiel przy odbiorze',
+  'Añadir servicio puntual': 'Dodaj usługę jednorazową',
+  'Pluses por día': 'Dopłaty dzienne',
+  'Se suman cada día de la estancia, por ejemplo si no traen su pienso o el perro es agresivo. Elige si se cobran por día o por día y perro. Los de carácter y medicación se marcan solos según la ficha del perro, y el cliente puede quitarlos.': 'Doliczane za każdy dzień pobytu, na przykład gdy klient nie przyniesie karmy albo pies jest agresywny. Wybierz, czy są naliczane za dzień, czy za dzień i psa. Dopłaty za charakter i leki zaznaczają się same na podstawie profilu psa, a klient może je usunąć.',
+  'Añadir rápido:': 'Szybkie dodawanie:',
+  'Precio por día (€)': 'Cena za dzień (€)',
+  'Añadir otro plus por día': 'Dodaj kolejną dopłatę dzienną',
+  'Sin pienso propio': 'Bez własnej karmy',
+  'Alimentación de nevera': 'Karma z lodówki',
+  'Perro agresivo o reactivo': 'Pies agresywny lub reaktywny',
+  'Perro con mucho miedo': 'Bardzo lękliwy pies',
+  'Administración de medicación': 'Podawanie leków',
+  'Servicios y pluses:': 'Usługi i dopłaty:',
+  'días': 'dni',
 };
 
 export default comercio;

@@ -14,6 +14,8 @@ const ETIQUETAS: ReadonlyArray<readonly [string, string, ((v: unknown) => string
   ['direccionRecogida', 'Dirección de recogida'],
   ['distanciaKm', 'Distancia', (v) => `${v} km`],
   ['franja', 'Franja', (v) => ({ manana: 'Mañana', tarde: 'Tarde', noche: 'Noche' } as Record<string, string>)[String(v)] ?? String(v)],
+  // El desglose con los pluses diarios (× días) manda sobre la lista de nombres: misma etiqueta.
+  ['extrasResumen', 'Extras'],
   ['extras', 'Extras', (v) => (Array.isArray(v) ? v.map(nombreDeExtra).filter(Boolean).join(', ') : String(v))],
   ['observaciones', 'Observaciones'],
 ];

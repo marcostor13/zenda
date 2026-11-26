@@ -186,6 +186,27 @@ describe('ComercioReservasComponent', () => {
       expect(component.ajusteAbiertoId()).toBeNull();
     });
 
+    it('debería multiplicar por los días de la estancia un suplemento por día', async () => {
+      comercioApi.solicitarAjuste.mockReturnValue(of(reservaConfirmada));
+      const estancia = {
+        ...reservaConfirmada, fechaInicio: '2026-11-27T13:00:00Z', fechaFin: '2026-11-29T10:00:00Z',
+      } as MiReserva;
+      component.reservas.set([estancia]);
+      component.suplementosCatalogo.set([
+        { _id: 'sup3', concepto: 'Perro agresivo', monto: 5, unidad: 'por_dia', activo: true } as never,
+      ]);
+      component.toggleAjuste(estancia._id);
+      component.toggleSuplemento('sup3');
+
+      expect(component.totalSuplementoSeleccionado()).toBe(10);
+      await component.enviarAjuste(estancia);
+
+      expect(comercioApi.solicitarAjuste).toHaveBeenCalledWith(estancia._id, {
+        suplementos: [{ concepto: 'Perro agresivo (2 días)', monto: 10 }],
+        evidenciaUrl: undefined,
+      });
+    });
+
     it('debería avisar si el ajuste no se puede enviar', async () => {
       comercioApi.solicitarAjuste.mockReturnValue(throwError(() => new Error('500')));
       component.toggleSuplemento('sup1');

@@ -4,7 +4,8 @@ import { Model } from 'mongoose';
 import {
   ID_UNIDAD_GUARDERIA, ModalidadAlojamiento, VerticalKey, admitePerfilSocial, cabeEnTamano, claveDiaEnZona,
   etiquetaTamanoPerro, guarderiaAbreElDia, motivoGuarderiaNoReservable, ofreceGuarderia,
-  ofreceResidencia, precioGuarderia, totalServiciosAdicionales,
+  lineasServicioAdicional, ofreceResidencia, precioGuarderia, resumenLineasServicioAdicional,
+  totalServiciosAdicionales,
 } from 'shared';
 import {
   AvailabilityStrategy,
@@ -161,7 +162,10 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
       // y la salida con el horario de la residencia.
       metadata: {
         noches, perros, extras, validarHorarioEstancia: true,
-        detalleReserva: { modalidad: ModalidadAlojamiento.RESIDENCIA },
+        detalleReserva: {
+          modalidad: ModalidadAlojamiento.RESIDENCIA,
+          ...this.resumenExtras(alojamiento, params, { dias: noches, perros }),
+        },
       },
     };
   }
@@ -228,6 +232,7 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
           tramoGuarderia: solicitud.tramo,
           ...(solicitud.tramo === 'horas' ? { horasGuarderia: Number(extra['horasGuarderia']) || 1 } : {}),
           ...(solicitud.horaEntrada ? { horaEntrada: solicitud.horaEntrada } : {}),
+          ...this.resumenExtras(alojamiento, params, { dias: 1, perros }),
         },
       },
     };
@@ -283,6 +288,22 @@ export class AlojamientoAvailabilityStrategy implements AvailabilityStrategy, Ca
     const seleccionados = params.parametrosExtra?.['extras'];
     if (!Array.isArray(seleccionados) || seleccionados.length === 0) return 0;
     return totalServiciosAdicionales(alojamiento.serviciosAdicionales ?? [], seleccionados.map(String), estancia);
+  }
+
+  /**
+   * Desglose legible de los extras («Sin pienso propio: 3,00 € × 2 = 6,00 €»)
+   * que queda en la reserva: el cliente y el comercio ven después qué se cobró
+   * por día y qué una sola vez.
+   */
+  private resumenExtras(
+    alojamiento: Alojamiento,
+    params: AvailabilityQuery,
+    estancia: { dias: number; perros: number },
+  ): { extrasResumen?: string } {
+    const seleccionados = params.parametrosExtra?.['extras'];
+    if (!Array.isArray(seleccionados) || seleccionados.length === 0) return {};
+    const lineas = lineasServicioAdicional(alojamiento.serviciosAdicionales ?? [], seleccionados.map(String), estancia);
+    return lineas.length > 0 ? { extrasResumen: resumenLineasServicioAdicional(lineas) } : {};
   }
 
   /** Usa el espacio elegido por el cliente (`espacioId`); si no se indica, el primero con cupo. */
