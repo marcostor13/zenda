@@ -415,6 +415,30 @@ const publico: Diccionario = {
   'Perfiles que no admite este centro:': 'Profils non acceptés par ce centre :',
   'Sin valoraciones': 'Aucun avis',
   '{n} reseñas verificadas': '{n} avis vérifiés',
+
+  // Vídeos del centro de ayuda
+  'Vídeos de ayuda': 'Vidéos d\'aide',
+  'Aprende en un minuto': 'Apprenez en une minute',
+  'Cerrar vídeo': 'Fermer la vidéo',
+  'Conoce cada servicio': 'Découvrez chaque service',
+  'Ver vídeo': 'Voir la vidéo',
+  'Registrarte en Doogking': 'S\'inscrire sur Doogking',
+  'Crear la ficha de tu mascota': 'Créer la fiche de votre animal',
+  'Buscar un servicio': 'Rechercher un service',
+  'Consultar y elegir un profesional': 'Comparer et choisir un professionnel',
+  'Hacer una reserva': 'Faire une réservation',
+  'Consultar el estado de una reserva': 'Suivre l\'état d\'une réservation',
+  'Registrar tu negocio': 'Inscrire votre entreprise',
+  'Completar la ficha de tu negocio': 'Compléter la fiche de votre entreprise',
+  'Publicar tu primer servicio': 'Publier votre premier service',
+  'Recibir y gestionar una reserva': 'Recevoir et gérer une réservation',
+  'Peluquería canina': 'Toilettage canin',
+  'Residencia y guardería': 'Pension et garderie',
+  'Adiestramiento canino': 'Éducation canine',
+  'Transporte de mascotas': 'Transport d\'animaux',
+  'Veterinaria': 'Vétérinaire',
+  'Hoteles pet-friendly': 'Hôtels pet-friendly',
+  'Seguros para mascotas': 'Assurance pour animaux',
 };
 
 export default publico;

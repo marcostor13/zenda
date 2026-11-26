@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { RsNavbarComponent } from '../../shared/components/navbar/rs-navbar.component';
 import { RsIconComponent } from '../../shared/components/icon/rs-icon.component';
@@ -6,6 +7,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { ReservasService, ReservaApi } from '../reservas/services/reservas.service';
 import { TraducirPipe } from '../../core/i18n/traducir.pipe';
 import { FechaPipe } from '../../shared/pipes/fecha.pipe';
+import { VIDEOS_AYUDA, VideoAyuda, urlPortada, urlVideo } from './ayuda-videos';
 
 interface Pregunta {
   readonly icon: string;
@@ -144,7 +146,7 @@ const APRENDIZAJE: readonly string[] = [
   selector: 'app-ayuda',
   standalone: true,
   imports: [
-    TraducirPipe, RouterLink, FechaPipe, RsNavbarComponent, RsIconComponent
+    TraducirPipe, RouterLink, FechaPipe, RsNavbarComponent, RsIconComponent, NgTemplateOutlet
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -197,6 +199,49 @@ const APRENDIZAJE: readonly string[] = [
           <rs-icon name="building" [size]="16" [stroke]="2"></rs-icon> {{ 'Tengo un negocio' | t }}
         </button>
       </div>
+
+      <section class="ay-videos" [attr.aria-label]="'Vídeos de ayuda' | t">
+        <h2 class="ay-videos__titulo">
+          <rs-icon name="video" [size]="18" [stroke]="2"></rs-icon> {{ 'Aprende en un minuto' | t }}
+        </h2>
+        @if (videoActivo(); as v) {
+          <div class="ay-reproductor" #reproductor>
+            <video class="ay-reproductor__video" [src]="urlVideo(v)" [poster]="urlPortada(v)"
+                   controls autoplay playsinline preload="metadata"></video>
+            <div class="ay-reproductor__pie">
+              <strong>{{ v.titulo | t }}</strong>
+              <button type="button" class="rs-btn rs-btn--ghost rs-btn--sm" (click)="cerrarVideo()">
+                <rs-icon name="x" [size]="14" [stroke]="2.5"></rs-icon> {{ 'Cerrar vídeo' | t }}
+              </button>
+            </div>
+          </div>
+        }
+        <div class="ay-videos__lista">
+          @for (v of videosGuia(); track v.slug) {
+            <ng-container *ngTemplateOutlet="tarjetaVideo; context: { $implicit: v }"></ng-container>
+          }
+        </div>
+        @if (publico() === 'cliente') {
+          <h3 class="ay-videos__subtitulo">{{ 'Conoce cada servicio' | t }}</h3>
+          <div class="ay-videos__lista ay-videos__lista--cortos">
+            @for (v of videosCategoria; track v.slug) {
+              <ng-container *ngTemplateOutlet="tarjetaVideo; context: { $implicit: v }"></ng-container>
+            }
+          </div>
+        }
+      </section>
+
+      <ng-template #tarjetaVideo let-v>
+        <button type="button" class="ay-video" [class.is-on]="videoActivo()?.slug === v.slug"
+                (click)="verVideo(v)" [attr.aria-label]="('Ver vídeo' | t) + ': ' + v.titulo">
+          <span class="ay-video__portada">
+            <img [src]="urlPortada(v)" alt="" loading="lazy" width="320" height="180" />
+            <span class="ay-video__play"><rs-icon name="play" [size]="18" [stroke]="2.5"></rs-icon></span>
+            <span class="ay-video__duracion">{{ v.duracion }}</span>
+          </span>
+          <span class="ay-video__titulo">{{ v.titulo | t }}</span>
+        </button>
+      </ng-template>
 
       <div class="ay-categorias">
         <button type="button" class="ay-categoria" [class.is-on]="categoria() === null" (click)="categoria.set(null)">
@@ -342,6 +387,62 @@ const APRENDIZAJE: readonly string[] = [
       &.is-on { background: var(--dk-blue); border-color: var(--dk-blue); color: #fff; }
     }
 
+    .ay-videos { margin-bottom: var(--sp-8); }
+    .ay-videos__titulo {
+      display: flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--f-lg); color: var(--dk-blue); margin-bottom: var(--sp-4);
+      rs-icon { color: var(--dk-gold); }
+    }
+    .ay-videos__subtitulo { font-size: var(--f-md); color: var(--t-100); margin: var(--sp-6) 0 var(--sp-3); }
+    .ay-videos__lista {
+      display: grid; gap: var(--sp-4);
+      grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+      @media (max-width: 640px) { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+    }
+    .ay-videos__lista--cortos {
+      grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
+      @media (max-width: 640px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    .ay-video {
+      display: flex; flex-direction: column; gap: var(--sp-2);
+      padding: 0; border: none; background: none; cursor: pointer; text-align: left;
+      &:hover .ay-video__portada, &.is-on .ay-video__portada { box-shadow: 0 0 0 3px var(--dk-gold); }
+      &:hover .ay-video__play { transform: translate(-50%, -50%) scale(1.08); }
+      &:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 4px; border-radius: var(--r-lg); }
+    }
+    .ay-video__portada {
+      position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden;
+      border-radius: var(--r-lg); background: var(--dk-blue-deep);
+      transition: box-shadow var(--d-2);
+      img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    }
+    .ay-video__play {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--r-full);
+      background: var(--dk-gold); color: var(--dk-blue-deep);
+      box-shadow: var(--shadow-md); transition: transform var(--d-2);
+    }
+    .ay-video__duracion {
+      position: absolute; right: var(--sp-2); bottom: var(--sp-2);
+      padding: 2px var(--sp-2); border-radius: var(--r-full);
+      background: color-mix(in srgb, var(--dk-blue-deep) 82%, transparent);
+      color: var(--c-card); font-size: var(--f-xs); font-weight: var(--w-6);
+    }
+    .ay-video__titulo { font-size: var(--f-sm); font-weight: var(--w-6); color: var(--t-100); line-height: 1.35; }
+
+    .ay-reproductor {
+      margin-bottom: var(--sp-5); overflow: hidden;
+      background: var(--c-card); border: 1px solid var(--b-1); border-radius: var(--r-xl);
+      scroll-margin-top: var(--sp-20);
+    }
+    .ay-reproductor__video { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--dk-blue-deep); }
+    .ay-reproductor__pie {
+      display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap;
+      padding: var(--sp-3) var(--sp-5);
+      strong { color: var(--t-100); font-size: var(--f-md); }
+    }
+
     .ay-categorias { display: flex; gap: var(--sp-2); margin-bottom: var(--sp-6); flex-wrap: wrap; }
     .ay-categoria {
       display: inline-flex; align-items: center; gap: var(--sp-1);
@@ -422,6 +523,13 @@ export class AyudaComponent implements OnInit {
   readonly busqueda = signal('');
   readonly misReservas = signal<ReservaApi[]>([]);
 
+  readonly urlVideo = urlVideo;
+  readonly urlPortada = urlPortada;
+  readonly videoActivo = signal<VideoAyuda | null>(null);
+  readonly videosCategoria = VIDEOS_AYUDA.filter((v) => v.grupo === 'categoria');
+  readonly videosGuia = computed(() => VIDEOS_AYUDA.filter((v) => v.grupo === this.publico()));
+  private readonly reproductor = viewChild<ElementRef<HTMLElement>>('reproductor');
+
   readonly categorias = computed(() => CATEGORIAS[this.publico()]);
 
   readonly preguntas = computed(() => FAQ[this.publico()]);
@@ -459,6 +567,18 @@ export class AyudaComponent implements OnInit {
   cambiarPublico(p: Publico): void {
     this.publico.set(p);
     this.categoria.set(null);
+    this.videoActivo.set(null);
+  }
+
+  verVideo(video: VideoAyuda): void {
+    this.videoActivo.set(video);
+    // El reproductor se pinta encima de las tarjetas: al elegir uno de la fila
+    // de categorías quedaría fuera de la vista sin este desplazamiento.
+    setTimeout(() => this.reproductor()?.nativeElement.scrollIntoView?.({ behavior: 'smooth', block: 'start' }));
+  }
+
+  cerrarVideo(): void {
+    this.videoActivo.set(null);
   }
 
   asuntoReserva(r: ReservaApi): string {

@@ -415,6 +415,30 @@ const publico: Diccionario = {
   'Perfiles que no admite este centro:': 'Profielen die dit centrum niet toelaat:',
   'Sin valoraciones': 'Nog geen beoordelingen',
   '{n} reseñas verificadas': '{n} geverifieerde beoordelingen',
+
+  // Vídeos del centro de ayuda
+  'Vídeos de ayuda': 'Hulpvideo\'s',
+  'Aprende en un minuto': 'Leer het in een minuut',
+  'Cerrar vídeo': 'Video sluiten',
+  'Conoce cada servicio': 'Ontdek elke dienst',
+  'Ver vídeo': 'Video bekijken',
+  'Registrarte en Doogking': 'Registreren bij Doogking',
+  'Crear la ficha de tu mascota': 'Het profiel van je huisdier aanmaken',
+  'Buscar un servicio': 'Een dienst zoeken',
+  'Consultar y elegir un profesional': 'Professionals vergelijken en kiezen',
+  'Hacer una reserva': 'Een boeking maken',
+  'Consultar el estado de una reserva': 'De status van een boeking bekijken',
+  'Registrar tu negocio': 'Je bedrijf registreren',
+  'Completar la ficha de tu negocio': 'Het bedrijfsprofiel aanvullen',
+  'Publicar tu primer servicio': 'Je eerste dienst publiceren',
+  'Recibir y gestionar una reserva': 'Een boeking ontvangen en beheren',
+  'Peluquería canina': 'Hondentrimsalon',
+  'Residencia y guardería': 'Hondenpension en opvang',
+  'Adiestramiento canino': 'Hondentraining',
+  'Transporte de mascotas': 'Dierenvervoer',
+  'Veterinaria': 'Dierenarts',
+  'Hoteles pet-friendly': 'Huisdiervriendelijke hotels',
+  'Seguros para mascotas': 'Huisdierenverzekering',
 };
 
 export default publico;

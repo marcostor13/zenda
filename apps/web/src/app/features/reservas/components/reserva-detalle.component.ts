@@ -9,6 +9,7 @@ import { ReservasService, ReservaApi } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
 import { PagoEnCursoService } from '../services/pago-en-curso.service';
 import { AuthService } from '../../../core/auth/auth.service';
+import { AlojamientoService } from '../../alojamiento/services/alojamiento.service';
 
 import { EurosPipe } from '../../../shared/pipes/euros.pipe';
 import { TraducirPipe } from '../../../core/i18n/traducir.pipe';
@@ -636,6 +637,9 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
   private readonly viajeApi = inject(TransporteViajeApi);
   private readonly pagoEnCurso = inject(PagoEnCursoService);
   private readonly auth = inject(AuthService);
+  private readonly catalogo = inject(AlojamientoService);
+  /** Nombre del servicio reservado: la reserva sólo guarda su id. */
+  private readonly nombreServicio = signal<string | null>(null);
 
   /** Reserva hecha sin cuenta: se le ofrece crearla para poder gestionarla. */
   readonly esInvitado = computed(() => !this.auth.estaAutenticado());
@@ -672,7 +676,8 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
     if (!r) return '';
     return (r.detalle?.['titulo'] as string)
       ?? (r.detalle?.['nombre'] as string)
-      ?? `${this.verticalMeta().label} · ${r.servicioId.slice(-6)}`;
+      ?? this.nombreServicio()
+      ?? this.verticalMeta().label;
   });
 
   /**
@@ -734,9 +739,11 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
       espacioId: 'Espacio', tamanoPerro: 'Tamaño del perro', perros: 'Perros',
       origen: 'Origen', destino: 'Destino', distanciaKm: 'Distancia (km)',
       tipoVehiculo: 'Tipo de vehículo', hora: 'Hora', servicio: 'Servicio',
+      duracionMin: 'Duración (min)', noches: 'Noches', espacio: 'Espacio',
       modalidad: 'Modalidad', edadMeses: 'Edad (meses)',
       tipoTrayecto: 'Tipo de trayecto', esperaMinutos: 'Espera (minutos)',
       historialPrevio: 'Historial previo', vinculoPropietario: 'Vínculo con el propietario',
+      extrasResumen: 'Servicios y pluses',
     };
     return Object.entries(detalle)
       // Un objeto (la solicitud, los datos de entrega…) no se puede pintar como texto.
@@ -769,10 +776,21 @@ export class ReservaDetalleComponent implements OnInit, OnDestroy {
       const data = await this.reservasService.obtenerPorCodigo(codigo);
       this.reserva.set(data);
       this.iniciarPolling(codigo);
+      void this.cargarNombreServicio(data.servicioId);
     } catch {
       this.error.set('No se encontró la reserva o no tienes permiso para verla.');
     } finally {
       this.cargando.set(false);
+    }
+  }
+
+  /** Igual que «Mis reservas»: si el servicio no se puede leer, queda la categoría. */
+  private async cargarNombreServicio(servicioId: string): Promise<void> {
+    try {
+      const servicio = await this.catalogo.obtener(servicioId);
+      this.nombreServicio.set(servicio.nombre || null);
+    } catch {
+      this.nombreServicio.set(null);
     }
   }
 

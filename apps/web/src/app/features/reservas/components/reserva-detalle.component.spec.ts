@@ -8,6 +8,7 @@ import { ReservaDetalleComponent } from './reserva-detalle.component';
 import { ReservaApi, ReservasService } from '../services/reservas.service';
 import { PaymentsService } from '../services/payments.service';
 import { TransporteViajeApi } from '../../transporte/viaje/transporte-viaje.api';
+import { AlojamientoService } from '../../alojamiento/services/alojamiento.service';
 
 const reserva = (extra: Partial<ReservaApi> = {}): ReservaApi => ({
   _id: 'r1', codigo: 'RES-AAAA1111', vertical: VerticalKey.ALOJAMIENTO,
@@ -24,10 +25,16 @@ describe('ReservaDetalleComponent', () => {
   let componente: ReservaDetalleComponent;
   let reservasService: Record<string, jest.Mock>;
   let paymentsService: Record<string, jest.Mock>;
+  let catalogo: { obtener: jest.Mock };
   let viajeApi: jest.Mocked<Pick<TransporteViajeApi, 'vistaPreviaCancelacion' | 'cancelar' | 'contacto' | 'ubicacion'>>;
   let router: Router;
 
-  const crear = async (datos: ReservaApi | Error = reserva()): Promise<void> => {
+  const crear = async (datos: ReservaApi | Error = reserva(), nombreServicio: string | Error = 'Peluquería Guau'): Promise<void> => {
+    catalogo = {
+      obtener: nombreServicio instanceof Error
+        ? jest.fn().mockRejectedValue(nombreServicio)
+        : jest.fn().mockResolvedValue({ nombre: nombreServicio }),
+    };
     reservasService = {
       obtenerPorCodigo: datos instanceof Error
         ? jest.fn().mockRejectedValue(datos)
@@ -54,6 +61,7 @@ describe('ReservaDetalleComponent', () => {
         { provide: ReservasService, useValue: reservasService },
         { provide: PaymentsService, useValue: paymentsService },
         { provide: TransporteViajeApi, useValue: viajeApi },
+        { provide: AlojamientoService, useValue: catalogo },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { paramMap: convertToParamMap({ codigo: 'RES-AAAA1111' }) } },
@@ -117,10 +125,18 @@ describe('ReservaDetalleComponent', () => {
       expect(componente.servicioTitulo()).toBe('Residencia Royal');
     });
 
-    it('debería construir un nombre reconocible si no hay título', async () => {
+    it('debería mostrar el nombre del servicio del catálogo si la reserva no trae título', async () => {
       await crear(reserva({ servicioId: 'abcdef123456' }));
+      await catalogo.obtener.mock.results[0].value;
 
-      expect(componente.servicioTitulo()).toContain('123456');
+      expect(catalogo.obtener).toHaveBeenCalledWith('abcdef123456');
+      expect(componente.servicioTitulo()).toBe('Peluquería Guau');
+    });
+
+    it('debería quedarse con la categoría si el servicio no se puede leer', async () => {
+      await crear(reserva({ servicioId: 'abcdef123456' }), new Error('404'));
+
+      expect(componente.servicioTitulo()).toBe(componente.verticalMeta().label);
     });
 
     it('debería etiquetar los verticales conocidos y tolerar los que no', async () => {

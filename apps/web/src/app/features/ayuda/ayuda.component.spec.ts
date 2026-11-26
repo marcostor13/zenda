@@ -199,4 +199,51 @@ describe('AyudaComponent', () => {
       expect(componente.busqueda()).toBe(pregunta);
     });
   });
+
+  describe('vídeos de ayuda', () => {
+    const tarjetas = (): HTMLButtonElement[] =>
+      Array.from(fixture.nativeElement.querySelectorAll('button.ay-video'));
+
+    it('debería mostrar al dueño sus guías y los vídeos de cada servicio', async () => {
+      await crear();
+
+      expect(componente.videosGuia().every((v) => v.grupo === 'cliente')).toBe(true);
+      expect(tarjetas().length).toBe(componente.videosGuia().length + componente.videosCategoria.length);
+    });
+
+    it('debería mostrar al negocio sólo sus guías', async () => {
+      await crear();
+
+      componente.cambiarPublico('comercio');
+      fixture.detectChanges();
+
+      expect(componente.videosGuia().every((v) => v.grupo === 'comercio')).toBe(true);
+      expect(tarjetas().length).toBe(componente.videosGuia().length);
+    });
+
+    it('debería abrir el reproductor con el vídeo pulsado', async () => {
+      await crear();
+      const video = componente.videosGuia()[1];
+
+      tarjetas()[1].click();
+      fixture.detectChanges();
+
+      const reproductor: HTMLVideoElement = fixture.nativeElement.querySelector('video.ay-reproductor__video');
+      expect(componente.videoActivo()).toBe(video);
+      expect(reproductor.getAttribute('src')).toBe(componente.urlVideo(video));
+      expect(reproductor.getAttribute('poster')).toBe(componente.urlPortada(video));
+    });
+
+    it('debería cerrar el vídeo al cerrarlo o al cambiar de público', async () => {
+      await crear();
+      componente.verVideo(componente.videosGuia()[0]);
+
+      componente.cerrarVideo();
+      expect(componente.videoActivo()).toBeNull();
+
+      componente.verVideo(componente.videosGuia()[0]);
+      componente.cambiarPublico('comercio');
+      expect(componente.videoActivo()).toBeNull();
+    });
+  });
 });
